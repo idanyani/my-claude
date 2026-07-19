@@ -1,30 +1,42 @@
-# claude-skills
+# my-claude
 
-Personal [Claude Code skills](https://docs.claude.com/en/docs/claude-code/skills) shared
-across repos. Each skill under `skills/` is generic -- zero repo-specific content; the
-consuming repo's `CLAUDE.md` and docs supply the specifics.
+Personal global [Claude Code](https://docs.claude.com/en/docs/claude-code) configuration --
+settings and [skills](https://docs.claude.com/en/docs/claude-code/skills) -- with one
+organizing principle: **`dot-claude/` is an exact image of `~/.claude`**. Whatever should
+exist under `~/.claude` lives at the same relative path under `dot-claude/`, and
+`install.sh` mirrors the tree generically, so adding a new file or directory (`agents/`,
+`commands/`, ...) never requires touching the script.
+
+```
+dot-claude/
+  CLAUDE.md            symlinked into ~/.claude (edits flow straight back to the repo)
+  settings.json        copied (Claude Code rewrites it at runtime, which would sever a link)
+  skills/
+    resolve-issue/     symlinked; one `git pull` here updates every machine's live skill
+```
 
 ## Skills
 
-- **[resolve-issue](skills/resolve-issue/SKILL.md)** -- implement a GitHub issue end-to-end:
-  ground in the repo, read the issue, branch, TDD, verify, PR with Copilot review, auto-merge,
-  clean up. Ships stdlib-only helper scripts (`python3`, `git`, `gh` are the only runtime
-  requirements) and the canonical
-  [git-workflow doc](skills/resolve-issue/references/git-workflow.md).
+- **[resolve-issue](dot-claude/skills/resolve-issue/SKILL.md)** -- implement a GitHub issue
+  end-to-end: ground in the repo, read the issue, branch, TDD, verify, PR with Copilot
+  review, auto-merge, clean up. Ships stdlib-only helper scripts (`python3`, `git`, `gh` are
+  the only runtime requirements) and the canonical
+  [git-workflow doc](dot-claude/skills/resolve-issue/references/git-workflow.md).
 
 ## Install
 
-Clone, then symlink the skills you want into a repo's `.claude/skills/` (or your user-level
-`~/.claude/skills/`):
+Normally driven by [my-config](https://github.com/idanyani/my-config)'s `copyConfig.sh`,
+which clones this repo if missing and runs `install.sh`. Directly:
 
 ```sh
-git clone git@github.com:idanyani/claude-skills.git ~/repos/claude-skills
-mkdir -p ~/.claude/skills
-ln -s ~/repos/claude-skills/skills/resolve-issue ~/.claude/skills/resolve-issue
+git clone git@github.com:idanyani/my-claude.git   # any location works
+cd my-claude && ./install.sh                      # idempotent; re-running heals moved links
 ```
 
-A `git pull` in the clone updates every symlinked copy at once -- that is the point: one
-canonical source instead of divergence-by-duplication.
+Skills and `CLAUDE.md` are symlinked, so a `git pull` in the clone updates every machine's
+live config at once -- one canonical source instead of divergence-by-duplication.
+`settings.json` is the deliberate exception: it is copied as a snapshot, and re-running
+`install.sh` overwrites local drift.
 
 ## Development
 
@@ -36,5 +48,5 @@ uv sync
 uv run ruff check . && uv run ruff format --check . && uv run mypy . && uv run pytest
 ```
 
-Tests live in `tests/` at the repo root -- outside the symlinked skill directories, so
-consuming repos never see them.
+Tests live in `tests/` at the repo root -- outside the mirrored `dot-claude/` tree, so they
+are never installed into `~/.claude`.
