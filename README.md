@@ -15,6 +15,18 @@ dot-claude/
     resolve-issue/     symlinked; one `git pull` here updates every machine's live skill
 ```
 
+## Shared conventions
+
+[`dot-claude/CLAUDE.md`](dot-claude/CLAUDE.md) is the canonical core of working
+conventions shared across the maintained repos; each repo's own `CLAUDE.md` keeps only its
+genuinely unique rules. The core reaches every consumer through three layers:
+
+1. **Claude Code on the maintainer's machines** -- `install.sh` symlinks the file to
+   `~/.claude/CLAUDE.md`, so it loads into every session.
+2. **Tiki's bot container** -- the image bakes my-claude in.
+3. **GitHub Copilot code review** -- the gefen-chat org's custom instructions mirror this
+   file.
+
 ## Skills
 
 - **[resolve-issue](dot-claude/skills/resolve-issue/SKILL.md)** -- implement a GitHub issue
