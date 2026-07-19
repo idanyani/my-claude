@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from view_issue import ISSUE_FIELDS
 
-SCRIPTS_DIR = Path(__file__).parent.parent / "skills" / "resolve-issue" / "scripts"
+SCRIPTS_DIR = Path(__file__).parent.parent / "dot-claude" / "skills" / "resolve-issue" / "scripts"
 
 EXECUTABLES = [
     "view_issue",

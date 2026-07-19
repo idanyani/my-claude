@@ -1,7 +1,7 @@
 [project]
-name = "claude-skills"
+name = "my-claude"
 version = "0.0.0"
-description = "Personal Claude Code skills shared across repos."
+description = "Personal global Claude Code configuration: settings and skills, mirrored from ~/.claude."
 requires-python = ">=3.12"
 # The skill scripts themselves are stdlib-only so consuming repos need no install; this project
 # exists to test and lint them.
@@ -13,7 +13,7 @@ dev = ["pytest>=8", "ruff>=0.10", "mypy>=1.14"]
 [tool.pytest.ini_options]
 # The skill scripts run as plain files (their own directory lands on sys.path), so tests import
 # them the same way: top-level modules plus the `lib` package.
-pythonpath = ["skills/resolve-issue/scripts"]
+pythonpath = ["dot-claude/skills/resolve-issue/scripts"]
 testpaths = ["tests"]
 
 [tool.ruff]
@@ -24,5 +24,5 @@ target-version = "py312"
 extend-select = ["I"]
 
 [tool.mypy]
-files = ["skills", "tests"]
-mypy_path = "skills/resolve-issue/scripts"
+files = ["dot-claude/skills", "tests"]
+mypy_path = "dot-claude/skills/resolve-issue/scripts"
