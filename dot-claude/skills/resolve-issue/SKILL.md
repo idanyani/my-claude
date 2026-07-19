@@ -58,10 +58,12 @@ real output.
 
 ## Phase 7 -- Commit and open an auto-merging PR
 
-One commit, message in the repo's commit style, ending with `Resolves #<number>`. Then:
-`git push -u origin <branch>`, `gh pr create --fill`, and wait on Copilot's advisory review with
-`python3 <skill-dir>/scripts/wait_for_copilot_review.py <pr>`. On exit 0, apply the comments
-worth applying and push fixes; dismiss the rest with a one-line reason. If you pushed substantive
+One commit for the implementation, message in the repo's commit style, ending with
+`Resolves #<number>`. Then: `git push -u origin <branch>`, `gh pr create --fill`, and wait on
+Copilot's advisory review with `python3 <skill-dir>/scripts/wait_for_copilot_review.py <pr>`. On
+exit 0, apply the comments worth applying and push fixes **as additional commits -- never amend
+or force-push the pushed branch; the squash-merge collapses them into one commit on `main`**;
+dismiss the rest with a one-line reason. If you pushed substantive
 changes, request one more review with
 `python3 <skill-dir>/scripts/request_copilot_review.py <pr>`; address the review once -- do not
 loop on further advisory comments. If the wait helper exits 3 (Copilot could not review) or 2
