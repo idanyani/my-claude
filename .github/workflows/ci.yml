@@ -1,5 +1,5 @@
 # Verification gate for every PR. Branch protection makes the `verify` job below a required check,
-# so nothing reaches `main` without it. See skills/resolve-issue/references/git-workflow.md.
+# so nothing reaches `main` without it. See dot-claude/skills/resolve-issue/references/git-workflow.md.
 name: CI
 
 on:
