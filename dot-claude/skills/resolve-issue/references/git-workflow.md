@@ -43,15 +43,20 @@ and `gh` on PATH; they run against the current working directory's repo.
    **2** when the wait expires with no review, and **3** when Copilot posts an "unable to
    review" notice (e.g. over quota). On **2 or 3**, no Copilot review exists to address: run
    an in-session `/review <pr>` and address its findings before arming auto-merge in step 4,
-   so the PR never merges unreviewed. On **0**, apply the comments worth applying and push
-   any fixes; dismiss the rest with a one-line reason. Copilot does not re-review later
+   so the PR never merges unreviewed. On **0**, apply the comments worth applying and push any
+   fixes **as new commits -- the branch is already pushed and under review, so never amend,
+   rebase, or force-push it; the squash-merge in step 4 collapses every commit into one on
+   `main`, so branch commit count does not matter.** Dismiss the rest with a one-line reason.
+   Copilot does not re-review later
    pushes on its own, so if you pushed substantive changes, request one more on your final
    commit with `python3 <skill-dir>/scripts/request_copilot_review.py <pr>` (it wraps the
    REST endpoint to sidestep the `projectCards` GraphQL deprecation noted below). Address
    the review once -- do not loop on further advisory comments; record any leftover
    suggestion as a follow-up issue.
 4. **Merge.** Once the commit is final, `gh pr merge --auto --squash --delete-branch`.
-   Squash keeps `main` at one commit per change. Arming auto-merge is what authorizes the
+   Squash is what collapses the branch's commits into a single commit on `main` -- that is the
+   guarantee, so the branch itself may carry several commits (initial work plus review fixes).
+   Arming auto-merge is what authorizes the
    merge, so do it only after addressing the review -- never before. GitHub then merges the
    moment `verify` is green (immediately, if it already is) and notifies you; you do not
    watch the run yourself.
