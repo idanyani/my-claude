@@ -27,5 +27,29 @@
   },
   "theme": "dark-daltonized",
   "voiceEnabled": true,
-  "tui": "fullscreen"
+  "tui": "fullscreen",
+  "permissions": {
+    "allow": [
+      "Bash(uv run pytest)",
+      "Bash(uv run pytest *)",
+      "Bash(uv run ruff *)",
+      "Bash(uv run mypy *)",
+      "Bash(uv sync)",
+      "Bash(uv sync *)",
+      "Bash(python3 /home/idanyani/.claude/skills/resolve-issue/scripts/view_issue.py *)",
+      "Bash(python3 /home/idanyani/.claude/skills/resolve-issue/scripts/start_branch.py *)",
+      "Bash(python3 /home/idanyani/.claude/skills/resolve-issue/scripts/wait_for_copilot_review.py *)",
+      "Bash(python3 /home/idanyani/.claude/skills/resolve-issue/scripts/request_copilot_review.py *)",
+      "Bash(python3 /home/idanyani/.claude/skills/resolve-issue/scripts/finish_branch.py *)",
+      "Bash(aws logs describe-log-streams *)",
+      "Bash(aws logs get-query-results *)",
+      "Bash(aws logs get-log-events *)",
+      "Bash(aws logs filter-log-events *)",
+      "Bash(aws ssm get-command-invocation *)",
+      "Bash(aws sts get-caller-identity)",
+      "Bash(aws sts get-caller-identity *)",
+      "Bash(aws ec2 describe-instances *)",
+      "Bash(export AWS_PROFILE=memotrix)"
+    ]
+  }
 }
