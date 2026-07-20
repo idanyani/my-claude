@@ -34,6 +34,11 @@ genuinely unique rules. The core reaches every consumer through three layers:
   review, auto-merge, clean up. Ships stdlib-only helper scripts (`python3`, `git`, `gh` are
   the only runtime requirements) and the canonical
   [git-workflow doc](dot-claude/skills/resolve-issue/references/git-workflow.md).
+- **[maintain](dot-claude/skills/maintain/SKILL.md)** -- sweep recent work for the debris fast
+  cycles leave behind (stale docs, duplication and reinvention, weak tests, dead code,
+  convention drift) and report ranked findings for triage, making no edits. Pairs with the
+  `check_prose` PostToolUse hook, which deterministically flags the mechanical prose-convention
+  violations (non-ASCII typography, emojis in code) that linters miss.
 
 ## Install
 
