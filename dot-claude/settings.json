@@ -41,6 +41,8 @@
       "Bash(python3 /home/idanyani/.claude/skills/resolve-issue/scripts/wait_for_copilot_review.py *)",
       "Bash(python3 /home/idanyani/.claude/skills/resolve-issue/scripts/request_copilot_review.py *)",
       "Bash(python3 /home/idanyani/.claude/skills/resolve-issue/scripts/finish_branch.py *)",
+      "Bash(python3 /home/idanyani/.claude/skills/maintain/scripts/changed_files.py *)",
+      "Bash(python3 /home/idanyani/.claude/skills/maintain/scripts/check_links.py *)",
       "Bash(aws logs describe-log-streams *)",
       "Bash(aws logs get-query-results *)",
       "Bash(aws logs get-log-events *)",
@@ -49,6 +51,19 @@
       "Bash(aws sts get-caller-identity)",
       "Bash(aws sts get-caller-identity *)",
       "Bash(aws ec2 describe-instances *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/check_prose.py\""
+          }
+        ]
+      }
     ]
   }
 }

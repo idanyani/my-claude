@@ -12,8 +12,14 @@ dev = ["pytest>=8", "ruff>=0.10", "mypy>=1.14"]
 
 [tool.pytest.ini_options]
 # The skill scripts run as plain files (their own directory lands on sys.path), so tests import
-# them the same way: top-level modules plus the `lib` package.
-pythonpath = ["dot-claude/skills/resolve-issue/scripts"]
+# them the same way: top-level modules plus the `lib` package. The hook runs the same way, from
+# its own directory. Each scripts dir uses distinct top-level module names so they can share
+# sys.path without collision.
+pythonpath = [
+    "dot-claude/skills/resolve-issue/scripts",
+    "dot-claude/skills/maintain/scripts",
+    "dot-claude/hooks",
+]
 testpaths = ["tests"]
 
 [tool.ruff]
@@ -24,5 +30,9 @@ target-version = "py312"
 extend-select = ["I"]
 
 [tool.mypy]
-files = ["dot-claude/skills", "tests"]
-mypy_path = "dot-claude/skills/resolve-issue/scripts"
+files = ["dot-claude/skills", "dot-claude/hooks", "tests"]
+mypy_path = [
+    "dot-claude/skills/resolve-issue/scripts",
+    "dot-claude/skills/maintain/scripts",
+    "dot-claude/hooks",
+]
