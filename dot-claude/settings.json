@@ -48,8 +48,7 @@
       "Bash(aws ssm get-command-invocation *)",
       "Bash(aws sts get-caller-identity)",
       "Bash(aws sts get-caller-identity *)",
-      "Bash(aws ec2 describe-instances *)",
-      "Bash(export AWS_PROFILE=memotrix)"
+      "Bash(aws ec2 describe-instances *)"
     ]
   }
 }
