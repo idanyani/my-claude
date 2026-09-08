@@ -18,6 +18,21 @@ class TestFindSelfMatches:
         assert match.pattern == "bin/pytest -q"
         assert match.suggestion == "[b]in/pytest -q"
 
+    def test_a_heredoc_body_is_data_not_command(self):
+        # Documenting the bug must not trip the check: text fed to a command on stdin is never
+        # executed. Caught when this hook blocked the pull request that introduces it.
+        command = (
+            "gh pr create --body-file - <<'BODYEOF'\n"
+            'until ! pgrep -f "bin/pytest -q"; do sleep 15; done\n'
+            "BODYEOF"
+        )
+        assert find_self_matches(command) == []
+
+    def test_a_real_invocation_after_a_heredoc_is_still_flagged(self):
+        command = "cat <<'EOF'\ndocs\nEOF\npgrep -f pytest"
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
     def test_a_redirection_target_is_not_mistaken_for_the_pattern(self):
         # `>/dev/null` tokenizes as an operator plus a word; neither is a pgrep operand.
         (match,) = find_self_matches(

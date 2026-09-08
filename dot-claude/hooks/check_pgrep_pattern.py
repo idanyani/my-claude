@@ -30,6 +30,11 @@ COMMAND_SEPARATORS = frozenset({"&&", "||", "|", ";", "&", "(", ")", "\n"})
 # Only bare operators match, so a quoted pattern containing `>` is still read as the pattern.
 REDIRECTION = re.compile(r"^\d*(?:>>?|<<?|[<>]&)-?$")
 
+# A heredoc body is data the command reads on stdin, never anything the shell runs -- writing
+# about this bug must not trip the check. Everything from the delimiter to its closing line is
+# dropped before the scan.
+HEREDOC_OPERATOR = "<<"
+
 # Short options that consume the following token, so its value is never mistaken for the pattern.
 SHORT_OPTIONS_WITH_VALUE = frozenset("dgGPstuUFj")
 LONG_OPTIONS_WITH_VALUE = frozenset(
@@ -80,6 +85,27 @@ def _tokenize(command: str) -> list[str]:
     return list(lexer)
 
 
+def _without_heredoc_bodies(tokens: list[str]) -> list[str]:
+    """`tokens` with every heredoc's delimiter and body removed, leaving only executed commands.
+
+    An unterminated or unrecognized delimiter drops the remainder: a missed real invocation is a
+    far cheaper mistake than denying a command that only quotes one.
+    """
+    kept = []
+    index = 0
+    while index < len(tokens):
+        if tokens[index] != HEREDOC_OPERATOR:
+            kept.append(tokens[index])
+            index += 1
+            continue
+        delimiter = tokens[index + 1] if index + 1 < len(tokens) else None
+        index += 2
+        while index < len(tokens) and tokens[index] != delimiter:
+            index += 1
+        index += 1
+    return kept
+
+
 def _pattern_of_invocation(tokens: list[str], start: int) -> tuple[str | None, int]:
     """The `-f` pattern of the pgrep/pkill invocation at `start`, and the index just past it.
 
@@ -124,6 +150,7 @@ def find_self_matches(command: str) -> list[SelfMatch]:
     except ValueError:
         # Unbalanced quoting: the shell will reject this before any pattern is matched.
         return []
+    tokens = _without_heredoc_bodies(tokens)
     matches = []
     index = 0
     while index < len(tokens):
