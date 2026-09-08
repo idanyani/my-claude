@@ -33,10 +33,10 @@ REDIRECTION = re.compile(r"^\d*(?:>>?|<<?|[<>]&)-?$")
 # A heredoc body is data the command reads on stdin, never anything the shell runs -- writing
 # about this bug must not trip the check. Everything from the delimiter to its closing line is
 # dropped before the scan.
-HEREDOC_OPERATOR = "<<"
+HEREDOC_START = re.compile(r"""<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1""")
 
 # Short options that consume the following token, so its value is never mistaken for the pattern.
-SHORT_OPTIONS_WITH_VALUE = frozenset("dgGPstuUFj")
+SHORT_OPTIONS_WITH_VALUE = frozenset("dgGPstuUFjrqMN")
 LONG_OPTIONS_WITH_VALUE = frozenset(
     {
         "--delimiter",
@@ -52,6 +52,11 @@ LONG_OPTIONS_WITH_VALUE = frozenset(
         "--signal",
         "--ns",
         "--nslist",
+        "--runstates",
+        "--queue",
+        "--cgroup",
+        "--core",
+        "--namespace",
     }
 )
 
@@ -85,25 +90,24 @@ def _tokenize(command: str) -> list[str]:
     return list(lexer)
 
 
-def _without_heredoc_bodies(tokens: list[str]) -> list[str]:
-    """`tokens` with every heredoc's delimiter and body removed, leaving only executed commands.
+def _without_heredocs(command: str) -> str:
+    """`command` with every heredoc body and its closing delimiter removed.
 
-    An unterminated or unrecognized delimiter drops the remainder: a missed real invocation is a
-    far cheaper mistake than denying a command that only quotes one.
+    Stripping the bodies as text rather than as tokens keeps their contents away from the
+    lexer entirely, so an apostrophe in prose cannot make the whole command unparsable.
     """
+    lines = command.split("\n")
     kept = []
     index = 0
-    while index < len(tokens):
-        if tokens[index] != HEREDOC_OPERATOR:
-            kept.append(tokens[index])
-            index += 1
-            continue
-        delimiter = tokens[index + 1] if index + 1 < len(tokens) else None
-        index += 2
-        while index < len(tokens) and tokens[index] != delimiter:
-            index += 1
+    while index < len(lines):
+        kept.append(lines[index])
+        delimiters = [delimiter for _, delimiter in HEREDOC_START.findall(lines[index])]
         index += 1
-    return kept
+        for delimiter in delimiters:
+            while index < len(lines) and lines[index].strip() != delimiter:
+                index += 1
+            index += 1
+    return "\n".join(kept)
 
 
 def _pattern_of_invocation(tokens: list[str], start: int) -> tuple[str | None, int]:
@@ -118,12 +122,16 @@ def _pattern_of_invocation(tokens: list[str], start: int) -> tuple[str | None, i
     while index < len(tokens) and tokens[index] not in COMMAND_SEPARATORS:
         token = tokens[index]
         following = tokens[index + 1] if index + 1 < len(tokens) else ""
-        if REDIRECTION.match(token) or (token.isdigit() and REDIRECTION.match(following)):
+        if REDIRECTION.match(token) or (
+            token.isdigit() and operands and REDIRECTION.match(following)
+        ):
             # A redirection, or the file descriptor introducing one.
             break
         if token == "--":
-            operands.extend(tokens[index + 1 :])
-            index = len(tokens)
+            index += 1
+            while index < len(tokens) and tokens[index] not in COMMAND_SEPARATORS:
+                operands.append(tokens[index])
+                index += 1
             break
         if token.startswith("--"):
             name = token.split("=", 1)[0]
@@ -143,14 +151,8 @@ def _pattern_of_invocation(tokens: list[str], start: int) -> tuple[str | None, i
     return operands[-1], index
 
 
-def find_self_matches(command: str) -> list[SelfMatch]:
-    """Every `pgrep -f`/`pkill -f` pattern in `command` that provably matches the caller itself."""
-    try:
-        tokens = _tokenize(command)
-    except ValueError:
-        # Unbalanced quoting: the shell will reject this before any pattern is matched.
-        return []
-    tokens = _without_heredoc_bodies(tokens)
+def _matches_in_line(tokens: list[str]) -> list[SelfMatch]:
+    """Every self-matching pattern among one line's tokens."""
     matches = []
     index = 0
     while index < len(tokens):
@@ -165,6 +167,23 @@ def find_self_matches(command: str) -> list[SelfMatch]:
         if BRACKET_EXPRESSION.search(pattern):
             continue
         matches.append(SelfMatch(pattern, bracket_escape(pattern)))
+    return matches
+
+
+def find_self_matches(command: str) -> list[SelfMatch]:
+    """Every `pgrep -f`/`pkill -f` pattern in `command` that provably matches the caller itself.
+
+    Each line is scanned on its own: `shlex` treats a newline as plain whitespace, so a single
+    token stream would let one invocation collect operands from the command on the next line.
+    """
+    matches = []
+    for line in _without_heredocs(command).split("\n"):
+        try:
+            tokens = _tokenize(line)
+        except ValueError:
+            # Unbalanced quoting on this line; the shell rejects it before matching anything.
+            continue
+        matches.extend(_matches_in_line(tokens))
     return matches
 
 

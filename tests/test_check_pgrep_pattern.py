@@ -78,6 +78,34 @@ class TestFindSelfMatches:
         (match,) = find_self_matches("pgrep -f pytest")
         assert match.pattern == "pytest"
 
+    def test_an_invocation_does_not_reach_past_its_own_line(self):
+        # Multi-line commands are routine, and operands from a later line are not this one's.
+        assert find_self_matches('pgrep -c -f "[p]ytest"\nps aux') == []
+        (match,) = find_self_matches("pgrep -f pytest\necho hi")
+        assert match.pattern == "pytest"
+
+    def test_a_double_dash_operand_list_stops_at_the_separator(self):
+        assert find_self_matches('pgrep -f -- "[p]ytest" ; echo ok') == []
+        (match,) = find_self_matches("pgrep -f -- pytest && echo hi")
+        assert match.pattern == "pytest"
+
+    def test_an_invocation_after_a_double_dash_one_is_still_scanned(self):
+        matches = find_self_matches('pgrep -f -- "[p]ytest" ; pgrep -f gamma')
+        assert [m.pattern for m in matches] == ["gamma"]
+
+    def test_a_numeric_pattern_is_not_mistaken_for_a_file_descriptor(self):
+        (match,) = find_self_matches("pkill -f 8080 >/dev/null")
+        assert match.pattern == "8080"
+
+    def test_an_option_value_after_a_bracketed_pattern_is_not_flagged(self):
+        assert find_self_matches('pgrep -f "[p]ytest" -r R') == []
+
+    def test_an_apostrophe_in_a_heredoc_body_does_not_disable_the_check(self):
+        # The body is stripped as text, so its quoting never reaches the tokenizer.
+        command = "cat > n.md <<'EOF'\ndon't poll\nEOF\nuntil ! pgrep -f pytest; do sleep 5; done"
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
     def test_reports_every_offending_invocation(self):
         matches = find_self_matches('pgrep -f alpha && pkill -f "[b]eta" ; pgrep -f gamma')
         assert [m.pattern for m in matches] == ["alpha", "gamma"]

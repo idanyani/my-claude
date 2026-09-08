@@ -32,6 +32,11 @@ SHELL_COMMAND_NAMES = frozenset({"bash", "sh", "zsh", "dash"})
 
 COMMAND_EXCERPT_LENGTH = 120
 
+# Claude wraps every background command in a long preamble that sources a shell snapshot before
+# `eval`-ing the real one. Excerpting from the start would show the same boilerplate for every
+# shell and identify none of them.
+COMMAND_MARKER = "eval '"
+
 
 @dataclass(frozen=True)
 class ShellProcess:
@@ -46,7 +51,8 @@ def select_stale(
     processes: list[ShellProcess], session_cwd: str, stale_after_seconds: float
 ) -> list[ShellProcess]:
     """Shells under `session_cwd` that have outlived `stale_after_seconds`, oldest first."""
-    root = Path(session_cwd)
+    # /proc reports a resolved cwd, so an unresolved session path would match nothing.
+    root = Path(session_cwd).resolve()
     stale = [
         process
         for process in processes
@@ -64,16 +70,28 @@ def format_age(seconds: float) -> str:
     return f"{hours}h{minutes:02d}m" if hours else f"{minutes}m"
 
 
+def command_excerpt(command: str) -> str:
+    """The command the shell was asked to run, without Claude's wrapper preamble."""
+    marker = command.find(COMMAND_MARKER)
+    text = command if marker == -1 else command[marker + len(COMMAND_MARKER) :]
+    if len(text) > COMMAND_EXCERPT_LENGTH:
+        return text[:COMMAND_EXCERPT_LENGTH] + "..."
+    return text
+
+
 def format_report(stale: list[ShellProcess]) -> str:
-    """Report naming each leftover shell, for the session's opening context."""
+    """Report naming each leftover shell, for the session's opening context.
+
+    SessionStart also fires on resume, compact and clear, where the shells found are the
+    current session's own, so the wording claims only their age and never that they are
+    abandoned -- the reader is the one who can tell a leak from a deliberate long watch.
+    """
     lines = [
-        "Background shells from an earlier session are still running in this directory. "
-        "Stop the ones whose work is done (`/tasks`, or `kill <pid>`):"
+        "Background shells have been running in this directory for a while. "
+        "Stop any whose work is done (`/tasks`, or `kill <pid>`):"
     ]
     for process in stale:
-        excerpt = process.command[:COMMAND_EXCERPT_LENGTH]
-        if len(process.command) > COMMAND_EXCERPT_LENGTH:
-            excerpt += "..."
+        excerpt = command_excerpt(process.command)
         lines.append(f"  pid {process.pid}, running {format_age(process.age_seconds)}: {excerpt}")
     return "\n".join(lines)
 

@@ -59,6 +59,15 @@ class TestSelectStale:
         shells = [shell(i, 3600, name=n) for i, n in enumerate(("bash", "sh", "zsh", "dash"))]
         assert len(select_stale(shells, PROJECT, 60)) == len(shells)
 
+    def test_a_symlinked_session_path_still_matches(self, tmp_path):
+        # /proc reports a resolved cwd, so an unresolved session path would match nothing.
+        real = tmp_path / "real"
+        real.mkdir()
+        link = tmp_path / "link"
+        link.symlink_to(real)
+        (stale,) = select_stale([shell(1, 3600, cwd=str(real))], str(link), 60)
+        assert stale.pid == 1
+
     def test_orders_oldest_first(self):
         selected = select_stale([shell(1, 100), shell(2, 9000), shell(3, 500)], PROJECT, 60)
         assert [s.pid for s in selected] == [2, 3, 1]
@@ -70,6 +79,23 @@ class TestFormatReport:
         assert "4242" in report
         assert "2h" in report
         assert "until ! pgrep" in report
+
+    def test_shows_the_real_command_not_the_wrapper_preamble(self):
+        # Every Claude shell shares a ~200-char snapshot-sourcing preamble; an excerpt of that
+        # is identical for all of them and identifies nothing.
+        wrapper = (
+            "/bin/bash -c source /home/dev/.claude/shell-snapshots/snapshot-bash-1.sh "
+            "2>/dev/null || true && shopt -u extglob 2>/dev/null || true && "
+            "eval 'until ! pgrep -f x; do sleep 15; done'"
+        )
+        report = format_report([shell(7, 3600, command=wrapper)])
+        assert "until ! pgrep -f x" in report
+        assert "shell-snapshots" not in report
+
+    def test_does_not_claim_the_shells_belong_to_an_earlier_session(self):
+        # SessionStart also fires on resume, compact and clear, where the shells are the
+        # current session's own and may still be doing the work they were started for.
+        assert "earlier session" not in format_report([shell(1, 3600)])
 
     def test_truncates_a_long_command(self):
         report = format_report([shell(1, 3600, command="x" * 500)])
