@@ -66,6 +66,15 @@
   fact or definition lives, or is an index/README entry) or Noise (bare "see also").
   Test: if removing the link loses no fact, it should not be there.
 
+## Background work
+
+- Never poll for work the harness already tracks: a backgrounded command reports its own
+  completion, so wrapping it in a wait loop is waste that outlives the wait.
+- Bracket-escape every `pgrep -f`/`pkill -f` pattern (`[p]ytest`, not `pytest`): `-f` matches
+  whole command lines, so an unescaped pattern always matches the caller's own shell, and a
+  wait loop built on one can never exit.
+- Give every poll loop a bound, so a wrong condition ends the loop rather than the session.
+
 ## Memory discipline
 
 - An assistant's auto-memory is machine-local and invisible to teammates. Use it only for
