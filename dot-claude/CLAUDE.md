@@ -68,10 +68,12 @@
 
 ## Proper names
 
-- A misspelled name of a person, school, or organization costs trust and deals. Treat its
-  spelling as a fact: write it only as a written source has it -- the project's names
-  registry, a document or URL, or text the user typed. When unsure, stop and ask; until
-  answered, write a visible `[verify]` marker, never a guess.
+- A misspelled name of a person, school, or organization we work with costs trust and deals.
+  Treat its spelling as a fact: write it only as a written source has it -- the project's
+  names registry, a document or URL, or text the user typed. When unsure, stop and ask;
+  until answered, write a visible `[verify]` marker, never a guess.
+- A name that appears only in archived third-party material (an article's byline, people
+  it mentions) is copied as the source writes it -- not worth a question to the user.
 - A speech transcript is unverified for every proper noun: speech recognition mishears
   names and invents plausible ones.
 - Never transliterate between scripts to derive a spelling: "Hermoni" does not settle
