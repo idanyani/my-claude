@@ -66,6 +66,23 @@
   fact or definition lives, or is an index/README entry) or Noise (bare "see also").
   Test: if removing the link loses no fact, it should not be there.
 
+## Proper names
+
+- A misspelled name of a person, school, or organization we work with costs trust and deals.
+  Treat its spelling as a fact: write it only as a written source has it -- the project's
+  names registry, a document or URL, or text the user typed. When unsure, stop and ask;
+  until answered, write a visible `[verify]` marker, never a guess.
+- A name that appears only in archived third-party material (an article's byline, people
+  it mentions) is copied as the source writes it -- not worth a question to the user.
+- A speech transcript is unverified for every proper noun: speech recognition mishears
+  names and invents plausible ones.
+- Never transliterate between scripts to derive a spelling: "Hermoni" does not settle
+  whether the Hebrew starts with ה or ח. Likewise a correction given in one script does
+  not settle the other -- ask.
+- Never add a surname, title, or role the source did not state, and never "correct" a
+  name to a form the user did not type.
+- A commit that changes a name quotes the old and new forms exactly.
+
 ## Background work
 
 - Never poll for work the harness already tracks: a backgrounded command reports its own
