@@ -8,8 +8,9 @@ checks are independent event streams, and auto-merge already handles `verify`, s
 a check would block on the wrong, slower signal (see references/git-workflow.md).
 
 Exit 0: a genuine review posted -- its state, body, and inline findings are printed to act on.
-Exit 2: the bounded wait expired without a review -- run an in-session `/review <pr>` instead.
-Exit 3: Copilot posted an "unable to review" notice (e.g. over quota) -- run `/review <pr>` instead.
+Exit 2: the bounded wait expired without a review -- run an in-session `/code-review <pr>` instead.
+Exit 3: Copilot posted an "unable to review" notice (e.g. over quota) -- run
+`/code-review <pr>` instead.
 Neither 2 nor 3 gates the merge; both signal that no usable Copilot review was obtained.
 """
 
@@ -81,14 +82,14 @@ def main(argv: list[str]) -> int:
             assert review is not None  # poll_decision returned "unavailable"
             print(f"Copilot review ({review['state']}):\n{review['body']}")
             print(
-                f"Copilot was unable to review -- run an in-session /review {pr} instead.",
+                f"Copilot was unable to review -- run an in-session /code-review {pr} instead.",
                 file=sys.stderr,
             )
             return 3
         if outcome == "timeout":
             print(
                 f"No Copilot review after {timeout_ms / 1000:g}s -- "
-                f"run an in-session /review {pr} instead.",
+                f"run an in-session /code-review {pr} instead.",
                 file=sys.stderr,
             )
             return 2

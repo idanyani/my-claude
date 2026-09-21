@@ -1,6 +1,6 @@
 ---
 name: resolve-issue
-description: Use when the user wants a GitHub issue implemented end-to-end -- says "resolve issue N", "/resolve-issue N", "start issue N", "work on issue N", or pastes a GitHub issue URL. Do NOT use for reviewing an existing PR (use /review) or for issue triage without implementation.
+description: Use when the user wants a GitHub issue implemented end-to-end -- says "resolve issue N", "/resolve-issue N", "start issue N", "work on issue N", or pastes a GitHub issue URL. Do NOT use for reviewing an existing PR (use /code-review) or for issue triage without implementation.
 ---
 
 # Resolve a GitHub Issue
@@ -67,8 +67,8 @@ dismiss the rest with a one-line reason. If you pushed substantive
 changes, request one more review with
 `python3 <skill-dir>/scripts/request_copilot_review.py <pr>`; address the review once -- do not
 loop on further advisory comments. If the wait helper exits 3 (Copilot could not review) or 2
-(timed out), run `/review <pr>` in this session instead and address its findings. Only then arm
-auto-merge: `gh pr merge --auto --squash --delete-branch`.
+(timed out), run `/code-review <pr>` in this session instead and address its findings.
+Only then arm auto-merge: `gh pr merge --auto --squash --delete-branch`.
 
 ## Phase 8 -- Finish and clean up
 
