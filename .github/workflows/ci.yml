@@ -35,3 +35,11 @@ jobs:
         run: uv run mypy .
       - name: Tests
         run: uv run pytest
+
+  # Exercises the composite action consuming repos call, against this repo's own generated copy.
+  # `pytest` already asserts that copy is current; this job proves the action itself runs.
+  conventions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/check-copilot-instructions

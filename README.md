@@ -26,10 +26,12 @@ genuinely unique rules. The core reaches every consumer through three layers:
 2. **Tiki's bot container** -- the image bakes my-claude in.
 3. **GitHub Copilot code review** -- [`scripts/sync_copilot_instructions.py`](scripts/sync_copilot_instructions.py)
    renders the file into `.github/copilot-instructions.md` in each consuming repo, which is
-   where Copilot reads it. Pass repo paths to verify (exit 1 on drift) and `--write` to
-   refresh. Organization-level instructions would keep one central copy instead, but they
-   require paid Copilot Business seats and expose no API, so nothing could check that copy
-   was current; a generated file is committed, so drift is a diff.
+   where Copilot reads it -- including this repo, which consumes its own conventions. Pass
+   repo paths to verify (exit 1 on drift) and `--write` to refresh. Each consuming repo's CI
+   calls [the drift check](.github/actions/check-copilot-instructions/action.yml) in one
+   line, so a stale copy fails a build instead of waiting to be noticed. Organization-level
+   instructions would keep one central copy instead, but they require paid Copilot Business
+   seats and expose no API, so nothing could check that copy was current.
 
 ## Skills
 
