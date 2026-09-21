@@ -13,6 +13,7 @@ import pytest
 from sync_copilot_instructions import (
     CANONICAL,
     INSTRUCTIONS_PATH,
+    REPO_ROOT,
     SOURCE_URL,
     Status,
     main,
@@ -116,6 +117,21 @@ class TestMain:
     def test_writes_the_real_conventions(self, repo: Path):
         main([str(repo), "--write"])
         assert CANONICAL.read_text() in (repo / INSTRUCTIONS_PATH).read_text()
+
+
+class TestOwnCopy:
+    """my-claude consumes its own conventions: Copilot reviews this repo too.
+
+    Asserting the committed copy here rather than only in CI means a stale copy fails the local
+    suite, at the moment the conventions are edited.
+    """
+
+    def test_committed_copy_matches_the_canonical_conventions(self):
+        committed = REPO_ROOT / INSTRUCTIONS_PATH
+        assert committed.exists(), (
+            f"{INSTRUCTIONS_PATH} is missing; run the sync script with --write"
+        )
+        assert committed.read_text() == render_instructions(CANONICAL.read_text())
 
 
 class TestExecutable:

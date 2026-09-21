@@ -1,0 +1,26 @@
+# Consuming repos call this in one line so the drift check itself is not copy-pasted into each of
+# them -- the duplication this whole mechanism exists to remove.
+#
+# Reference it as `@main`, not a pinned SHA: the point of the check is to compare against the
+# conventions as they are now, and pinning would freeze the comparison target and pass forever.
+name: Check Copilot instructions are current
+description: >-
+  Fail when a repo's generated .github/copilot-instructions.md has drifted from the canonical
+  conventions in idanyani/my-claude.
+
+inputs:
+  path:
+    description: Root of the repo to check.
+    required: false
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    # `uses: idanyani/my-claude/...@main` checks this repo out at $GITHUB_ACTION_PATH, so the
+    # script and the conventions it renders both come from the same tree -- no clone or download.
+    - name: Compare the generated file against the canonical conventions
+      shell: bash
+      run: |
+        python3 "${GITHUB_ACTION_PATH}/../../../scripts/sync_copilot_instructions.py" \
+          "${{ inputs.path }}"
