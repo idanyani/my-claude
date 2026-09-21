@@ -24,12 +24,13 @@ genuinely unique rules. The core reaches every consumer through three layers:
 1. **Claude Code on the maintainer's machines** -- `install.sh` symlinks the file to
    `~/.claude/CLAUDE.md`, so it loads into every session.
 2. **Tiki's bot container** -- the image bakes my-claude in.
-3. **GitHub Copilot code review** -- this file pasted verbatim into the gefen-chat org's
-   Copilot custom instructions (**Settings > Copilot > Custom instructions**; org owner,
-   Copilot Business or Enterprise). GitHub applies them to Copilot code review, Copilot Chat,
-   and the Copilot cloud agent on GitHub.com -- two of the three are agents, so the whole file
-   applies and the mirror needs no curated subset to drift out of sync. No API exposes the
-   setting, so the copy is manual and flows one way: after changing this file, re-paste it.
+3. **GitHub Copilot on github.com** -- `dot-claude/CLAUDE.md` pasted verbatim into the
+   gefen-chat org's Copilot custom instructions (**Settings > Copilot > Custom
+   instructions**; org owner, Copilot Business or Enterprise). GitHub applies them to
+   Copilot code review, Copilot Chat, and the Copilot cloud agent alike, so the agent-facing
+   rules earn their place and the mirror stays a whole-file copy rather than a curated subset
+   to keep in sync. No API exposes the setting, so the copy is manual and flows one way:
+   after changing the conventions, re-paste them.
 
 ## Skills
 
