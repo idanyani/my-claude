@@ -22,7 +22,7 @@ and `gh` on PATH; they run against the current working directory's repo.
   never gates the merge; you read it and decide, and `verify` is the only gate. If Copilot
   code review is not enabled on the org, the helper scripts below simply time out or no-op;
   nothing breaks. When Copilot is over quota or otherwise unavailable, or its review never
-  posts, fall back to an in-session `/review <pr>` so the PR still gets reviewed.
+  posts, fall back to an in-session `/code-review <pr>` so the PR still gets reviewed.
 
 ## Steps
 
@@ -42,7 +42,7 @@ and `gh` on PATH; they run against the current working directory's repo.
    and every inline finding as a `path:line` anchor, so you can act on them directly --
    **2** when the wait expires with no review, and **3** when Copilot posts an "unable to
    review" notice (e.g. over quota). On **2 or 3**, no Copilot review exists to address: run
-   an in-session `/review <pr>` and address its findings before arming auto-merge in step 4,
+   an in-session `/code-review <pr>` and address its findings before arming auto-merge in step 4,
    so the PR never merges unreviewed. On **0**, apply the comments worth applying and push any
    fixes **as new commits -- the branch is already pushed and under review, so never amend,
    rebase, or force-push it; the squash-merge in step 4 collapses every commit into one on
