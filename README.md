@@ -24,8 +24,12 @@ genuinely unique rules. The core reaches every consumer through three layers:
 1. **Claude Code on the maintainer's machines** -- `install.sh` symlinks the file to
    `~/.claude/CLAUDE.md`, so it loads into every session.
 2. **Tiki's bot container** -- the image bakes my-claude in.
-3. **GitHub Copilot code review** -- the gefen-chat org's custom instructions mirror this
-   file.
+3. **GitHub Copilot code review** -- [`scripts/sync_copilot_instructions.py`](scripts/sync_copilot_instructions.py)
+   renders the file into `.github/copilot-instructions.md` in each consuming repo, which is
+   where Copilot reads it. Pass repo paths to verify (exit 1 on drift) and `--write` to
+   refresh. Organization-level instructions would keep one central copy instead, but they
+   require paid Copilot Business seats and expose no API, so nothing could check that copy
+   was current; a generated file is committed, so drift is a diff.
 
 ## Skills
 
@@ -65,5 +69,5 @@ uv sync
 uv run ruff check . && uv run ruff format --check . && uv run mypy . && uv run pytest
 ```
 
-Tests live in `tests/` at the repo root -- outside the mirrored `dot-claude/` tree, so they
-are never installed into `~/.claude`.
+Tests live in `tests/` at the repo root, and maintainer tooling in `scripts/` -- both
+outside the mirrored `dot-claude/` tree, so neither is installed into `~/.claude`.
