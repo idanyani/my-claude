@@ -72,5 +72,6 @@ loop on further advisory findings. Only then arm auto-merge:
 
 `python3 <skill-dir>/scripts/finish_branch.py <pr>` (add `--worktree` if you used it in Phase 4)
 waits for the merge, then syncs `main` and deletes the local branch, first removing the sibling
-worktree if you used one. Then summarize the change, the test results, the triage, and the PR
-link for the user.
+worktree if you used one. Launch it with `run_in_background` -- its wait outlasts the Bash tool's
+foreground default -- and wait for its exit notification rather than polling. Then summarize
+the change, the test results, the triage, and the PR link for the user.

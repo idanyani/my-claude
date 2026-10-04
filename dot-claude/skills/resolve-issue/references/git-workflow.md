@@ -46,8 +46,11 @@ and `gh` on PATH; they run against the current working directory's repo.
    watch the run yourself.
 5. **Return to `main` and clean up.** `python3 <skill-dir>/scripts/finish_branch.py <pr>`
    waits for the merge, then syncs `main` and deletes the local branch (with `--worktree`,
-   it first removes the sibling worktree). To skip the wait, just `git checkout main` and
-   let the merge land asynchronously -- the next `start_branch` deletes the `[gone]` branch.
+   it first removes the sibling worktree). Launch it with the Bash tool's `run_in_background`:
+   its wait outlasts the tool's 120-second foreground default, which would kill it before the
+   cleanup. The harness reports its exit, so do not poll for it. To skip the wait, just
+   `git checkout main` and let the merge land asynchronously -- the next `start_branch` deletes
+   the `[gone]` branch.
 
 Pause for explicit approval before pushing risky or ambiguous changes. Commit-message
 conventions live in the repo's `CLAUDE.md`.
