@@ -1,9 +1,9 @@
-"""Contract checks on the five entry scripts as shipped files.
+"""Contract checks on the entry scripts as shipped files.
 
 The scripts run as plain files from the symlinked skill directory, so beyond the pure-logic
 suites this verifies the file-level contract: a runnable `main(argv)`, a python3 shebang with the
-executable bit, and the two source-level guards ported from the website suite (worktrees base on
-`origin/main`; the Copilot re-review request uses the `[bot]`-suffixed login).
+executable bit, and the source-level guard ported from the website suite (worktrees base on
+`origin/main`).
 """
 
 import importlib
@@ -17,8 +17,6 @@ SCRIPTS_DIR = Path(__file__).parent.parent / "dot-claude" / "skills" / "resolve-
 EXECUTABLES = [
     "view_issue",
     "start_branch",
-    "wait_for_copilot_review",
-    "request_copilot_review",
     "finish_branch",
 ]
 
@@ -57,10 +55,3 @@ class TestStartBranchWorktreeBase:
         source = (SCRIPTS_DIR / "start_branch.py").read_text()
         assert '"origin/main"' in source
         assert '"worktree", "add", path, "-b", branch, "main"' not in source
-
-
-class TestRequestCopilotReview:
-    def test_requests_the_bot_suffixed_login_not_the_bare_one(self):
-        source = (SCRIPTS_DIR / "request_copilot_review.py").read_text()
-        assert "COPILOT_REVIEWER" in source
-        assert 'reviewers[]=copilot-pull-request-reviewer"' not in source

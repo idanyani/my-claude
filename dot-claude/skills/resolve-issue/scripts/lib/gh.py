@@ -30,16 +30,6 @@ def run_gh_text(args: list[str]) -> str:
     return _run("gh", args)
 
 
-def run_gh_paged(args: list[str]) -> list[Any]:
-    """Run `gh <args>` across all pages and return one flat list.
-
-    `--paginate --slurp` wraps each page in an outer array (`[[...], [...]]`); flatten it so callers
-    filter a single list of records regardless of how many pages the endpoint spanned.
-    """
-    pages = run_gh([*args, "--paginate", "--slurp"])
-    return [item for page in pages for item in page]
-
-
 def run_git(args: list[str]) -> str:
     """Run `git <args>` and return stdout."""
     return _run("git", args)

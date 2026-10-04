@@ -19,7 +19,6 @@ pythonpath = [
     "dot-claude/skills/resolve-issue/scripts",
     "dot-claude/skills/maintain/scripts",
     "dot-claude/hooks",
-    "scripts",
 ]
 testpaths = ["tests"]
 
@@ -31,10 +30,9 @@ target-version = "py312"
 extend-select = ["I"]
 
 [tool.mypy]
-files = ["dot-claude/skills", "dot-claude/hooks", "scripts", "tests"]
+files = ["dot-claude/skills", "dot-claude/hooks", "tests"]
 mypy_path = [
     "dot-claude/skills/resolve-issue/scripts",
     "dot-claude/skills/maintain/scripts",
     "dot-claude/hooks",
-    "scripts",
 ]

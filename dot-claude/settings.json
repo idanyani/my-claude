@@ -9,8 +9,6 @@
       "Bash(uv sync *)",
       "Bash(python3 /home/idanyani/.claude/skills/resolve-issue/scripts/view_issue.py *)",
       "Bash(python3 /home/idanyani/.claude/skills/resolve-issue/scripts/start_branch.py *)",
-      "Bash(python3 /home/idanyani/.claude/skills/resolve-issue/scripts/wait_for_copilot_review.py *)",
-      "Bash(python3 /home/idanyani/.claude/skills/resolve-issue/scripts/request_copilot_review.py *)",
       "Bash(python3 /home/idanyani/.claude/skills/resolve-issue/scripts/finish_branch.py *)",
       "Bash(python3 /home/idanyani/.claude/skills/maintain/scripts/changed_files.py *)",
       "Bash(python3 /home/idanyani/.claude/skills/maintain/scripts/check_links.py *)",
