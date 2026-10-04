@@ -16,9 +16,6 @@
 - Every change follows the resolve-issue skill's steps, through the merge and local cleanup,
   even when the session did not start from an issue: first open an issue that records the
   problem the session raised, then resolve it.
-- An issue states only the problem: symptom, impact, evidence. Never the fix.
-- A PR states only the chosen solution and the alternatives considered, each with why it was
-  rejected. It links the problem with `Resolves #N` instead of restating it.
 
 ## Problem-solving
 

@@ -59,9 +59,7 @@ real output.
 ## Phase 7 -- Commit and open an auto-merging PR
 
 One commit for the implementation, message in the repo's commit style, ending with
-`Resolves #<number>`. `gh pr create --fill` turns the commit body into the PR description, so
-the body states the chosen solution and the rejected alternatives with why -- the problem
-stays in the issue. Then: `git push -u origin <branch>`, `gh pr create --fill`, and wait on
+`Resolves #<number>`. Then: `git push -u origin <branch>`, `gh pr create --fill`, and wait on
 Copilot's advisory review with `python3 <skill-dir>/scripts/wait_for_copilot_review.py <pr>`,
 launched with `run_in_background` (its wait reaches the Bash tool's foreground cap). On
 exit 0, apply the comments worth applying and push fixes **as additional commits -- never amend
