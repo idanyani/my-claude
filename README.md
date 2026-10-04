@@ -29,7 +29,9 @@ genuinely unique rules. The core reaches every consumer through three layers:
    where Copilot reads it -- including this repo, which consumes its own conventions. Pass
    repo paths to verify (exit 1 on drift) and `--write` to refresh. Each consuming repo's CI
    calls [the drift check](.github/actions/check-copilot-instructions/action.yml) in one
-   line, so a stale copy fails a build instead of waiting to be noticed. Organization-level
+   line, so a stale copy fails a build instead of waiting to be noticed. A merge that changes
+   the conventions then opens a re-sync PR in each consumer through a GitHub App
+   ([setup runbook](docs/runbooks/copilot-sync-app.md)). Organization-level
    instructions would keep one central copy instead, but they require paid Copilot Business
    seats and expose no API, so nothing could check that copy was current.
 
