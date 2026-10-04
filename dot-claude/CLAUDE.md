@@ -17,6 +17,10 @@
   merge and local cleanup, even when the session did not start from an issue: first open an
   issue that records the problem the session raised, then resolve it. So every PR links the
   issue it resolves.
+- An issue states one problem: symptom, impact, evidence -- never the fix. Two problems are
+  two issues, each resolved by its own PR.
+- A PR states the chosen solution and the alternatives considered, each with why it was
+  rejected. It links the problem with `Resolves #N` instead of restating it.
 
 ## Problem-solving
 
