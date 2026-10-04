@@ -3,6 +3,9 @@
 
 Usage: python3 <skill-dir>/scripts/finish_branch.py <pr> [--worktree] [--timeout-seconds N]
 
+Launch it with the Bash tool's `run_in_background`: the default wait outlasts the tool's
+foreground timeout, which would kill it mid-wait and skip the cleanup.
+
 Bounded-waits on the PR's merge state. The remote branch is already deleted by `--delete-branch`
 on auto-merge (see references/git-workflow.md), so cleanup is the local side: sync `main` and
 delete the local branch -- or remove the sibling worktree first with `--worktree`. A squash merge
