@@ -3,6 +3,9 @@
 
 Usage: python3 <skill-dir>/scripts/wait_for_copilot_review.py <pr> [--timeout-seconds N]
 
+Launch it with the Bash tool's `run_in_background`: the default wait reaches the tool's
+600-second foreground cap, which would kill it before it reports.
+
 Polls ONLY the review stream (REST `/pulls/{pr}/reviews`), never `gh pr checks`: the review and CI
 checks are independent event streams, and auto-merge already handles `verify`, so gating the wait on
 a check would block on the wrong, slower signal (see references/git-workflow.md).
@@ -21,7 +24,7 @@ from typing import Any
 from lib.copilot_review import find_copilot_review, format_review_comments, poll_decision
 from lib.gh import run_gh_paged
 
-DEFAULT_TIMEOUT_SECONDS = 300
+DEFAULT_TIMEOUT_SECONDS = 600
 POLL_INTERVAL_SECONDS = 20
 
 

@@ -60,7 +60,8 @@ real output.
 
 One commit for the implementation, message in the repo's commit style, ending with
 `Resolves #<number>`. Then: `git push -u origin <branch>`, `gh pr create --fill`, and wait on
-Copilot's advisory review with `python3 <skill-dir>/scripts/wait_for_copilot_review.py <pr>`. On
+Copilot's advisory review with `python3 <skill-dir>/scripts/wait_for_copilot_review.py <pr>`,
+launched with `run_in_background` (its wait reaches the Bash tool's foreground cap). On
 exit 0, apply the comments worth applying and push fixes **as additional commits -- never amend
 or force-push the pushed branch; the squash-merge collapses them into one commit on `main`**;
 dismiss the rest with a one-line reason. If you pushed substantive
