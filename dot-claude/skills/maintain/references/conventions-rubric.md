@@ -48,9 +48,14 @@ there longest.
   reads.
 - An entry point nothing invokes: a script, config, CI job, or hook with no caller but its own
   definition. Check reachability outward -- "does anything invoke this?", not "does the file it
-  points to exist?". Search `.github/`, sibling scripts, the package manifest, and docs, and run
-  `git log -S"<name>"` to learn whether it was ever wired up at all. Zero non-self callers makes it
-  a deletion candidate, not something to maintain.
+  points to exist?". Search `.github/`, sibling scripts, the package manifest, harness and tool
+  configs (`settings.json`, `.pre-commit-config.yaml`), and docs, and run `git log -S"<name>"` to
+  learn whether it was ever wired up at all. An event or naming convention is an invoker too: a
+  workflow's `on:` triggers, a hook file in the hooks path. With no invoker of either kind, it is a
+  deletion candidate, not something to maintain.
+- An entry point orphaned by the change set: when a changed file drops its reference to a script or
+  config, check that target's remaining invokers too, even though the target itself is outside the
+  file set.
 - An entry point that cannot work if invoked: one that skips setup its siblings perform (starting a
   container, building first, loading credentials) is dead in practice even where it is referenced.
 
