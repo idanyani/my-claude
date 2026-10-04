@@ -18,11 +18,9 @@ and `gh` on PATH; they run against the current working directory's repo.
   protection refuses to merge until it passes.
 - **Auto-merge:** GitHub merges the PR by itself once `verify` passes, so you do not watch
   the run.
-- **Copilot review:** an automated review GitHub posts on a new PR. It is *advisory* -- it
-  never gates the merge; you read it and decide, and `verify` is the only gate. If Copilot
-  code review is not enabled on the org, the helper scripts below simply time out or no-op;
-  nothing breaks. When Copilot is over quota or otherwise unavailable, or its review never
-  posts, fall back to an in-session `/code-review <pr>` so the PR still gets reviewed.
+- **Review:** an in-session `/code-review <pr>` run before arming auto-merge. It is
+  *advisory* -- it never gates the merge; you read the findings and decide, and `verify` is
+  the only gate.
 
 ## Steps
 
@@ -33,29 +31,12 @@ and `gh` on PATH; they run against the current working directory's repo.
    freshly pulled `main`. Never push to `main` directly -- branch protection rejects it for
    everyone, administrators included.
 2. **Open the PR.** `git push -u origin <branch>`, then `gh pr create --fill`.
-3. **Address Copilot's review.** Copilot posts an advisory review under the `[bot]`-suffixed
-   login `copilot-pull-request-reviewer[bot]` -- usually a minute or two after the push,
-   occasionally several. `python3 <skill-dir>/scripts/wait_for_copilot_review.py <pr>` reads
-   that review over the REST API and blocks on the review stream alone (not CI, which is an
-   independent event stream auto-merge already handles) for up to ten minutes, then returns
-   so you move on. Launch it with the Bash tool's `run_in_background`: the wait reaches the
-   tool's 600-second foreground cap, which would kill it mid-poll. The harness reports its
-   exit, so do not poll for it, and do not arm auto-merge until you have acted on the exit
-   code. It exits **0** when a genuine review posts -- printing the overview body
-   and every inline finding as a `path:line` anchor, so you can act on them directly --
-   **2** when the wait expires with no review, and **3** when Copilot posts an "unable to
-   review" notice (e.g. over quota). On **2 or 3**, no Copilot review exists to address: run
-   an in-session `/code-review <pr>` and address its findings before arming auto-merge in step 4,
-   so the PR never merges unreviewed. On **0**, apply the comments worth applying and push any
-   fixes **as new commits -- the branch is already pushed and under review, so never amend,
-   rebase, or force-push it; the squash-merge in step 4 collapses every commit into one on
-   `main`, so branch commit count does not matter.** Dismiss the rest with a one-line reason.
-   Copilot does not re-review later
-   pushes on its own, so if you pushed substantive changes, request one more on your final
-   commit with `python3 <skill-dir>/scripts/request_copilot_review.py <pr>` (it wraps the
-   REST endpoint to sidestep the `projectCards` GraphQL deprecation noted below). Address
-   the review once -- do not loop on further advisory comments; record any leftover
-   suggestion as a follow-up issue.
+3. **Review the PR.** Run `/code-review <pr>` in this session. Apply the findings worth
+   applying and push any fixes **as new commits -- the branch is already pushed and under
+   review, so never amend, rebase, or force-push it; the squash-merge in step 4 collapses every
+   commit into one on `main`, so branch commit count does not matter.** Dismiss the rest with a
+   one-line reason. Review once -- do not loop on further advisory findings; record any
+   leftover suggestion as a follow-up issue.
 4. **Merge.** Once the commit is final, `gh pr merge --auto --squash --delete-branch`.
    Squash is what collapses the branch's commits into a single commit on `main` -- that is the
    guarantee, so the branch itself may carry several commits (initial work plus review fixes).
@@ -75,6 +56,3 @@ conventions live in the repo's `CLAUDE.md`.
 
 - **PR will not merge -- "no checks reported."** A push can land without firing CI, so no
   `verify` run attaches and auto-merge cannot arm. Close and reopen the PR to re-fire CI.
-- **`gh pr edit --add-reviewer` errors with a `projectCards` GraphQL deprecation.** Request
-  Copilot through `python3 <skill-dir>/scripts/request_copilot_review.py <pr>` (it uses the
-  REST endpoint) instead.

@@ -19,24 +19,18 @@ dot-claude/
 
 [`dot-claude/CLAUDE.md`](dot-claude/CLAUDE.md) is the canonical core of working
 conventions shared across the maintained repos; each repo's own `CLAUDE.md` keeps only its
-genuinely unique rules. The core reaches every consumer through three layers:
+genuinely unique rules. The core reaches every consumer through two layers:
 
 1. **Claude Code on the maintainer's machines** -- `install.sh` symlinks the file to
    `~/.claude/CLAUDE.md`, so it loads into every session.
 2. **Tiki's bot container** -- the image bakes my-claude in.
-3. **GitHub Copilot code review** -- [`scripts/sync_copilot_instructions.py`](scripts/sync_copilot_instructions.py)
-   renders the file into `.github/copilot-instructions.md` in each consuming repo, which is
-   where Copilot reads it -- including this repo, which consumes its own conventions. Pass
-   repo paths to verify (exit 1 on drift) and `--write` to refresh. Each consuming repo's CI
-   calls [the drift check](.github/actions/check-copilot-instructions/action.yml) in one
-   line, so a stale copy fails a build instead of waiting to be noticed. Organization-level
-   instructions would keep one central copy instead, but they require paid Copilot Business
-   seats and expose no API, so nothing could check that copy was current.
+
+No repo keeps a copy, so a change here needs no follow-up anywhere else.
 
 ## Skills
 
 - **[resolve-issue](dot-claude/skills/resolve-issue/SKILL.md)** -- implement a GitHub issue
-  end-to-end: ground in the repo, read the issue, branch, TDD, verify, PR with Copilot
+  end-to-end: ground in the repo, read the issue, branch, TDD, verify, PR with in-session
   review, auto-merge, clean up. Ships stdlib-only helper scripts (`python3`, `git`, `gh` are
   the only runtime requirements) and the canonical
   [git-workflow doc](dot-claude/skills/resolve-issue/references/git-workflow.md).
@@ -71,5 +65,5 @@ uv sync
 uv run ruff check . && uv run ruff format --check . && uv run mypy . && uv run pytest
 ```
 
-Tests live in `tests/` at the repo root, and maintainer tooling in `scripts/` -- both
-outside the mirrored `dot-claude/` tree, so neither is installed into `~/.claude`.
+Tests live in `tests/` at the repo root, outside the mirrored `dot-claude/` tree, so they are
+not installed into `~/.claude`.

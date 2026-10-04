@@ -1,7 +1,7 @@
 """Pure helpers for `finish_branch.py`.
 
 Kept separate from the executable so unit tests import the decision logic without running the
-script's gh/git side effects (mirrors `copilot_review.py`).
+script's gh/git side effects.
 """
 
 from dataclasses import dataclass
