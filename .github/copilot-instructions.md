@@ -19,6 +19,13 @@ to this file is overwritten by the next sync.
 - Rename/move with `git mv` and delete with `git rm`, never plain `rm`, so history
   follows the file.
 
+## Issues and pull requests
+
+- Every change meant to land on `main` follows the resolve-issue skill's steps, through the
+  merge and local cleanup, even when the session did not start from an issue: first open an
+  issue that records the problem the session raised, then resolve it. So every PR links the
+  issue it resolves.
+
 ## Problem-solving
 
 - Question the framing before solving: a bug in one layer is often a symptom a layer
