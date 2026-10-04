@@ -21,9 +21,10 @@ to this file is overwritten by the next sync.
 
 ## Issues and pull requests
 
-- Every change follows the resolve-issue skill's steps, through the merge and local cleanup,
-  even when the session did not start from an issue: first open an issue that records the
-  problem the session raised, then resolve it.
+- Every change meant to land on `main` follows the resolve-issue skill's steps, through the
+  merge and local cleanup, even when the session did not start from an issue: first open an
+  issue that records the problem the session raised, then resolve it. So every PR links the
+  issue it resolves.
 
 ## Problem-solving
 
