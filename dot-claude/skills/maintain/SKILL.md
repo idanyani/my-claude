@@ -41,16 +41,19 @@ structured finding list -- one `[SEVERITY] one-line finding -- file:line` per li
 preamble. Severity is HIGH / MEDIUM / LOW. Concerns:
 
 1. **Doc freshness / drift** -- doc claims, commands, and API signatures that no longer match the
-   code. Seed this agent with the deterministic broken-link findings from
-   `python3 <skill-dir>/scripts/check_links.py` (feed it the markdown paths from Phase 1) so it
-   spends judgment on stale prose, not path resolution.
+   code, including CI stages that no longer match the documented pipeline. Seed this agent with
+   the deterministic broken-link findings from `python3 <skill-dir>/scripts/check_links.py` (feed
+   it the markdown paths from Phase 1) so it spends judgment on stale prose, not path resolution.
 2. **Duplication and reinvention** -- the same fact, logic, or comment stated in more than one
-   place, and new code that reimplements an existing utility or pattern instead of reusing it.
+   place (CI steps and config values included), and new code that reimplements an existing utility
+   or pattern instead of reusing it.
 3. **Test quality** -- overlapping coverage and duplicated setup, plus no-op or superficial tests,
    tests coupled to implementation detail, and missing edge cases. A test must fail if the code
    broke.
-4. **Dead / orphaned code** -- unused functions and imports, commented-out blocks, and abandoned
-   scaffolding. Git remembers; it should be deleted.
+4. **Dead / orphaned code** -- unused functions and imports, commented-out blocks, abandoned
+   scaffolding, and entry points (scripts, configs, CI jobs, hooks) that nothing invokes or that
+   cannot work if invoked. Ask reachability outward -- who invokes this? -- never whether the file
+   it points to exists. Git remembers; it should be deleted.
 5. **Convention adherence (judgment)** -- journal comments, comments restating code, bare "see also"
    noise links, rotting hardcoded counts, AI-tic filler, and gendered Hebrew copy. The mechanical
    subset (non-ASCII glyphs, emojis in code/docs) is caught deterministically by the `check_prose`

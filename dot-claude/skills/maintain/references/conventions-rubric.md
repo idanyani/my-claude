@@ -10,10 +10,16 @@ Each concern below maps to one Phase 2 subagent. Report every hit as
 reader or break a contract (a wrong doc, a broken link, a test that cannot fail); MEDIUM for real
 debt (duplication, dead code, a superficial test); LOW for style and polish.
 
+Auxiliary machinery -- package-manager scripts, build and test configs, CI workflows and composite
+actions, shell scripts, Dockerfiles, git hooks -- is subject matter for every concern, not scenery.
+Nothing imports it, so no resolver, type checker, or linter will ever flag it; debris survives
+there longest.
+
 ## 1. Doc freshness / drift
 
 - A doc states a command, flag, path, signature, or count that the current code no longer matches.
 - A doc describes behavior that was changed or removed.
+- A CI workflow whose stages no longer match the pipeline the docs describe.
 - A broken intra-repo link (the `check_links.py` findings are pre-computed -- fold them in as HIGH).
 - A hardcoded number in prose that has since rotted (see also concern 5).
 
@@ -24,6 +30,8 @@ debt (duplication, dead code, a superficial test); LOW for style and polish.
 - A copied comment -- the information belongs in a doc or a named constant, not repeated.
 - New code that reimplements a helper, pattern, or off-the-shelf solution that already exists in the
   repo. Prefer reuse; a hand-rolled version of something standard is a finding.
+- Duplicated CI steps, test tiers or jobs whose scope overlaps, and config values restated across
+  config files.
 
 ## 3. Test quality
 
@@ -38,6 +46,13 @@ debt (duplication, dead code, a superficial test); LOW for style and polish.
 - Commented-out code left in place -- git remembers; it should be deleted.
 - Abandoned scaffolding: a `TODO`/placeholder never wired up, an unreachable branch, a flag nothing
   reads.
+- An entry point nothing invokes: a script, config, CI job, or hook with no caller but its own
+  definition. Check reachability outward -- "does anything invoke this?", not "does the file it
+  points to exist?". Search `.github/`, sibling scripts, the package manifest, and docs, and run
+  `git log -S"<name>"` to learn whether it was ever wired up at all. Zero non-self callers makes it
+  a deletion candidate, not something to maintain.
+- An entry point that cannot work if invoked: one that skips setup its siblings perform (starting a
+  container, building first, loading credentials) is dead in practice even where it is referenced.
 
 ## 5. Convention adherence (judgment)
 
