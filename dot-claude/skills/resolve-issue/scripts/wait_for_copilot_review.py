@@ -21,7 +21,7 @@ from typing import Any
 from lib.copilot_review import find_copilot_review, format_review_comments, poll_decision
 from lib.gh import run_gh_paged
 
-DEFAULT_TIMEOUT_SECONDS = 300
+DEFAULT_TIMEOUT_SECONDS = 600
 POLL_INTERVAL_SECONDS = 20
 
 

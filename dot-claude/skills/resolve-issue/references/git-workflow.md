@@ -37,8 +37,11 @@ and `gh` on PATH; they run against the current working directory's repo.
    login `copilot-pull-request-reviewer[bot]` -- usually a minute or two after the push,
    occasionally several. `python3 <skill-dir>/scripts/wait_for_copilot_review.py <pr>` reads
    that review over the REST API and blocks on the review stream alone (not CI, which is an
-   independent event stream auto-merge already handles) for up to five minutes, then returns
-   so you move on. It exits **0** when a genuine review posts -- printing the overview body
+   independent event stream auto-merge already handles) for up to ten minutes, then returns
+   so you move on. Launch it with the Bash tool's `run_in_background`: the wait reaches the
+   tool's 600-second foreground cap, which would kill it mid-poll. The harness reports its
+   exit, so do not poll for it, and do not arm auto-merge until you have acted on the exit
+   code. It exits **0** when a genuine review posts -- printing the overview body
    and every inline finding as a `path:line` anchor, so you can act on them directly --
    **2** when the wait expires with no review, and **3** when Copilot posts an "unable to
    review" notice (e.g. over quota). On **2 or 3**, no Copilot review exists to address: run

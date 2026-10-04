@@ -130,7 +130,7 @@ class TestFormatReviewComments:
 
 class TestWaitParseArgs:
     def test_keeps_the_pr_when_no_timeout_flag_is_given(self):
-        assert parse_args(["123"]) == ("123", 300_000)
+        assert parse_args(["123"]) == ("123", 600_000)
 
     def test_reads_an_explicit_timeout(self):
         assert parse_args(["123", "--timeout-seconds", "60"]) == ("123", 60_000)
