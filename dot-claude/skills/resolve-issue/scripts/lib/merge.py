@@ -6,7 +6,10 @@ script's gh/git side effects.
 
 from dataclasses import dataclass
 
-DEFAULT_TIMEOUT_SECONDS = 300
+# One "no progress" window must hold a full update --> CI --> auto-merge cycle. Measured on a
+# strict-protected repo (idanyani/my-claude#42): CI took up to ~6 min, auto-merge then took up to
+# 7+ min more, and update-to-merge spanned 7-13 min.
+DEFAULT_TIMEOUT_SECONDS = 1200
 
 
 @dataclass(frozen=True)

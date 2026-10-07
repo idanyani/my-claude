@@ -57,7 +57,7 @@ class TestMergeDecision:
 class TestParseArgs:
     def test_keeps_the_pr_and_defaults_with_no_flags(self):
         args = parse_args(["123"])
-        assert (args.pr, args.timeout_ms) == ("123", 300_000)
+        assert (args.pr, args.timeout_ms) == ("123", 1_200_000)
 
     def test_reads_an_explicit_timeout(self):
         args = parse_args(["123", "--timeout-seconds", "60"])
