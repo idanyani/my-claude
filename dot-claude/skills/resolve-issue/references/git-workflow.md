@@ -61,7 +61,10 @@ conventions live in the repo's `CLAUDE.md`.
 
 - **PR will not merge -- "no checks reported."** A push can land without firing CI, so no
   `verify` run attaches and auto-merge cannot arm. Close and reopen the PR to re-fire CI.
-- **`finish_branch.py` exits 3 on a conflict.** Another PR changed the same lines. Pull the
-  branch first (`finish_branch.py` may have pushed an update to it), merge `main`, resolve, and
-  push a new commit (never rebase or force-push); auto-merge is still armed, so re-run
-  `finish_branch.py` to wait for it.
+- **`finish_branch.py` exits 3.** The PR cannot merge until you act; the message says why.
+  Fix that, then re-run `finish_branch.py`:
+  - *Conflict with `main`:* another PR changed the same lines. Pull the branch first
+    (`finish_branch.py` may have pushed an update to it), merge `main`, resolve, and push a new
+    commit (never rebase or force-push).
+  - *A required check failed:* push a fix as a new commit, or re-run the check if it was flaky.
+  - *Auto-merge not armed:* arm it (step 4).

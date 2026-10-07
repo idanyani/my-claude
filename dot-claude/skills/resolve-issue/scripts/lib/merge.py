@@ -4,6 +4,7 @@ Kept separate from the executable so unit tests import the decision logic withou
 script's gh/git side effects.
 """
 
+import json
 from dataclasses import dataclass
 
 # One "no progress" window must hold a full update --> CI --> auto-merge cycle. On gefen-chat/guide
@@ -75,11 +76,41 @@ def parse_worktree_for_branch(porcelain: str, branch: str) -> str | None:
 
 @dataclass(frozen=True)
 class PrStatus:
-    """One poll of the PR: `gh pr view --json state,mergeStateStatus,headRefOid`."""
+    """One poll of the PR: its `gh pr view` fields plus the required checks that failed."""
 
     state: str
     merge_state_status: str
     head_oid: str
+    auto_merge_armed: bool
+    failed_checks: tuple[str, ...]
+
+
+# `gh pr checks` exits 8 while checks are pending; its JSON is still complete.
+GH_CHECKS_PENDING_EXIT = 8
+
+
+def parse_required_checks(returncode: int, stdout: str, stderr: str) -> list[dict[str, str]]:
+    """The result of `gh pr checks <pr> --required --json name,bucket`.
+
+    A head with no checks yet -- just after a push or an update, before CI attaches -- makes `gh`
+    fail with "no required checks reported"; that reads as an empty list (nothing failed), and the
+    bounded wait covers CI that never starts.
+    """
+    if returncode in (0, GH_CHECKS_PENDING_EXIT):
+        checks: list[dict[str, str]] = json.loads(stdout)
+        return checks
+    if "checks reported" in stderr:
+        return []
+    raise RuntimeError(f"gh pr checks exited {returncode}: {stderr.strip()}")
+
+
+# `gh pr checks` buckets after which a check stays red until someone fixes or re-runs it.
+FAILED_CHECK_BUCKETS = ("fail", "cancel")
+
+
+def failed_required_checks(checks: list[dict[str, str]]) -> tuple[str, ...]:
+    """Names of the required checks that failed, from `gh pr checks --json name,bucket`."""
+    return tuple(check["name"] for check in checks if check["bucket"] in FAILED_CHECK_BUCKETS)
 
 
 def merge_decision(
@@ -88,8 +119,10 @@ def merge_decision(
     """Decide one tick of the bounded wait for a PR to merge.
 
     A terminal GitHub state ends it immediately -- `MERGED` so the caller cleans up, `CLOSED`
-    (unmerged) so it aborts rather than delete an unmerged branch. A merge conflict (`DIRTY`)
-    aborts too: auto-merge cannot resolve it, so waiting is pointless.
+    (unmerged) so it aborts rather than delete an unmerged branch. So does any PR that cannot merge
+    until a person acts -- a merge conflict (`DIRTY`), auto-merge not armed, or a failed required
+    check -- since waiting cannot change it. These come before updating a `BEHIND` PR, which would
+    only spend a CI run on it.
 
     A `BEHIND` PR is one another PR's merge left out of date on a repo that requires branches to
     be up to date; auto-merge never updates it, so the caller does. `updated_from_oid` is the head
@@ -101,7 +134,8 @@ def merge_decision(
     clean-gone cleans up the deferred merge later). Counting from the last update keeps a PR that
     is waiting its turn behind other merges from timing out.
 
-    Returns one of: "merged", "closed", "conflict", "update", "timeout", "continue".
+    Returns one of: "merged", "closed", "conflict", "unarmed", "check_failed", "update",
+    "timeout", "continue".
     """
     if pr.state == "MERGED":
         return "merged"
@@ -109,6 +143,10 @@ def merge_decision(
         return "closed"
     if pr.merge_state_status == "DIRTY":
         return "conflict"
+    if not pr.auto_merge_armed:
+        return "unarmed"
+    if pr.failed_checks:
+        return "check_failed"
     if pr.merge_state_status == "BEHIND" and pr.head_oid != updated_from_oid:
         return "update"
     if idle_ms >= timeout_ms:

@@ -8,10 +8,11 @@ foreground timeout, which would kill it mid-wait and skip the cleanup.
 
 Waits on the PR's merge state, bounded by `--timeout-seconds` without progress: bringing a
 `BEHIND` PR up to date restarts the clock, so a PR waiting its turn behind other merges is not cut
-off. On a repo whose branch protection requires branches to be
-up to date, another PR's merge leaves this one `BEHIND`, and auto-merge never updates it; the wait
-then runs `gh pr update-branch` (a merge, never a rebase, so the pushed history stays intact) and
-lets CI and auto-merge take it from there. The remote branch is already deleted by `--delete-branch`
+off. On a repo whose branch protection requires branches to be up to date, another PR's merge
+leaves this one `BEHIND`, and auto-merge never updates it; the wait then runs `gh pr
+update-branch` (a merge, never a rebase, so the pushed history stays intact) and lets CI and
+auto-merge take it from there. A PR that cannot merge until a person acts ends the wait at once
+instead of using up the window. The remote branch is already deleted by `--delete-branch`
 on auto-merge (see references/git-workflow.md), so cleanup is the local side: sync `main` and
 delete the local branch -- or remove the sibling worktree first with `--worktree`. A squash merge
 leaves the branch "not fully merged" to git, so deletion is a forced `-D` only after GitHub
@@ -19,9 +20,10 @@ confirms the merge, never a plain `-d` on an unmerged branch.
 
 Exit 0: merged and cleaned up.
 Exit 1: the PR closed without merging, or a git/gh call failed.
-Exit 2: the bounded wait expired (merge still pending) -- the caller proceeds; the next
-    start-branch / clean-gone removes the branch once it goes [gone].
-Exit 3: the PR conflicts with main -- resolve it by hand and re-run; auto-merge stays armed.
+Exit 2: the bounded wait expired with required checks still pending -- the caller proceeds; the
+    next start-branch / clean-gone removes the branch once it goes [gone].
+Exit 3: the PR needs a person -- it conflicts with main, a required check failed, or auto-merge
+    is not armed; the message names which. Fix that and re-run.
 """
 
 import os
@@ -34,18 +36,50 @@ from lib.gh import run_gh, run_gh_text, run_git
 from lib.merge import (
     PrStatus,
     branch_deletion_plan,
+    failed_required_checks,
     merge_decision,
     parse_args,
     parse_main_worktree,
+    parse_required_checks,
     parse_worktree_for_branch,
 )
 
 POLL_INTERVAL_SECONDS = 20
-EXIT_CONFLICT = 3
+EXIT_NEEDS_ATTENTION = 3
 
 
 def pr_view(pr: str) -> dict[str, Any]:
-    return run_gh(["pr", "view", pr, "--json", "state,mergeStateStatus,headRefName,headRefOid"])
+    return run_gh(
+        [
+            "pr",
+            "view",
+            pr,
+            "--json",
+            "state,mergeStateStatus,headRefName,headRefOid,autoMergeRequest",
+        ]
+    )
+
+
+def required_checks(pr: str) -> list[dict[str, str]]:
+    # Not run_gh: `gh pr checks` exits nonzero for pending checks and for a head with none yet.
+    result = subprocess.run(
+        ["gh", "pr", "checks", pr, "--required", "--json", "name,bucket"],
+        capture_output=True,
+        text=True,
+    )
+    return parse_required_checks(result.returncode, result.stdout, result.stderr)
+
+
+def pr_status(pr: str, view: dict[str, Any]) -> PrStatus:
+    open_ = view["state"] == "OPEN"
+    return PrStatus(
+        state=view["state"],
+        merge_state_status=view["mergeStateStatus"],
+        head_oid=view["headRefOid"],
+        auto_merge_armed=view["autoMergeRequest"] is not None,
+        # A merged or closed PR needs no check verdict, so skip the extra call.
+        failed_checks=failed_required_checks(required_checks(pr)) if open_ else (),
+    )
 
 
 def local_branch_oid(branch: str) -> str | None:
@@ -141,7 +175,7 @@ def main(argv: list[str]) -> int:
 
     while True:
         view = pr_view(args.pr)
-        pr = PrStatus(view["state"], view["mergeStateStatus"], view["headRefOid"])
+        pr = pr_status(args.pr, view)
         idle_ms = (time.monotonic() - idle_start) * 1000
         outcome = merge_decision(pr, updated_from_oid, idle_ms, args.timeout_ms)
 
@@ -159,7 +193,21 @@ def main(argv: list[str]) -> int:
                 f"PR #{args.pr} conflicts with main -- resolve it by hand; auto-merge stays armed.",
                 file=sys.stderr,
             )
-            return EXIT_CONFLICT
+            return EXIT_NEEDS_ATTENTION
+        if outcome == "unarmed":
+            print(
+                f"PR #{args.pr} has no auto-merge armed, so nothing will merge it -- run "
+                "`gh pr merge --auto --squash --delete-branch` (or merge by hand) and re-run.",
+                file=sys.stderr,
+            )
+            return EXIT_NEEDS_ATTENTION
+        if outcome == "check_failed":
+            print(
+                f"PR #{args.pr} failed required check(s) {', '.join(pr.failed_checks)} -- fix or "
+                "re-run them, then re-run; auto-merge stays armed.",
+                file=sys.stderr,
+            )
+            return EXIT_NEEDS_ATTENTION
         if outcome == "update":
             try:
                 run_gh_text(["pr", "update-branch", args.pr])
@@ -174,7 +222,8 @@ def main(argv: list[str]) -> int:
             continue
         if outcome == "timeout":
             print(
-                f"PR #{args.pr} not merged after {args.timeout_ms / 1000:g}s without progress -- "
+                f"PR #{args.pr} not merged after {args.timeout_ms / 1000:g}s without progress, "
+                "required checks still pending -- "
                 "proceeding; the next start-branch / clean-gone removes the branch once it goes "
                 "[gone].",
                 file=sys.stderr,
