@@ -35,8 +35,8 @@ No repo keeps a copy, so a change here needs no follow-up anywhere else.
   the only runtime requirements) and the canonical
   [git-workflow doc](dot-claude/skills/resolve-issue/references/git-workflow.md).
 - **[maintain](dot-claude/skills/maintain/SKILL.md)** -- sweep recent work for the debris fast
-  cycles leave behind (stale docs, duplication and reinvention, weak tests, dead code,
-  convention drift) and report ranked findings for triage, making no edits. Pairs with the
+  cycles leave behind (stale or unbacked doc claims, docs shaped wrong as a whole, duplication and
+  reinvention, weak tests, dead code and data, convention drift) and report ranked findings for triage, making no edits. Pairs with the
   `check_prose` PostToolUse hook, which deterministically flags the mechanical prose-convention
   violations (non-ASCII typography, emojis in code) that linters miss.
 
