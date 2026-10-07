@@ -5,7 +5,8 @@ plus whatever the target repo's own `CLAUDE.md` adds. This file names what to lo
 conventions themselves live in those `CLAUDE.md` files -- read them for the authoritative wording,
 and defer to the repo's `CLAUDE.md` where it is stricter.
 
-Each concern below maps to one Phase 2 subagent. Report every hit as
+Each concern below maps to one Phase 2 subagent (concern 6 runs only when the file set touches a
+doc). Report every hit as
 `[SEVERITY] one-line finding -- file:line`, nothing else; a finding that exists only across files
 (concern 6) anchors to the file or directory it spans instead. Reserve HIGH for things that mislead
 a reader or break a contract (a wrong doc, a claim nothing backs, a broken link, a test that cannot
@@ -63,8 +64,8 @@ finding even if no commit ever contradicted it.
 - Dead data: a data or config file nothing reads. Being written, validated against a schema, or
   hand-maintained is not being read -- ask "who reads this?" the way entry points ask "who invokes
   this?", and search code, configs, and CI for a consumer.
-- A dead mode: a CLI mode, flag, or branch whose input -- a state, file layout, or format -- the repo
-  can no longer produce. Check that something still creates its input, not only that something
+- A dead mode: a CLI mode, flag, or branch whose input -- a state, file layout, or format -- the
+  repo can no longer produce. Check that something still creates its input, not only that something
   calls it.
 - An entry point nothing invokes: a script, config, CI job, or hook with no caller but its own
   definition. Check reachability outward -- "does anything invoke this?", not "does the file it
@@ -97,9 +98,10 @@ judgment:
 
 ## 6. Docs shape (whole set)
 
-Read the docs set as one body -- `README.md`, `docs/`, and the module docstrings those docs
-describe -- whenever the file set touches any of it. Each problem here is invisible per line: every
-duplicate, every page reads fine alone.
+Read the docs set as one body -- every authored markdown doc in the repo (`README.md`, `docs/`,
+skill and reference files, wherever the repo keeps them), plus the module docstrings those docs
+describe -- whenever the file set touches any markdown doc. Each problem here is invisible per
+line: every duplicate, every page reads fine alone.
 
 - A fact stated in several places. Report how many and where, and name the one place that should
   own it (concern 2 flags each duplicate it meets in the file set; this reports the fact's full
