@@ -73,9 +73,27 @@
   or what breaks.
 - No hardcoded counts that rot: prefer structural descriptions unless the number is cited
   or definitional.
-- Cross-reference discipline: a relative link is Required (points to the single place a
-  fact or definition lives, or is an index/README entry) or Noise (bare "see also").
-  Test: if removing the link loses no fact, it should not be there.
+
+## Docs content
+
+- Docs tell the high-level story; mechanism lives in the code. The refactor test: a
+  sentence that would have to change under a refactor belongs in the docstring of the
+  module that implements it, not in README or `docs/`.
+- One owner per fact: each fact has one page that owns it; other pages link to it
+  rather than restate it. A relative link is Required (points to the page that owns a
+  fact or definition, or is an index/README entry) or Noise (bare "see also"). Test: if
+  removing the link loses no fact, it should not be there.
+- The clean-slate reader of Readability applies to docs too: say what the repo is,
+  never what it no longer is ("X is a label, not a folder").
+- Don't coin vocabulary the repo doesn't use: name a thing the way the code (or the
+  page that defines it) names it, or don't name it. An invented distinction reads as
+  precision and cannot be checked against anything.
+- Before deleting a page, restructure from the code and give every fact on it a home;
+  after deleting it, search the whole repo for links to it, code comments and data
+  files included.
+- For a change that touches only docs and comments, compare build output the build
+  does not embed them in (a bundle, a rendered site) and confirm it is byte-identical,
+  so "no behavior change" is evidence rather than a claim.
 
 ## Proper names
 
