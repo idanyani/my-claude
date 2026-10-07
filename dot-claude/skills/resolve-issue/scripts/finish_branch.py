@@ -61,7 +61,7 @@ def pr_view(pr: str) -> dict[str, Any]:
 
 
 def required_checks(pr: str) -> list[dict[str, str]]:
-    # Not run_gh: `gh pr checks` exits nonzero for pending checks and for a head with none yet.
+    # Not run_gh: `gh pr checks` exits nonzero for a head with no checks yet.
     result = subprocess.run(
         ["gh", "pr", "checks", pr, "--required", "--json", "name,bucket"],
         capture_output=True,

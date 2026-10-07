@@ -122,13 +122,8 @@ class TestParseRequiredChecks:
         stdout = '[{"bucket":"pass","name":"verify"}]'
         assert parse_required_checks(0, stdout, "") == [{"bucket": "pass", "name": "verify"}]
 
-    def test_reads_the_json_while_checks_are_pending(self):
-        # `gh pr checks` exits 8 while checks are pending.
-        stdout = '[{"bucket":"pending","name":"verify"}]'
-        assert parse_required_checks(8, stdout, "") == [{"bucket": "pending", "name": "verify"}]
-
     def test_treats_a_head_with_no_checks_yet_as_an_empty_list(self):
-        stderr = "no required checks reported on the '44-x' branch"
+        stderr = "no checks reported on the '44-stop-on-unmergeable-pr' branch"
         assert parse_required_checks(1, "", stderr) == []
 
     def test_raises_on_any_other_failure(self):

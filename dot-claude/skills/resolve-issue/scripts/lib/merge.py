@@ -85,18 +85,15 @@ class PrStatus:
     failed_checks: tuple[str, ...]
 
 
-# `gh pr checks` exits 8 while checks are pending; its JSON is still complete.
-GH_CHECKS_PENDING_EXIT = 8
-
-
 def parse_required_checks(returncode: int, stdout: str, stderr: str) -> list[dict[str, str]]:
     """The result of `gh pr checks <pr> --required --json name,bucket`.
 
-    A head with no checks yet -- just after a push or an update, before CI attaches -- makes `gh`
-    fail with "no required checks reported"; that reads as an empty list (nothing failed), and the
+    With `--json`, pending checks still exit 0. A head with no checks yet -- just after a push or
+    an update, before CI attaches -- makes `gh` fail with "no checks reported on the '<branch>'
+    branch"; that reads as an empty list (nothing failed), and the
     bounded wait covers CI that never starts.
     """
-    if returncode in (0, GH_CHECKS_PENDING_EXIT):
+    if returncode == 0:
         checks: list[dict[str, str]] = json.loads(stdout)
         return checks
     if "checks reported" in stderr:
