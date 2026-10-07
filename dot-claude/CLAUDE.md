@@ -77,6 +77,24 @@
   fact or definition lives, or is an index/README entry) or Noise (bare "see also").
   Test: if removing the link loses no fact, it should not be there.
 
+## Docs content
+
+- Docs tell the high-level story; mechanism lives in the code. The refactor test: a
+  sentence that would have to change under a refactor belongs in the docstring of the
+  module that implements it, not in README or `docs/`.
+- One owner per fact: each fact has one page that owns it; other pages link to it
+  rather than restate it.
+- Write for a reader who never saw an earlier design: say what the repo is, never what
+  it no longer is ("X is a label, not a folder").
+- Don't coin vocabulary the code doesn't use: name a thing the way the codebase names
+  it, or don't name it. An invented distinction reads as precision and cannot be
+  checked against anything.
+- Before deleting a page, restructure from the code and give every fact on it a home;
+  after deleting it, search the whole repo for links to it, code comments and data
+  files included.
+- A change that touches only docs and comments leaves the build output byte-identical:
+  compare it, so "no behavior change" is evidence rather than a claim.
+
 ## Proper names
 
 - A misspelled name of a person, school, or organization we work with costs trust and deals.
