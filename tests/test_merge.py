@@ -1,5 +1,6 @@
 import pytest
 from lib.merge import (
+    DEFAULT_TIMEOUT_SECONDS,
     PrStatus,
     assert_merged_tip,
     branch_deletion_plan,
@@ -9,6 +10,8 @@ from lib.merge import (
     parse_worktree_for_branch,
 )
 
+CAP_MS = 300_000
+
 
 def open_pr(merge_state_status: str = "BLOCKED", head_oid: str = "head1") -> PrStatus:
     return PrStatus(state="OPEN", merge_state_status=merge_state_status, head_oid=head_oid)
@@ -17,47 +20,47 @@ def open_pr(merge_state_status: str = "BLOCKED", head_oid: str = "head1") -> PrS
 class TestMergeDecision:
     def test_ends_the_wait_as_soon_as_the_pr_is_merged(self):
         merged = PrStatus(state="MERGED", merge_state_status="UNKNOWN", head_oid="head1")
-        assert merge_decision(merged, None, 0, 300_000) == "merged"
+        assert merge_decision(merged, None, 0, CAP_MS) == "merged"
 
     def test_aborts_when_the_pr_is_closed_unmerged(self):
         closed = PrStatus(state="CLOSED", merge_state_status="UNKNOWN", head_oid="head1")
-        assert merge_decision(closed, None, 0, 300_000) == "closed"
+        assert merge_decision(closed, None, 0, CAP_MS) == "closed"
 
     def test_keeps_waiting_while_open_and_time_remains(self):
-        assert merge_decision(open_pr(), None, 1_000, 300_000) == "continue"
+        assert merge_decision(open_pr(), None, 1_000, CAP_MS) == "continue"
 
     def test_times_out_an_open_pr_once_the_cap_is_reached(self):
-        assert merge_decision(open_pr(), None, 300_000, 300_000) == "timeout"
+        assert merge_decision(open_pr(), None, CAP_MS, CAP_MS) == "timeout"
 
     def test_prefers_the_terminal_merged_state_even_at_the_cap(self):
         merged = PrStatus(state="MERGED", merge_state_status="UNKNOWN", head_oid="head1")
-        assert merge_decision(merged, None, 300_000, 300_000) == "merged"
+        assert merge_decision(merged, None, CAP_MS, CAP_MS) == "merged"
 
     def test_updates_a_pr_that_fell_behind_main(self):
-        assert merge_decision(open_pr("BEHIND"), None, 1_000, 300_000) == "update"
+        assert merge_decision(open_pr("BEHIND"), None, 1_000, CAP_MS) == "update"
 
     def test_updates_a_behind_pr_even_at_the_cap(self):
         # Falling behind is progress on a strict repo -- another PR merged -- not a stall.
-        assert merge_decision(open_pr("BEHIND"), None, 300_000, 300_000) == "update"
+        assert merge_decision(open_pr("BEHIND"), None, CAP_MS, CAP_MS) == "update"
 
     def test_waits_for_an_issued_update_to_land_before_updating_again(self):
         # Until GitHub pushes the update's merge commit, the head is unchanged and the status
         # still reads BEHIND; a second update-branch call then would fail or duplicate work.
         pr = open_pr("BEHIND", head_oid="head1")
-        assert merge_decision(pr, "head1", 1_000, 300_000) == "continue"
+        assert merge_decision(pr, "head1", 1_000, CAP_MS) == "continue"
 
     def test_updates_again_when_main_moves_after_an_earlier_update(self):
         pr = open_pr("BEHIND", head_oid="head2")
-        assert merge_decision(pr, "head1", 1_000, 300_000) == "update"
+        assert merge_decision(pr, "head1", 1_000, CAP_MS) == "update"
 
     def test_stops_on_a_merge_conflict(self):
-        assert merge_decision(open_pr("DIRTY"), None, 1_000, 300_000) == "conflict"
+        assert merge_decision(open_pr("DIRTY"), None, 1_000, CAP_MS) == "conflict"
 
 
 class TestParseArgs:
     def test_keeps_the_pr_and_defaults_with_no_flags(self):
         args = parse_args(["123"])
-        assert (args.pr, args.timeout_ms) == ("123", 1_200_000)
+        assert (args.pr, args.timeout_ms) == ("123", DEFAULT_TIMEOUT_SECONDS * 1000)
 
     def test_reads_an_explicit_timeout(self):
         args = parse_args(["123", "--timeout-seconds", "60"])
