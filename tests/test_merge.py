@@ -98,7 +98,6 @@ class TestParseArgs:
 
 class TestAssertMergedTip:
     def test_passes_when_the_local_tip_is_contained_in_the_merged_pr_head(self):
-        # Covers both an exact match and a head GitHub advanced with an update-branch merge commit.
         assert_merged_tip("3-fix", "abc1234def", "fed4321cba", local_is_ancestor=True)
 
     def test_refuses_to_force_delete_a_diverged_branch(self):
