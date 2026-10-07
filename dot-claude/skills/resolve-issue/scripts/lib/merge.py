@@ -69,50 +69,79 @@ def parse_worktree_for_branch(porcelain: str, branch: str) -> str | None:
     return None
 
 
-def merge_decision(state: str, elapsed_ms: float, timeout_ms: float) -> str:
+@dataclass(frozen=True)
+class PrStatus:
+    """One poll of the PR: `gh pr view --json state,mergeStateStatus,headRefOid`."""
+
+    state: str
+    merge_state_status: str
+    head_oid: str
+
+
+def merge_decision(
+    pr: PrStatus, updated_from_oid: str | None, idle_ms: float, timeout_ms: float
+) -> str:
     """Decide one tick of the bounded wait for a PR to merge.
 
     A terminal GitHub state ends it immediately -- `MERGED` so the caller cleans up, `CLOSED`
-    (unmerged) so it aborts rather than delete an unmerged branch. Otherwise the wait continues
-    until `elapsed_ms` reaches the cap, at which point it times out (the caller proceeds; the next
-    start-branch / clean-gone cleans up the deferred merge later).
+    (unmerged) so it aborts rather than delete an unmerged branch. A merge conflict (`DIRTY`)
+    aborts too: auto-merge cannot resolve it, so waiting is pointless.
 
-    Returns one of: "merged", "closed", "timeout", "continue".
+    A `BEHIND` PR is one another PR's merge left out of date on a repo that requires branches to
+    be up to date; auto-merge never updates it, so the caller does. `updated_from_oid` is the head
+    the caller last updated from: while the head still equals it, the update has not landed yet
+    and the status is stale, so the wait continues instead of updating twice.
+
+    Otherwise the wait continues until `idle_ms` -- time since the start or the last update --
+    reaches the cap, at which point it times out (the caller proceeds; the next start-branch /
+    clean-gone cleans up the deferred merge later). Counting from the last update keeps a PR that
+    is waiting its turn behind other merges from timing out.
+
+    Returns one of: "merged", "closed", "conflict", "update", "timeout", "continue".
     """
-    if state == "MERGED":
+    if pr.state == "MERGED":
         return "merged"
-    if state == "CLOSED":
+    if pr.state == "CLOSED":
         return "closed"
-    if elapsed_ms >= timeout_ms:
+    if pr.merge_state_status == "DIRTY":
+        return "conflict"
+    if pr.merge_state_status == "BEHIND" and pr.head_oid != updated_from_oid:
+        return "update"
+    if idle_ms >= timeout_ms:
         return "timeout"
     return "continue"
 
 
-def assert_merged_tip(branch: str, local_oid: str, pr_head_oid: str) -> None:
+def assert_merged_tip(
+    branch: str, local_oid: str, pr_head_oid: str, *, local_is_ancestor: bool
+) -> None:
     """Guard before force-deleting the local branch.
 
     A squash merge leaves the branch "not fully merged" to git, so cleanup must use `git branch
     -D` -- which would also discard a same-named branch carrying unpushed or diverged commits.
-    Refuse unless the local tip is exactly the commit GitHub merged, so `-D` can only ever drop the
-    branch we actually shipped.
+    Refuse unless the local tip is contained in the commit GitHub merged (`local_is_ancestor`):
+    the merged head may be the local tip itself, or a merge commit GitHub added on top when it
+    brought a `BEHIND` branch up to date. Either way `-D` drops nothing that was not shipped.
     """
-    if local_oid != pr_head_oid:
+    if not local_is_ancestor:
         raise ValueError(
-            f"local branch {branch} ({local_oid[:7]}) does not match the merged PR head "
+            f"local branch {branch} ({local_oid[:7]}) is not contained in the merged PR head "
             f"({pr_head_oid[:7]}) -- it may have unpushed commits; delete it by hand if intended."
         )
 
 
-def branch_deletion_plan(local_oid: str | None, branch: str, pr_head_oid: str) -> str:
+def branch_deletion_plan(
+    local_oid: str | None, branch: str, pr_head_oid: str, *, local_is_ancestor: bool
+) -> str:
     """Decide what cleanup owes the local branch, given its tip (`None` when it no longer exists).
 
     An absent branch is already cleaned up -- e.g. a merge run from the branch checkout, or a re-run
     of finish-branch -- so it is a no-op, not an error. A present branch is deletable only once
-    `assert_merged_tip` confirms it is exactly the commit GitHub merged.
+    `assert_merged_tip` confirms GitHub merged everything it holds.
 
     Returns "absent" or "delete".
     """
     if local_oid is None:
         return "absent"
-    assert_merged_tip(branch, local_oid, pr_head_oid)
+    assert_merged_tip(branch, local_oid, pr_head_oid, local_is_ancestor=local_is_ancestor)
     return "delete"

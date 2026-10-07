@@ -1,5 +1,6 @@
 import pytest
 from lib.merge import (
+    PrStatus,
     assert_merged_tip,
     branch_deletion_plan,
     merge_decision,
@@ -9,21 +10,48 @@ from lib.merge import (
 )
 
 
+def open_pr(merge_state_status: str = "BLOCKED", head_oid: str = "head1") -> PrStatus:
+    return PrStatus(state="OPEN", merge_state_status=merge_state_status, head_oid=head_oid)
+
+
 class TestMergeDecision:
     def test_ends_the_wait_as_soon_as_the_pr_is_merged(self):
-        assert merge_decision("MERGED", 0, 300_000) == "merged"
+        merged = PrStatus(state="MERGED", merge_state_status="UNKNOWN", head_oid="head1")
+        assert merge_decision(merged, None, 0, 300_000) == "merged"
 
     def test_aborts_when_the_pr_is_closed_unmerged(self):
-        assert merge_decision("CLOSED", 0, 300_000) == "closed"
+        closed = PrStatus(state="CLOSED", merge_state_status="UNKNOWN", head_oid="head1")
+        assert merge_decision(closed, None, 0, 300_000) == "closed"
 
     def test_keeps_waiting_while_open_and_time_remains(self):
-        assert merge_decision("OPEN", 1_000, 300_000) == "continue"
+        assert merge_decision(open_pr(), None, 1_000, 300_000) == "continue"
 
     def test_times_out_an_open_pr_once_the_cap_is_reached(self):
-        assert merge_decision("OPEN", 300_000, 300_000) == "timeout"
+        assert merge_decision(open_pr(), None, 300_000, 300_000) == "timeout"
 
     def test_prefers_the_terminal_merged_state_even_at_the_cap(self):
-        assert merge_decision("MERGED", 300_000, 300_000) == "merged"
+        merged = PrStatus(state="MERGED", merge_state_status="UNKNOWN", head_oid="head1")
+        assert merge_decision(merged, None, 300_000, 300_000) == "merged"
+
+    def test_updates_a_pr_that_fell_behind_main(self):
+        assert merge_decision(open_pr("BEHIND"), None, 1_000, 300_000) == "update"
+
+    def test_updates_a_behind_pr_even_at_the_cap(self):
+        # Falling behind is progress on a strict repo -- another PR merged -- not a stall.
+        assert merge_decision(open_pr("BEHIND"), None, 300_000, 300_000) == "update"
+
+    def test_waits_for_an_issued_update_to_land_before_updating_again(self):
+        # Until GitHub pushes the update's merge commit, the head is unchanged and the status
+        # still reads BEHIND; a second update-branch call then would fail or duplicate work.
+        pr = open_pr("BEHIND", head_oid="head1")
+        assert merge_decision(pr, "head1", 1_000, 300_000) == "continue"
+
+    def test_updates_again_when_main_moves_after_an_earlier_update(self):
+        pr = open_pr("BEHIND", head_oid="head2")
+        assert merge_decision(pr, "head1", 1_000, 300_000) == "update"
+
+    def test_stops_on_a_merge_conflict(self):
+        assert merge_decision(open_pr("DIRTY"), None, 1_000, 300_000) == "conflict"
 
 
 class TestParseArgs:
@@ -69,24 +97,27 @@ class TestParseArgs:
 
 
 class TestAssertMergedTip:
-    def test_passes_when_the_local_tip_is_exactly_the_merged_pr_head(self):
-        assert_merged_tip("3-fix", "abc1234def", "abc1234def")
+    def test_passes_when_the_local_tip_is_contained_in_the_merged_pr_head(self):
+        # Covers both an exact match and a head GitHub advanced with an update-branch merge commit.
+        assert_merged_tip("3-fix", "abc1234def", "fed4321cba", local_is_ancestor=True)
 
     def test_refuses_to_force_delete_a_diverged_branch(self):
         with pytest.raises(ValueError, match="unpushed"):
-            assert_merged_tip("3-fix", "aaaaaaa1111", "bbbbbbb2222")
+            assert_merged_tip("3-fix", "aaaaaaa1111", "bbbbbbb2222", local_is_ancestor=False)
 
 
 class TestBranchDeletionPlan:
     def test_an_absent_branch_is_already_cleaned_up(self):
-        assert branch_deletion_plan(None, "3-fix", "abc1234") == "absent"
+        assert branch_deletion_plan(None, "3-fix", "abc1234", local_is_ancestor=False) == "absent"
 
-    def test_a_matching_branch_is_deletable(self):
-        assert branch_deletion_plan("abc1234", "3-fix", "abc1234") == "delete"
+    def test_a_contained_branch_is_deletable(self):
+        assert (
+            branch_deletion_plan("abc1234", "3-fix", "def5678", local_is_ancestor=True) == "delete"
+        )
 
     def test_a_diverged_present_branch_raises(self):
         with pytest.raises(ValueError, match="unpushed"):
-            branch_deletion_plan("aaaa", "3-fix", "bbbb")
+            branch_deletion_plan("aaaa", "3-fix", "bbbb", local_is_ancestor=False)
 
 
 PORCELAIN = "\n".join(
