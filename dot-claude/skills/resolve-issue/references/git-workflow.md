@@ -48,9 +48,10 @@ and `gh` on PATH; they run against the current working directory's repo.
    waits for the merge, then syncs `main` and deletes the local branch (with `--worktree`,
    it first removes the sibling worktree). If another PR merges first and the repo requires
    branches to be up to date, it brings this PR up to date so parallel runs merge without a
-   hand-off; on a merge conflict it stops and leaves the PR for you. Launch it with the Bash
-   tool's `run_in_background`: its wait outlasts the tool's 120-second foreground default, which
-   would kill it before the cleanup. The harness reports its exit, so do not poll for it. To skip the wait, just
+   hand-off; when the PR cannot merge until you act, it stops and says why (see
+   Troubleshooting). Launch it with the Bash tool's `run_in_background`: its wait outlasts the
+   tool's 120-second foreground default, which would kill it before the cleanup. The harness
+   reports its exit, so do not poll for it. To skip the wait, just
    `git checkout main` and let the merge land asynchronously -- the next `start_branch` deletes
    the `[gone]` branch.
 

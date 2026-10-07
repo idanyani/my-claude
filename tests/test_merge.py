@@ -130,6 +130,12 @@ class TestParseRequiredChecks:
         with pytest.raises(RuntimeError, match="HTTP 502"):
             parse_required_checks(1, "", "HTTP 502: Bad Gateway")
 
+    def test_raises_on_an_error_that_only_mentions_reported_checks(self):
+        with pytest.raises(RuntimeError):
+            parse_required_checks(1, "", "failed to fetch: checks reported inconsistently")
+
+
+class TestParseArgs:
     def test_keeps_the_pr_and_defaults_with_no_flags(self):
         args = parse_args(["123"])
         assert (args.pr, args.timeout_ms) == ("123", DEFAULT_TIMEOUT_SECONDS * 1000)

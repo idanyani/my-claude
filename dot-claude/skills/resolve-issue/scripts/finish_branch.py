@@ -20,8 +20,8 @@ confirms the merge, never a plain `-d` on an unmerged branch.
 
 Exit 0: merged and cleaned up.
 Exit 1: the PR closed without merging, or a git/gh call failed.
-Exit 2: the bounded wait expired with required checks still pending -- the caller proceeds; the
-    next start-branch / clean-gone removes the branch once it goes [gone].
+Exit 2: the bounded wait expired with the PR still open and nothing failed -- the caller
+    proceeds; the next start-branch / clean-gone removes the branch once it goes [gone].
 Exit 3: the PR needs a person -- it conflicts with main, a required check failed, or auto-merge
     is not armed; the message names which. Fix that and re-run.
 """
@@ -172,6 +172,7 @@ def main(argv: list[str]) -> int:
     args = parse_args(argv)
     idle_start = time.monotonic()
     updated_from_oid: str | None = None
+    unarmed_seen = False
 
     while True:
         view = pr_view(args.pr)
@@ -190,10 +191,17 @@ def main(argv: list[str]) -> int:
             return 1
         if outcome == "conflict":
             print(
-                f"PR #{args.pr} conflicts with main -- resolve it by hand; auto-merge stays armed.",
+                f"PR #{args.pr} conflicts with main -- resolve it by hand and re-run.",
                 file=sys.stderr,
             )
             return EXIT_NEEDS_ATTENTION
+        # Confirm "unarmed" on a second poll before giving up: GitHub clears the auto-merge request
+        # as it merges, so one poll can land between that and the MERGED state.
+        if outcome == "unarmed" and not unarmed_seen:
+            unarmed_seen = True
+            time.sleep(POLL_INTERVAL_SECONDS)
+            continue
+        unarmed_seen = False
         if outcome == "unarmed":
             print(
                 f"PR #{args.pr} has no auto-merge armed, so nothing will merge it -- run "
@@ -222,8 +230,8 @@ def main(argv: list[str]) -> int:
             continue
         if outcome == "timeout":
             print(
-                f"PR #{args.pr} not merged after {args.timeout_ms / 1000:g}s without progress, "
-                "required checks still pending -- "
+                f"PR #{args.pr} not merged after {args.timeout_ms / 1000:g}s without progress "
+                f"(still OPEN, merge state {pr.merge_state_status}, no required check failed) -- "
                 "proceeding; the next start-branch / clean-gone removes the branch once it goes "
                 "[gone].",
                 file=sys.stderr,

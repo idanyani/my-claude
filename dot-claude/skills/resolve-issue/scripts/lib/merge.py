@@ -5,6 +5,7 @@ script's gh/git side effects.
 """
 
 import json
+import re
 from dataclasses import dataclass
 
 # One "no progress" window must hold a full update --> CI --> auto-merge cycle. On gefen-chat/guide
@@ -85,6 +86,10 @@ class PrStatus:
     failed_checks: tuple[str, ...]
 
 
+# gh's error for a head with no checks yet, e.g. "no checks reported on the '44-x' branch".
+NO_CHECKS_PATTERN = re.compile(r"^no (required )?checks reported on the '")
+
+
 def parse_required_checks(returncode: int, stdout: str, stderr: str) -> list[dict[str, str]]:
     """The result of `gh pr checks <pr> --required --json name,bucket`.
 
@@ -96,7 +101,7 @@ def parse_required_checks(returncode: int, stdout: str, stderr: str) -> list[dic
     if returncode == 0:
         checks: list[dict[str, str]] = json.loads(stdout)
         return checks
-    if "checks reported" in stderr:
+    if NO_CHECKS_PATTERN.match(stderr.strip()):
         return []
     raise RuntimeError(f"gh pr checks exited {returncode}: {stderr.strip()}")
 
