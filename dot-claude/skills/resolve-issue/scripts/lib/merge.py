@@ -6,7 +6,11 @@ script's gh/git side effects.
 
 from dataclasses import dataclass
 
-DEFAULT_TIMEOUT_SECONDS = 300
+# One "no progress" window must hold a full update --> CI --> auto-merge cycle. On gefen-chat/guide
+# (measurements in idanyani/my-claude#42) CI took up to ~6 min and update-to-merge took 7-8.5 min
+# when auto-merge acted; one PR was still unmerged 13 min after its update, with auto-merge stalled
+# for an unknown reason, so the window leaves margin beyond that.
+DEFAULT_TIMEOUT_SECONDS = 1200
 
 
 @dataclass(frozen=True)
