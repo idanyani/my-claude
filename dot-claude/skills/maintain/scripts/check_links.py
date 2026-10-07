@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Report broken intra-repo markdown links, one finding per line.
 
-Feeds the doc-freshness concern of a `maintain` sweep with the deterministic half of the work, so
+Feeds the doc-accuracy concern of a `maintain` sweep with the deterministic half of the work, so
 the subagent spends its judgment on stale prose rather than path resolution. Takes markdown paths as
 arguments (or on stdin, one per line); non-markdown paths are ignored.
 
