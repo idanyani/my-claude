@@ -4,26 +4,50 @@ from lib.merge import (
     PrStatus,
     assert_merged_tip,
     branch_deletion_plan,
+    failed_required_checks,
     merge_decision,
     parse_args,
     parse_main_worktree,
+    parse_required_checks,
     parse_worktree_for_branch,
 )
 
 CAP_MS = 300_000
 
 
-def open_pr(merge_state_status: str = "BLOCKED", head_oid: str = "head1") -> PrStatus:
-    return PrStatus(state="OPEN", merge_state_status=merge_state_status, head_oid=head_oid)
+def open_pr(
+    merge_state_status: str = "BLOCKED",
+    head_oid: str = "head1",
+    auto_merge_armed: bool = True,
+    failed_checks: tuple[str, ...] = (),
+) -> PrStatus:
+    return PrStatus(
+        state="OPEN",
+        merge_state_status=merge_state_status,
+        head_oid=head_oid,
+        auto_merge_armed=auto_merge_armed,
+        failed_checks=failed_checks,
+    )
+
+
+def finished_pr(state: str) -> PrStatus:
+    # GitHub drops the auto-merge request once a PR merges or closes.
+    return PrStatus(
+        state=state,
+        merge_state_status="UNKNOWN",
+        head_oid="head1",
+        auto_merge_armed=False,
+        failed_checks=(),
+    )
 
 
 class TestMergeDecision:
     def test_ends_the_wait_as_soon_as_the_pr_is_merged(self):
-        merged = PrStatus(state="MERGED", merge_state_status="UNKNOWN", head_oid="head1")
+        merged = finished_pr("MERGED")
         assert merge_decision(merged, None, 0, CAP_MS) == "merged"
 
     def test_aborts_when_the_pr_is_closed_unmerged(self):
-        closed = PrStatus(state="CLOSED", merge_state_status="UNKNOWN", head_oid="head1")
+        closed = finished_pr("CLOSED")
         assert merge_decision(closed, None, 0, CAP_MS) == "closed"
 
     def test_keeps_waiting_while_open_and_time_remains(self):
@@ -33,7 +57,7 @@ class TestMergeDecision:
         assert merge_decision(open_pr(), None, CAP_MS, CAP_MS) == "timeout"
 
     def test_prefers_the_terminal_merged_state_even_at_the_cap(self):
-        merged = PrStatus(state="MERGED", merge_state_status="UNKNOWN", head_oid="head1")
+        merged = finished_pr("MERGED")
         assert merge_decision(merged, None, CAP_MS, CAP_MS) == "merged"
 
     def test_updates_a_pr_that_fell_behind_main(self):
@@ -55,6 +79,60 @@ class TestMergeDecision:
 
     def test_stops_on_a_merge_conflict(self):
         assert merge_decision(open_pr("DIRTY"), None, 1_000, CAP_MS) == "conflict"
+
+    def test_stops_when_auto_merge_is_not_armed(self):
+        pr = open_pr(auto_merge_armed=False)
+        assert merge_decision(pr, None, 1_000, CAP_MS) == "unarmed"
+
+    def test_stops_when_a_required_check_failed(self):
+        pr = open_pr(failed_checks=("verify",))
+        assert merge_decision(pr, None, 1_000, CAP_MS) == "check_failed"
+
+    def test_does_not_update_a_behind_pr_whose_required_check_failed(self):
+        # An update would spend a CI run on a PR that cannot merge until someone fixes it.
+        pr = open_pr("BEHIND", failed_checks=("verify",))
+        assert merge_decision(pr, None, 1_000, CAP_MS) == "check_failed"
+
+    def test_does_not_update_a_behind_pr_without_auto_merge(self):
+        pr = open_pr("BEHIND", auto_merge_armed=False)
+        assert merge_decision(pr, None, 1_000, CAP_MS) == "unarmed"
+
+    def test_keeps_waiting_while_required_checks_are_pending(self):
+        assert merge_decision(open_pr(failed_checks=()), None, 1_000, CAP_MS) == "continue"
+
+
+class TestFailedRequiredChecks:
+    def test_names_the_failed_and_cancelled_checks(self):
+        checks = [
+            {"name": "verify", "bucket": "fail"},
+            {"name": "lint", "bucket": "cancel"},
+        ]
+        assert failed_required_checks(checks) == ("verify", "lint")
+
+    @pytest.mark.parametrize("bucket", ["pass", "pending", "skipping"])
+    def test_ignores_checks_that_do_not_block_the_merge_for_good(self, bucket):
+        assert failed_required_checks([{"name": "verify", "bucket": bucket}]) == ()
+
+    def test_treats_no_checks_yet_as_nothing_failed(self):
+        assert failed_required_checks([]) == ()
+
+
+class TestParseRequiredChecks:
+    def test_reads_the_json_of_a_completed_run(self):
+        stdout = '[{"bucket":"pass","name":"verify"}]'
+        assert parse_required_checks(0, stdout, "") == [{"bucket": "pass", "name": "verify"}]
+
+    def test_treats_a_head_with_no_checks_yet_as_an_empty_list(self):
+        stderr = "no checks reported on the '44-stop-on-unmergeable-pr' branch"
+        assert parse_required_checks(1, "", stderr) == []
+
+    def test_raises_on_any_other_failure(self):
+        with pytest.raises(RuntimeError, match="HTTP 502"):
+            parse_required_checks(1, "", "HTTP 502: Bad Gateway")
+
+    def test_raises_on_an_error_that_only_mentions_reported_checks(self):
+        with pytest.raises(RuntimeError):
+            parse_required_checks(1, "", "failed to fetch: checks reported inconsistently")
 
 
 class TestParseArgs:
