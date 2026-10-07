@@ -90,8 +90,8 @@ judgment:
 - Docs prose defined against a design the reader never saw: a contrast or denial whose other half
   exists only in history or imagination ("X is a label, not a folder", "there is no state file").
   The doc counterpart of a journal comment -- state what the design is, not what it is not.
-- Docs or comments that name a thing by a term the code never uses: an invented distinction that
-  cannot be checked against anything.
+- Docs or comments that name a thing by a term nothing else in the repo defines or uses (grep
+  before reporting): an invented distinction that cannot be checked against anything.
 - Comments that restate what the code plainly says, rather than explaining a non-obvious *why*.
 - A bare "see also" cross-reference that loses no fact if removed (noise, not a required link).
 - A hardcoded count that will rot, where a structural description would not.
