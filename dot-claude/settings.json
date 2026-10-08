@@ -87,9 +87,8 @@
   "autoMode": {
     "environment": [
       "$defaults",
-      "Source control: repos under github.com/idanyani/* are the user's personal projects; pushing to them is routine",
-      "Source control: repos under github.com/gefen-chat/* belong to an organization the user administers; pushing to them is routine",
-      "Repository visibility: some idanyani/* repos are public, including idanyani/my-claude; a push there is publishing",
+      "Source control: github.com/idanyani/* (personal) and github.com/gefen-chat/* (user is org admin); pushes there are routine",
+      "Repository visibility: some idanyani/* repos are public, e.g. idanyani/my-claude",
       "Cloud provider(s): AWS"
     ]
   }
