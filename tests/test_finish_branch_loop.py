@@ -43,3 +43,24 @@ def test_retries_an_update_branch_call_that_failed(monkeypatch: pytest.MonkeyPat
 
     assert finish_branch.main([PR]) == 0
     assert update_calls == [["pr", "update-branch", PR]] * 2
+
+
+def test_times_out_when_every_update_branch_call_fails(monkeypatch: pytest.MonkeyPatch):
+    clock_seconds = [0.0]
+    timeout_seconds = 60
+
+    def sleep(seconds: float) -> None:
+        clock_seconds[0] += seconds
+        # Fail instead of hanging the suite if the wait never ends.
+        assert clock_seconds[0] < 10 * timeout_seconds, "the wait outlived its timeout"
+
+    def run_gh_text(_args: list[str]) -> str:
+        raise RuntimeError("gh: Resource not accessible by integration")
+
+    monkeypatch.setattr(finish_branch, "pr_view", lambda _pr: {"headRefName": "7-x"})
+    monkeypatch.setattr(finish_branch, "pr_status", lambda _pr, _view: pr("OPEN", "BEHIND"))
+    monkeypatch.setattr(finish_branch, "run_gh_text", run_gh_text)
+    monkeypatch.setattr(finish_branch.time, "monotonic", lambda: clock_seconds[0])
+    monkeypatch.setattr(finish_branch.time, "sleep", sleep)
+
+    assert finish_branch.main([PR, "--timeout-seconds", str(timeout_seconds)]) == 2
