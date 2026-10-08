@@ -81,6 +81,7 @@ class PrStatus:
 
     state: str
     merge_state_status: str
+    head_ref_name: str
     head_oid: str
     auto_merge_armed: bool
     failed_checks: tuple[str, ...]

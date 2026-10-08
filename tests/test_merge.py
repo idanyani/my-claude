@@ -24,6 +24,7 @@ def open_pr(
     return PrStatus(
         state="OPEN",
         merge_state_status=merge_state_status,
+        head_ref_name="7-x",
         head_oid=head_oid,
         auto_merge_armed=auto_merge_armed,
         failed_checks=failed_checks,
@@ -35,6 +36,7 @@ def finished_pr(state: str) -> PrStatus:
     return PrStatus(
         state=state,
         merge_state_status="UNKNOWN",
+        head_ref_name="7-x",
         head_oid="head1",
         auto_merge_armed=False,
         failed_checks=(),

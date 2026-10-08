@@ -14,14 +14,17 @@ squash merge leaves the branch "not fully merged" to git, so deletion is a force
 GitHub confirms the merge, never a plain `-d` on an unmerged branch.
 
 Exit 0: merged and cleaned up.
-Exit 1: the PR closed without merging, or a git/gh call failed.
-Exit 2: the bounded wait expired with the PR still open and nothing failed -- the caller
+Exit 1: the PR closed without merging, a git/gh call failed, or GitHub stayed unreachable until
+    the timeout. Only the first poll of the PR's status fails at once; after that, a failed poll
+    is retried until the timeout.
+Exit 2: the bounded wait expired without a merge and nothing failed -- the caller
     proceeds; the next start-branch / clean-gone removes the branch once it goes [gone].
 Exit 3: the PR needs a person -- it conflicts with main, a required check failed, auto-merge
     is not armed, or it is behind a main that requires branches to be up to date; the message
     names which. Fix that and re-run.
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -71,6 +74,7 @@ def pr_status(pr: str, view: dict[str, Any]) -> PrStatus:
     return PrStatus(
         state=view["state"],
         merge_state_status=view["mergeStateStatus"],
+        head_ref_name=view["headRefName"],
         head_oid=view["headRefOid"],
         auto_merge_armed=view["autoMergeRequest"] is not None,
         # A merged or closed PR needs no check verdict, so skip the extra call.
@@ -168,15 +172,39 @@ def main(argv: list[str]) -> int:
     args = parse_args(argv)
     start = time.monotonic()
     unarmed_seen = False
+    polled_once = False
+
+    def sleep_within_timeout() -> None:
+        # Cap the sleep to the time left so a full interval cannot overshoot --timeout-seconds.
+        remaining_ms = args.timeout_ms - (time.monotonic() - start) * 1000
+        time.sleep(max(0, min(POLL_INTERVAL_SECONDS, remaining_ms / 1000)))
 
     while True:
-        view = pr_view(args.pr)
-        pr = pr_status(args.pr, view)
+        try:
+            pr = pr_status(args.pr, pr_view(args.pr))
+            polled_once = True
+        except (RuntimeError, json.JSONDecodeError) as error:
+            # A bad PR number, a missing gh login, or the wrong repo fails every poll, so the first
+            # failure ends the wait at once. Later ones (a network timeout, a rate limit) say
+            # nothing about the PR, so one of them must not cost a merge that lands minutes later.
+            if not polled_once:
+                raise
+            if (time.monotonic() - start) * 1000 >= args.timeout_ms:
+                print(
+                    f"PR #{args.pr} status still unavailable after {args.timeout_ms / 1000:g}s: "
+                    f"{error}",
+                    file=sys.stderr,
+                )
+                return 1
+            print(f"PR #{args.pr} status unavailable; polling again: {error}", file=sys.stderr)
+            sleep_within_timeout()
+            continue
+
         elapsed_ms = (time.monotonic() - start) * 1000
         outcome = merge_decision(pr, elapsed_ms, args.timeout_ms)
 
         if outcome == "merged":
-            clean_up(args.pr, view["headRefName"], pr.head_oid, args.worktree)
+            clean_up(args.pr, pr.head_ref_name, pr.head_oid, args.worktree)
             return 0
         if outcome == "closed":
             print(
@@ -194,7 +222,7 @@ def main(argv: list[str]) -> int:
         # as it merges, so one poll can land between that and the MERGED state.
         if outcome == "unarmed" and not unarmed_seen:
             unarmed_seen = True
-            time.sleep(POLL_INTERVAL_SECONDS)
+            sleep_within_timeout()
             continue
         unarmed_seen = False
         if outcome == "unarmed":
@@ -228,8 +256,7 @@ def main(argv: list[str]) -> int:
                 file=sys.stderr,
             )
             return 2
-        # Cap the sleep to the time left so a full interval cannot overshoot --timeout-seconds.
-        time.sleep(min(POLL_INTERVAL_SECONDS, (args.timeout_ms - elapsed_ms) / 1000))
+        sleep_within_timeout()
 
 
 if __name__ == "__main__":
