@@ -12,12 +12,14 @@ from pathlib import Path
 import pytest
 from view_issue import ISSUE_FIELDS
 
-SCRIPTS_DIR = Path(__file__).parent.parent / "dot-claude" / "skills" / "resolve-issue" / "scripts"
+REPO_ROOT = Path(__file__).parent.parent
+SCRIPTS_DIR = REPO_ROOT / "dot-claude" / "skills" / "resolve-issue" / "scripts"
 
 EXECUTABLES = [
-    "view_issue",
-    "start_branch",
-    "finish_branch",
+    SCRIPTS_DIR / "view_issue.py",
+    SCRIPTS_DIR / "start_branch.py",
+    SCRIPTS_DIR / "finish_branch.py",
+    REPO_ROOT / "scripts" / "merge_settings.py",
 ]
 
 
@@ -33,19 +35,19 @@ class TestIssueFields:
 
 
 class TestExecutables:
-    @pytest.mark.parametrize("module_name", EXECUTABLES)
-    def test_exposes_a_callable_main(self, module_name):
-        module = importlib.import_module(module_name)
+    @pytest.mark.parametrize("script", EXECUTABLES, ids=lambda p: p.stem)
+    def test_exposes_a_callable_main(self, script):
+        module = importlib.import_module(script.stem)
         assert callable(module.main)
 
-    @pytest.mark.parametrize("module_name", EXECUTABLES)
-    def test_carries_a_python3_shebang(self, module_name):
-        source = (SCRIPTS_DIR / f"{module_name}.py").read_text()
+    @pytest.mark.parametrize("script", EXECUTABLES, ids=lambda p: p.stem)
+    def test_carries_a_python3_shebang(self, script):
+        source = script.read_text()
         assert source.startswith("#!/usr/bin/env python3\n")
 
-    @pytest.mark.parametrize("module_name", EXECUTABLES)
-    def test_is_executable(self, module_name):
-        assert (SCRIPTS_DIR / f"{module_name}.py").stat().st_mode & 0o111
+    @pytest.mark.parametrize("script", EXECUTABLES, ids=lambda p: p.stem)
+    def test_is_executable(self, script):
+        assert script.stat().st_mode & 0o111
 
 
 class TestStartBranchWorktreeBase:
