@@ -24,6 +24,7 @@ def open_pr(
     return PrStatus(
         state="OPEN",
         merge_state_status=merge_state_status,
+        head_ref_name="7-x",
         head_oid=head_oid,
         auto_merge_armed=auto_merge_armed,
         failed_checks=failed_checks,
@@ -35,6 +36,7 @@ def finished_pr(state: str) -> PrStatus:
     return PrStatus(
         state=state,
         merge_state_status="UNKNOWN",
+        head_ref_name="7-x",
         head_oid="head1",
         auto_merge_armed=False,
         failed_checks=(),
@@ -59,6 +61,12 @@ class TestMergeDecision:
     def test_prefers_the_terminal_merged_state_even_at_the_cap(self):
         merged = finished_pr("MERGED")
         assert merge_decision(merged, CAP_MS, CAP_MS) == "merged"
+
+    def test_keeps_waiting_through_a_poll_that_could_not_reach_github(self):
+        assert merge_decision(None, 1_000, CAP_MS) == "continue"
+
+    def test_times_out_when_github_stays_unreachable_until_the_cap(self):
+        assert merge_decision(None, CAP_MS, CAP_MS) == "timeout"
 
     def test_stops_on_a_pr_that_main_requires_to_be_up_to_date(self):
         # Auto-merge never updates a BEHIND branch, so it cannot merge until someone does.
