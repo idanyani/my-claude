@@ -90,7 +90,7 @@
       "Source control: repos under github.com/idanyani/* are the user's personal projects; pushing to them is routine",
       "Source control: repos under github.com/gefen-chat/* belong to an organization the user administers; pushing to them is routine",
       "Repository visibility: some idanyani/* repos are public, including idanyani/my-claude; a push there is publishing",
-      "Cloud provider(s): AWS is the user's only cloud vendor"
+      "Cloud provider(s): AWS"
     ]
   }
 }
