@@ -21,6 +21,8 @@ from typing import Any
 
 Settings = dict[str, Any]
 
+NEW_FILE_MODE = 0o644
+
 
 def merge(repo: Settings, live: Settings) -> tuple[Settings, list[str], list[str]]:
     """Return the merged settings, the dotted paths kept from `live`, and those overwritten."""
@@ -40,28 +42,50 @@ def _merge_into(
     overwritten: list[str],
 ) -> None:
     for key, live_value in live.items():
+        path = prefix + key
         if key not in repo:
             merged[key] = live_value
-            kept.append(prefix + key)
+            kept.append(path)
+        elif isinstance(repo[key], dict) and isinstance(live_value, dict):
+            merged[key] = {}
+            _merge_into(merged[key], repo[key], live_value, path + ".", kept, overwritten)
+        else:
+            merged[key] = repo[key]
+            if live_value != repo[key]:
+                overwritten.append(path)
     for key, repo_value in repo.items():
-        path = prefix + key
         if key not in live:
             merged[key] = repo_value
-        elif isinstance(repo_value, dict) and isinstance(live[key], dict):
-            merged[key] = {}
-            _merge_into(merged[key], repo_value, live[key], path + ".", kept, overwritten)
-        else:
-            merged[key] = repo_value
-            if live[key] != repo_value:
-                overwritten.append(path)
+
+
+def _read_live(path: Path) -> Settings:
+    """Return the live settings, or none when the file is missing or not a JSON object."""
+    if not path.exists():
+        return {}
+    try:
+        live = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        live = None
+    if not isinstance(live, dict):
+        print(f"replacing {path}: not a JSON object", file=sys.stderr)
+        return {}
+    return live
 
 
 def _write_atomically(path: Path, settings: Settings) -> None:
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.name, suffix=".tmp")
-    with os.fdopen(fd, "w") as f:
-        json.dump(settings, f, indent=2, ensure_ascii=False)
-        f.write("\n")
-    os.replace(tmp, path)
+    # Resolve so a symlinked live file is updated through its link rather than replaced.
+    target = path.resolve()
+    fd, tmp = tempfile.mkstemp(dir=target.parent, prefix=target.name, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        # mkstemp creates the file owner-only; keep the mode the live file had, as `cp` did.
+        os.chmod(tmp, target.stat().st_mode & 0o777 if target.exists() else NEW_FILE_MODE)
+        os.replace(tmp, target)
+    except BaseException:
+        os.unlink(tmp)
+        raise
 
 
 def main(argv: list[str]) -> int:
@@ -70,9 +94,8 @@ def main(argv: list[str]) -> int:
     parser.add_argument("live", type=Path)
     args = parser.parse_args(argv)
 
-    repo = json.loads(args.repo.read_text())
-    live = json.loads(args.live.read_text()) if args.live.exists() else {}
-    merged, kept, overwritten = merge(repo, live)
+    repo = json.loads(args.repo.read_text(encoding="utf-8"))
+    merged, kept, overwritten = merge(repo, _read_live(args.live))
     _write_atomically(args.live, merged)
 
     for path in kept:

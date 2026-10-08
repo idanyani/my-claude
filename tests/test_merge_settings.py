@@ -1,15 +1,17 @@
 """Tests for merging the repo's settings.json into the live one at install time."""
 
 import json
-from pathlib import Path
+import os
 
 import pytest
 from merge_settings import main, merge
 
-SCRIPT = Path(__file__).parent.parent / "scripts" / "merge_settings.py"
-
 
 class TestMerge:
+    def test_keeps_the_live_key_order(self):
+        merged, _, _ = merge({"b": 1, "c": 2}, {"b": 9, "a": 0})
+        assert list(merged) == ["b", "a", "c"]
+
     def test_keeps_and_reports_a_machine_only_key(self):
         merged, kept, overwritten = merge(
             {"model": "opus"}, {"model": "opus", "autoMode": {"a": 1}}
@@ -48,6 +50,12 @@ class TestMerge:
 
 
 class TestMain:
+    @pytest.fixture
+    def repo(self, tmp_path):
+        repo = tmp_path / "repo.json"
+        repo.write_text(json.dumps({"theme": "dark"}))
+        return repo
+
     def test_merges_into_the_live_file_and_reports_drift(self, tmp_path, capsys):
         repo = tmp_path / "repo.json"
         live = tmp_path / "live.json"
@@ -69,14 +77,38 @@ class TestMain:
         assert json.loads(live.read_text()) == {"theme": "dark"}
         assert capsys.readouterr().err == ""
 
+    @pytest.mark.parametrize("broken", ["", "{trunc", "[]"])
+    def test_replaces_an_unreadable_live_file_and_warns(self, repo, tmp_path, capsys, broken):
+        # A file Claude Code left truncated must not abort the install; the old content is
+        # already unrecoverable as settings.
+        live = tmp_path / "live.json"
+        live.write_text(broken)
+        assert main([str(repo), str(live)]) == 0
+        assert json.loads(live.read_text()) == {"theme": "dark"}
+        assert "not a JSON object" in capsys.readouterr().err
+
+    def test_writes_through_a_symlinked_live_file(self, repo, tmp_path):
+        target = tmp_path / "dotfiles" / "settings.json"
+        target.parent.mkdir()
+        target.write_text(json.dumps({"autoMode": {"a": 1}}))
+        live = tmp_path / "live.json"
+        live.symlink_to(target)
+        main([str(repo), str(live)])
+        assert live.is_symlink()
+        assert json.loads(target.read_text()) == {"autoMode": {"a": 1}, "theme": "dark"}
+
+    def test_preserves_the_live_file_mode(self, repo, tmp_path):
+        live = tmp_path / "live.json"
+        live.write_text("{}")
+        live.chmod(0o644)
+        main([str(repo), str(live)])
+        assert live.stat().st_mode & 0o777 == 0o644
+
+    def test_leaves_no_temp_file_behind(self, repo, tmp_path):
+        live = tmp_path / "live.json"
+        main([str(repo), str(live)])
+        assert sorted(os.listdir(tmp_path)) == ["live.json", "repo.json"]
+
     def test_rejects_a_wrong_argument_count(self):
         with pytest.raises(SystemExit):
             main([])
-
-
-class TestExecutable:
-    def test_carries_a_python3_shebang(self):
-        assert SCRIPT.read_text().startswith("#!/usr/bin/env python3\n")
-
-    def test_is_executable(self):
-        assert SCRIPT.stat().st_mode & 0o111

@@ -53,9 +53,9 @@ cd my-claude && ./install.sh                      # idempotent; re-running heals
 
 Skills and `CLAUDE.md` are symlinked, so a `git pull` in the clone updates every machine's
 live config at once -- one canonical source instead of divergence-by-duplication.
-`settings.json` is the deliberate exception: `install.sh` merges it into the live file, so the
-repo wins on every key it defines while settings added on the machine survive and are reported
-for folding back into the repo.
+`settings.json` is the deliberate exception: `install.sh` merges it into the live file
+instead of linking it, so settings added on the machine survive; the merge rules live in
+[`scripts/merge_settings.py`](scripts/merge_settings.py).
 
 ## Development
 
