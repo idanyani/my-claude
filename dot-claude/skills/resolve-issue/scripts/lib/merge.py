@@ -116,7 +116,11 @@ def failed_required_checks(checks: list[dict[str, str]]) -> tuple[str, ...]:
 
 
 def merge_decision(
-    pr: PrStatus, updated_from_oid: str | None, idle_ms: float, timeout_ms: float
+    pr: PrStatus,
+    updated_from_oid: str | None,
+    failed_update_oid: str | None,
+    idle_ms: float,
+    timeout_ms: float,
 ) -> str:
     """Decide one tick of the bounded wait for a PR to merge.
 
@@ -129,7 +133,9 @@ def merge_decision(
     A `BEHIND` PR is one another PR's merge left out of date on a repo that requires branches to
     be up to date; auto-merge never updates it, so the caller does. `updated_from_oid` is the head
     the caller last updated from: while the head still equals it, the update has not landed yet
-    and the status is stale, so the wait continues instead of updating twice.
+    and the status is stale, so the wait continues instead of updating twice. `failed_update_oid` is
+    the head the caller's last update call failed on: a failed update is not progress, so it is
+    retried only until the cap -- otherwise a call that always fails would retry forever.
 
     Otherwise the wait continues until `idle_ms` -- time since the start or the last update --
     reaches the cap, at which point it times out (the caller proceeds; the next start-branch /
@@ -149,7 +155,11 @@ def merge_decision(
         return "unarmed"
     if pr.failed_checks:
         return "check_failed"
-    if pr.merge_state_status == "BEHIND" and pr.head_oid != updated_from_oid:
+    if (
+        pr.merge_state_status == "BEHIND"
+        and pr.head_oid != updated_from_oid
+        and not (pr.head_oid == failed_update_oid and idle_ms >= timeout_ms)
+    ):
         return "update"
     if idle_ms >= timeout_ms:
         return "timeout"
