@@ -10,7 +10,7 @@ exist under `~/.claude` lives at the same relative path under `dot-claude/`, and
 ```
 dot-claude/
   CLAUDE.md            symlinked into ~/.claude (edits flow straight back to the repo)
-  settings.json        copied (Claude Code rewrites it at runtime, which would sever a link)
+  settings.json        merged (Claude Code rewrites it at runtime, which would sever a link)
   skills/
     resolve-issue/     symlinked; one `git pull` here updates every machine's live skill
 ```
@@ -53,8 +53,9 @@ cd my-claude && ./install.sh                      # idempotent; re-running heals
 
 Skills and `CLAUDE.md` are symlinked, so a `git pull` in the clone updates every machine's
 live config at once -- one canonical source instead of divergence-by-duplication.
-`settings.json` is the deliberate exception: it is copied as a snapshot, and re-running
-`install.sh` overwrites local drift.
+`settings.json` is the deliberate exception: `install.sh` merges it into the live file, so the
+repo wins on every key it defines while settings added on the machine survive and are reported
+for folding back into the repo.
 
 ## Development
 
