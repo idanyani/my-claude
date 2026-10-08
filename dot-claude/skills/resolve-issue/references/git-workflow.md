@@ -6,7 +6,7 @@ squash-merge once CI passes. This is the canonical workflow doc; each consuming 
 repo-specifics (what `verify` runs, where its CI workflow lives).
 
 The helper scripts live in this skill's `scripts/` directory and are invoked as plain files:
-`python3 <skill-dir>/scripts/<name>.py`. They are stdlib-only and need just `python3`, `git`,
+`python3 ${CLAUDE_SKILL_DIR}/scripts/<name>.py`. They are stdlib-only and need just `python3`, `git`,
 and `gh` on PATH; they run against the current working directory's repo.
 
 ## Background
@@ -24,7 +24,7 @@ and `gh` on PATH; they run against the current working directory's repo.
 
 ## Steps
 
-1. **Branch from `main`.** `python3 <skill-dir>/scripts/start_branch.py <number>
+1. **Branch from `main`.** `python3 ${CLAUDE_SKILL_DIR}/scripts/start_branch.py <number>
    <kebab-summary>` (add `--worktree` for a sibling worktree; the script prints the
    dependency-install command the fresh worktree needs). It refuses a dirty tree (it never
    stashes silently -- surface that and ask), prunes `[gone]` branches, then branches from a
@@ -44,7 +44,7 @@ and `gh` on PATH; they run against the current working directory's repo.
    merge, so do it only after addressing the review -- never before. GitHub then merges the
    moment `verify` is green (immediately, if it already is) and notifies you; you do not
    watch the run yourself.
-5. **Return to `main` and clean up.** `python3 <skill-dir>/scripts/finish_branch.py <pr>`
+5. **Return to `main` and clean up.** `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>`
    waits for the merge, then syncs `main` and deletes the local branch (with `--worktree`,
    it first removes the sibling worktree). If another PR merges first and the repo requires
    branches to be up to date, it brings this PR up to date so parallel runs merge without a
