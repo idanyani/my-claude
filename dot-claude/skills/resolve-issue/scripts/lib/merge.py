@@ -8,10 +8,10 @@ import json
 import re
 from dataclasses import dataclass
 
-# One "no progress" window must hold a full update --> CI --> auto-merge cycle. On gefen-chat/guide
-# (measurements in idanyani/my-claude#42) CI took up to ~6 min and update-to-merge took 7-8.5 min
-# when auto-merge acted; one PR was still unmerged 13 min after its update, with auto-merge stalled
-# for an unknown reason, so the window leaves margin beyond that.
+# The window must hold a full CI --> auto-merge cycle. On gefen-chat/guide (measurements in
+# idanyani/my-claude#42) CI took up to ~6 min and push-to-merge took 7-8.5 min when auto-merge
+# acted; one PR was still unmerged after 13 min, with auto-merge stalled for an unknown reason, so
+# the window leaves margin beyond that.
 DEFAULT_TIMEOUT_SECONDS = 1200
 
 
@@ -115,34 +115,20 @@ def failed_required_checks(checks: list[dict[str, str]]) -> tuple[str, ...]:
     return tuple(check["name"] for check in checks if check["bucket"] in FAILED_CHECK_BUCKETS)
 
 
-def merge_decision(
-    pr: PrStatus,
-    updated_from_oid: str | None,
-    failed_update_oid: str | None,
-    idle_ms: float,
-    timeout_ms: float,
-) -> str:
+def merge_decision(pr: PrStatus, elapsed_ms: float, timeout_ms: float) -> str:
     """Decide one tick of the bounded wait for a PR to merge.
 
     A terminal GitHub state ends it immediately -- `MERGED` so the caller cleans up, `CLOSED`
     (unmerged) so it aborts rather than delete an unmerged branch. So does any PR that cannot merge
-    until a person acts -- a merge conflict (`DIRTY`), auto-merge not armed, or a failed required
-    check -- since waiting cannot change it. These come before updating a `BEHIND` PR, which would
-    only spend a CI run on it.
+    until a person acts -- a merge conflict (`DIRTY`), auto-merge not armed, a failed required
+    check, or `BEHIND` -- since waiting cannot change it. `BEHIND` means the repo requires branches
+    to be up to date and another merge left this one out of date -- a setting the workflow keeps
+    off (references/git-workflow.md, Background).
 
-    A `BEHIND` PR is one another PR's merge left out of date on a repo that requires branches to
-    be up to date; auto-merge never updates it, so the caller does. `updated_from_oid` is the head
-    the caller last updated from: while the head still equals it, the update has not landed yet
-    and the status is stale, so the wait continues instead of updating twice. `failed_update_oid` is
-    the head the caller's last update call failed on: a failed update is not progress, so it is
-    retried only until the cap -- otherwise a call that always fails would retry forever.
+    Otherwise the wait continues until `elapsed_ms` reaches the cap, at which point it times out
+    (the caller proceeds; the next start-branch / clean-gone cleans up the deferred merge later).
 
-    Otherwise the wait continues until `idle_ms` -- time since the start or the last update --
-    reaches the cap, at which point it times out (the caller proceeds; the next start-branch /
-    clean-gone cleans up the deferred merge later). Counting from the last update keeps a PR that
-    is waiting its turn behind other merges from timing out.
-
-    Returns one of: "merged", "closed", "conflict", "unarmed", "check_failed", "update",
+    Returns one of: "merged", "closed", "conflict", "unarmed", "check_failed", "behind",
     "timeout", "continue".
     """
     if pr.state == "MERGED":
@@ -155,13 +141,9 @@ def merge_decision(
         return "unarmed"
     if pr.failed_checks:
         return "check_failed"
-    if (
-        pr.merge_state_status == "BEHIND"
-        and pr.head_oid != updated_from_oid
-        and not (pr.head_oid == failed_update_oid and idle_ms >= timeout_ms)
-    ):
-        return "update"
-    if idle_ms >= timeout_ms:
+    if pr.merge_state_status == "BEHIND":
+        return "behind"
+    if elapsed_ms >= timeout_ms:
         return "timeout"
     return "continue"
 

@@ -6,13 +6,8 @@ Usage: python3 <skill-dir>/scripts/finish_branch.py <pr> [--worktree] [--timeout
 Launch it with the Bash tool's `run_in_background`: the default wait outlasts the tool's
 foreground timeout, which would kill it mid-wait and skip the cleanup.
 
-Waits on the PR's merge state, bounded by `--timeout-seconds` without progress: bringing a
-`BEHIND` PR up to date restarts the clock, so a PR waiting its turn behind other merges is not cut
-off. On a repo whose branch protection requires branches to be up to date, another PR's merge
-leaves this one `BEHIND`, and auto-merge never updates it; the wait then runs `gh pr
-update-branch` (a merge, never a rebase, so the pushed history stays intact) and lets CI and
-auto-merge take it from there. A PR that cannot merge until a person acts ends the wait at once
-instead of using up the window. The remote branch is already deleted by `--delete-branch`
+Waits on the PR's merge state, bounded by `--timeout-seconds`. A PR that cannot merge until a
+person acts ends the wait at once instead of using up the window. The remote branch is already deleted by `--delete-branch`
 on auto-merge (see references/git-workflow.md), so cleanup is the local side: sync `main` and
 delete the local branch -- or remove the sibling worktree first with `--worktree`. A squash merge
 leaves the branch "not fully merged" to git, so deletion is a forced `-D` only after GitHub
@@ -22,8 +17,9 @@ Exit 0: merged and cleaned up.
 Exit 1: the PR closed without merging, or a git/gh call failed.
 Exit 2: the bounded wait expired with the PR still open and nothing failed -- the caller
     proceeds; the next start-branch / clean-gone removes the branch once it goes [gone].
-Exit 3: the PR needs a person -- it conflicts with main, a required check failed, or auto-merge
-    is not armed; the message names which. Fix that and re-run.
+Exit 3: the PR needs a person -- it conflicts with main, a required check failed, auto-merge
+    is not armed, or it is behind a main that requires branches to be up to date; the message
+    names which. Fix that and re-run.
 """
 
 import os
@@ -32,7 +28,7 @@ import sys
 import time
 from typing import Any
 
-from lib.gh import run_gh, run_gh_text, run_git
+from lib.gh import run_gh, run_git
 from lib.merge import (
     PrStatus,
     branch_deletion_plan,
@@ -170,16 +166,14 @@ def clean_up(pr: str, branch: str, head_ref_oid: str, worktree: bool) -> None:
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
-    idle_start = time.monotonic()
-    updated_from_oid: str | None = None
-    failed_update_oid: str | None = None
+    start = time.monotonic()
     unarmed_seen = False
 
     while True:
         view = pr_view(args.pr)
         pr = pr_status(args.pr, view)
-        idle_ms = (time.monotonic() - idle_start) * 1000
-        outcome = merge_decision(pr, updated_from_oid, failed_update_oid, idle_ms, args.timeout_ms)
+        elapsed_ms = (time.monotonic() - start) * 1000
+        outcome = merge_decision(pr, elapsed_ms, args.timeout_ms)
 
         if outcome == "merged":
             clean_up(args.pr, view["headRefName"], pr.head_oid, args.worktree)
@@ -217,22 +211,17 @@ def main(argv: list[str]) -> int:
                 file=sys.stderr,
             )
             return EXIT_NEEDS_ATTENTION
-        if outcome == "update":
-            try:
-                run_gh_text(["pr", "update-branch", args.pr])
-                print(f"PR #{args.pr} was behind main -- updated it; CI reruns.")
-                idle_start = time.monotonic()
-                updated_from_oid = pr.head_oid
-            except RuntimeError as error:
-                # Non-fatal: auto-merge stays armed, and a stale BEHIND status or another actor's
-                # update can make the call fail on a branch that no longer needs it.
-                print(f"PR #{args.pr} update failed; still waiting: {error}", file=sys.stderr)
-                failed_update_oid = pr.head_oid
-            time.sleep(POLL_INTERVAL_SECONDS)
-            continue
+        if outcome == "behind":
+            print(
+                f"PR #{args.pr} is behind main, which requires branches to be up to date, and "
+                f"auto-merge never updates a branch -- run `gh pr update-branch {args.pr}` and "
+                "re-run, or turn that requirement off.",
+                file=sys.stderr,
+            )
+            return EXIT_NEEDS_ATTENTION
         if outcome == "timeout":
             print(
-                f"PR #{args.pr} not merged after {args.timeout_ms / 1000:g}s without progress "
+                f"PR #{args.pr} not merged after {args.timeout_ms / 1000:g}s "
                 f"(still OPEN, merge state {pr.merge_state_status}, no required check failed) -- "
                 "proceeding; the next start-branch / clean-gone removes the branch once it goes "
                 "[gone].",
@@ -240,7 +229,7 @@ def main(argv: list[str]) -> int:
             )
             return 2
         # Cap the sleep to the time left so a full interval cannot overshoot --timeout-seconds.
-        time.sleep(min(POLL_INTERVAL_SECONDS, (args.timeout_ms - idle_ms) / 1000))
+        time.sleep(min(POLL_INTERVAL_SECONDS, (args.timeout_ms - elapsed_ms) / 1000))
 
 
 if __name__ == "__main__":
