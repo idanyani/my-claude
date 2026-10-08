@@ -44,74 +44,39 @@ def finished_pr(state: str) -> PrStatus:
 class TestMergeDecision:
     def test_ends_the_wait_as_soon_as_the_pr_is_merged(self):
         merged = finished_pr("MERGED")
-        assert merge_decision(merged, None, None, 0, CAP_MS) == "merged"
+        assert merge_decision(merged, 0, CAP_MS) == "merged"
 
     def test_aborts_when_the_pr_is_closed_unmerged(self):
         closed = finished_pr("CLOSED")
-        assert merge_decision(closed, None, None, 0, CAP_MS) == "closed"
+        assert merge_decision(closed, 0, CAP_MS) == "closed"
 
     def test_keeps_waiting_while_open_and_time_remains(self):
-        assert merge_decision(open_pr(), None, None, 1_000, CAP_MS) == "continue"
+        assert merge_decision(open_pr(), 1_000, CAP_MS) == "continue"
 
     def test_times_out_an_open_pr_once_the_cap_is_reached(self):
-        assert merge_decision(open_pr(), None, None, CAP_MS, CAP_MS) == "timeout"
+        assert merge_decision(open_pr(), CAP_MS, CAP_MS) == "timeout"
 
     def test_prefers_the_terminal_merged_state_even_at_the_cap(self):
         merged = finished_pr("MERGED")
-        assert merge_decision(merged, None, None, CAP_MS, CAP_MS) == "merged"
+        assert merge_decision(merged, CAP_MS, CAP_MS) == "merged"
 
-    def test_updates_a_pr_that_fell_behind_main(self):
-        assert merge_decision(open_pr("BEHIND"), None, None, 1_000, CAP_MS) == "update"
-
-    def test_updates_a_behind_pr_even_at_the_cap(self):
-        # Falling behind is progress on a strict repo -- another PR merged -- not a stall.
-        assert merge_decision(open_pr("BEHIND"), None, None, CAP_MS, CAP_MS) == "update"
-
-    def test_waits_for_an_issued_update_to_land_before_updating_again(self):
-        # Until GitHub pushes the update's merge commit, the head is unchanged and the status
-        # still reads BEHIND; a second update-branch call then would fail or duplicate work.
-        pr = open_pr("BEHIND", head_oid="head1")
-        assert merge_decision(pr, "head1", None, 1_000, CAP_MS) == "continue"
-
-    def test_updates_again_when_main_moves_after_an_earlier_update(self):
-        pr = open_pr("BEHIND", head_oid="head2")
-        assert merge_decision(pr, "head1", None, 1_000, CAP_MS) == "update"
-
-    def test_retries_an_update_that_failed_while_time_remains(self):
-        pr = open_pr("BEHIND", head_oid="head1")
-        assert merge_decision(pr, None, "head1", 1_000, CAP_MS) == "update"
-
-    def test_times_out_a_behind_pr_whose_update_keeps_failing(self):
-        # A failed update is not progress: without this the loop would retry forever.
-        pr = open_pr("BEHIND", head_oid="head1")
-        assert merge_decision(pr, None, "head1", CAP_MS, CAP_MS) == "timeout"
-
-    def test_updates_a_behind_pr_at_the_cap_once_its_head_moved_past_a_failed_update(self):
-        pr = open_pr("BEHIND", head_oid="head2")
-        assert merge_decision(pr, None, "head1", CAP_MS, CAP_MS) == "update"
+    def test_stops_on_a_pr_that_main_requires_to_be_up_to_date(self):
+        # Auto-merge never updates a BEHIND branch, so it cannot merge until someone does.
+        assert merge_decision(open_pr("BEHIND"), 1_000, CAP_MS) == "behind"
 
     def test_stops_on_a_merge_conflict(self):
-        assert merge_decision(open_pr("DIRTY"), None, None, 1_000, CAP_MS) == "conflict"
+        assert merge_decision(open_pr("DIRTY"), 1_000, CAP_MS) == "conflict"
 
     def test_stops_when_auto_merge_is_not_armed(self):
         pr = open_pr(auto_merge_armed=False)
-        assert merge_decision(pr, None, None, 1_000, CAP_MS) == "unarmed"
+        assert merge_decision(pr, 1_000, CAP_MS) == "unarmed"
 
     def test_stops_when_a_required_check_failed(self):
         pr = open_pr(failed_checks=("verify",))
-        assert merge_decision(pr, None, None, 1_000, CAP_MS) == "check_failed"
-
-    def test_does_not_update_a_behind_pr_whose_required_check_failed(self):
-        # An update would spend a CI run on a PR that cannot merge until someone fixes it.
-        pr = open_pr("BEHIND", failed_checks=("verify",))
-        assert merge_decision(pr, None, None, 1_000, CAP_MS) == "check_failed"
-
-    def test_does_not_update_a_behind_pr_without_auto_merge(self):
-        pr = open_pr("BEHIND", auto_merge_armed=False)
-        assert merge_decision(pr, None, None, 1_000, CAP_MS) == "unarmed"
+        assert merge_decision(pr, 1_000, CAP_MS) == "check_failed"
 
     def test_keeps_waiting_while_required_checks_are_pending(self):
-        assert merge_decision(open_pr(failed_checks=()), None, None, 1_000, CAP_MS) == "continue"
+        assert merge_decision(open_pr(failed_checks=()), 1_000, CAP_MS) == "continue"
 
 
 class TestFailedRequiredChecks:
