@@ -14,8 +14,9 @@ squash merge leaves the branch "not fully merged" to git, so deletion is a force
 GitHub confirms the merge, never a plain `-d` on an unmerged branch.
 
 Exit 0: merged and cleaned up.
-Exit 1: the PR closed without merging, or a git/gh call during cleanup failed. A failed poll
-    of the PR's status does not end the wait; the next poll tries again.
+Exit 1: the PR closed without merging, a git/gh call failed, or GitHub stayed unreachable until
+    the timeout. Only the first poll of the PR's status fails at once; after that, a failed poll
+    is retried until the timeout.
 Exit 2: the bounded wait expired without a merge and nothing failed -- the caller
     proceeds; the next start-branch / clean-gone removes the branch once it goes [gone].
 Exit 3: the PR needs a person -- it conflicts with main, a required check failed, auto-merge
@@ -23,6 +24,7 @@ Exit 3: the PR needs a person -- it conflicts with main, a required check failed
     names which. Fix that and re-run.
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -78,17 +80,6 @@ def pr_status(pr: str, view: dict[str, Any]) -> PrStatus:
         # A merged or closed PR needs no check verdict, so skip the extra call.
         failed_checks=failed_required_checks(required_checks(pr)) if open_ else (),
     )
-
-
-def poll(pr: str) -> PrStatus | None:
-    """The PR's status, or None when `gh` could not get it."""
-    try:
-        return pr_status(pr, pr_view(pr))
-    except RuntimeError as error:
-        # Whether the cause is transient (network, rate limit) or not, the timeout bounds a GitHub
-        # that stays unreachable.
-        print(f"PR #{pr} status unavailable; polling again: {error}", file=sys.stderr)
-        return None
 
 
 def local_branch_oid(branch: str) -> str | None:
@@ -181,26 +172,37 @@ def main(argv: list[str]) -> int:
     args = parse_args(argv)
     start = time.monotonic()
     unarmed_seen = False
+    polled_once = False
+
+    def sleep_within_timeout() -> None:
+        # Cap the sleep to the time left so a full interval cannot overshoot --timeout-seconds.
+        remaining_ms = args.timeout_ms - (time.monotonic() - start) * 1000
+        time.sleep(max(0, min(POLL_INTERVAL_SECONDS, remaining_ms / 1000)))
 
     while True:
-        pr = poll(args.pr)
+        try:
+            pr = pr_status(args.pr, pr_view(args.pr))
+            polled_once = True
+        except (RuntimeError, json.JSONDecodeError) as error:
+            # A bad PR number, a missing gh login, or the wrong repo fails every poll, so the first
+            # failure ends the wait at once. Later ones (a network timeout, a rate limit) say
+            # nothing about the PR, so one of them must not cost a merge that lands minutes later.
+            if not polled_once:
+                raise
+            if (time.monotonic() - start) * 1000 >= args.timeout_ms:
+                print(
+                    f"PR #{args.pr} status still unavailable after {args.timeout_ms / 1000:g}s: "
+                    f"{error}",
+                    file=sys.stderr,
+                )
+                return 1
+            print(f"PR #{args.pr} status unavailable; polling again: {error}", file=sys.stderr)
+            sleep_within_timeout()
+            continue
+
         elapsed_ms = (time.monotonic() - start) * 1000
         outcome = merge_decision(pr, elapsed_ms, args.timeout_ms)
 
-        if outcome == "timeout":
-            merge_state = pr.merge_state_status if pr else "unavailable"
-            print(
-                f"PR #{args.pr} not merged after {args.timeout_ms / 1000:g}s "
-                f"(merge state {merge_state}, no required check failed) -- proceeding; the next "
-                "start-branch / clean-gone removes the branch once it goes [gone].",
-                file=sys.stderr,
-            )
-            return 2
-        if outcome == "continue" or pr is None:
-            unarmed_seen = False
-            # Cap the sleep to the time left so a full interval cannot overshoot --timeout-seconds.
-            time.sleep(min(POLL_INTERVAL_SECONDS, (args.timeout_ms - elapsed_ms) / 1000))
-            continue
         if outcome == "merged":
             clean_up(args.pr, pr.head_ref_name, pr.head_oid, args.worktree)
             return 0
@@ -220,8 +222,9 @@ def main(argv: list[str]) -> int:
         # as it merges, so one poll can land between that and the MERGED state.
         if outcome == "unarmed" and not unarmed_seen:
             unarmed_seen = True
-            time.sleep(POLL_INTERVAL_SECONDS)
+            sleep_within_timeout()
             continue
+        unarmed_seen = False
         if outcome == "unarmed":
             print(
                 f"PR #{args.pr} has no auto-merge armed, so nothing will merge it -- run "
@@ -244,7 +247,16 @@ def main(argv: list[str]) -> int:
                 file=sys.stderr,
             )
             return EXIT_NEEDS_ATTENTION
-        raise AssertionError(f"unhandled merge_decision outcome {outcome!r}")
+        if outcome == "timeout":
+            print(
+                f"PR #{args.pr} not merged after {args.timeout_ms / 1000:g}s "
+                f"(still OPEN, merge state {pr.merge_state_status}, no required check failed) -- "
+                "proceeding; the next start-branch / clean-gone removes the branch once it goes "
+                "[gone].",
+                file=sys.stderr,
+            )
+            return 2
+        sleep_within_timeout()
 
 
 if __name__ == "__main__":

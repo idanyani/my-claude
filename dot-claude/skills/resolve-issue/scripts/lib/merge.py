@@ -116,7 +116,7 @@ def failed_required_checks(checks: list[dict[str, str]]) -> tuple[str, ...]:
     return tuple(check["name"] for check in checks if check["bucket"] in FAILED_CHECK_BUCKETS)
 
 
-def merge_decision(pr: PrStatus | None, elapsed_ms: float, timeout_ms: float) -> str:
+def merge_decision(pr: PrStatus, elapsed_ms: float, timeout_ms: float) -> str:
     """Decide one tick of the bounded wait for a PR to merge.
 
     A terminal GitHub state ends it immediately -- `MERGED` so the caller cleans up, `CLOSED`
@@ -126,17 +126,12 @@ def merge_decision(pr: PrStatus | None, elapsed_ms: float, timeout_ms: float) ->
     to be up to date and another merge left this one out of date -- a setting the workflow keeps
     off (references/git-workflow.md, Background).
 
-    `pr` is None when the poll could not reach GitHub. That says nothing about the PR, so it never
-    ends the wait early: one network error must not cost a merge that lands minutes later.
-
     Otherwise the wait continues until `elapsed_ms` reaches the cap, at which point it times out
     (the caller proceeds; the next start-branch / clean-gone cleans up the deferred merge later).
 
     Returns one of: "merged", "closed", "conflict", "unarmed", "check_failed", "behind",
     "timeout", "continue".
     """
-    if pr is None:
-        return "timeout" if elapsed_ms >= timeout_ms else "continue"
     if pr.state == "MERGED":
         return "merged"
     if pr.state == "CLOSED":

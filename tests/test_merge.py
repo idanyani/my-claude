@@ -62,12 +62,6 @@ class TestMergeDecision:
         merged = finished_pr("MERGED")
         assert merge_decision(merged, CAP_MS, CAP_MS) == "merged"
 
-    def test_keeps_waiting_through_a_poll_that_could_not_reach_github(self):
-        assert merge_decision(None, 1_000, CAP_MS) == "continue"
-
-    def test_times_out_when_github_stays_unreachable_until_the_cap(self):
-        assert merge_decision(None, CAP_MS, CAP_MS) == "timeout"
-
     def test_stops_on_a_pr_that_main_requires_to_be_up_to_date(self):
         # Auto-merge never updates a BEHIND branch, so it cannot merge until someone does.
         assert merge_decision(open_pr("BEHIND"), 1_000, CAP_MS) == "behind"
