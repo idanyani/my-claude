@@ -6,12 +6,12 @@ Usage: python3 <skill-dir>/scripts/finish_branch.py <pr> [--worktree] [--timeout
 Launch it with the Bash tool's `run_in_background`: the default wait outlasts the tool's
 foreground timeout, which would kill it mid-wait and skip the cleanup.
 
-Waits on the PR's merge state, bounded by `--timeout-seconds`. A PR that cannot merge until a
-person acts ends the wait at once instead of using up the window. The remote branch is already deleted by `--delete-branch`
-on auto-merge (see references/git-workflow.md), so cleanup is the local side: sync `main` and
-delete the local branch -- or remove the sibling worktree first with `--worktree`. A squash merge
-leaves the branch "not fully merged" to git, so deletion is a forced `-D` only after GitHub
-confirms the merge, never a plain `-d` on an unmerged branch.
+Waits on the PR's merge state, bounded by `--timeout-seconds`. A PR that cannot merge until a person
+acts ends the wait at once instead of using up the window. The remote branch is already deleted by
+`--delete-branch` on auto-merge (see references/git-workflow.md), so cleanup is the local side: sync
+`main` and delete the local branch -- or remove the sibling worktree first with `--worktree`. A
+squash merge leaves the branch "not fully merged" to git, so deletion is a forced `-D` only after
+GitHub confirms the merge, never a plain `-d` on an unmerged branch.
 
 Exit 0: merged and cleaned up.
 Exit 1: the PR closed without merging, or a git/gh call failed.

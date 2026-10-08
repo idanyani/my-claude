@@ -49,9 +49,9 @@ and `gh` on PATH; they run against the current working directory's repo.
 5. **Return to `main` and clean up.** `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>`
    waits for the merge, then syncs `main` and deletes the local branch (with `--worktree`,
    it first removes the sibling worktree). When the PR cannot merge until you act, it stops
-   and says why (see Troubleshooting). Launch it with the Bash tool's `run_in_background`: its wait outlasts the
-   tool's 120-second foreground default, which would kill it before the cleanup. The harness
-   reports its exit, so do not poll for it. To skip the wait, just
+   and says why (see Troubleshooting). Launch it with the Bash tool's `run_in_background`: its
+   wait outlasts the tool's 120-second foreground default, which would kill it before the
+   cleanup. The harness reports its exit, so do not poll for it. To skip the wait, just
    `git checkout main` and let the merge land asynchronously -- the next `start_branch` deletes
    the `[gone]` branch.
 
@@ -69,4 +69,4 @@ conventions live in the repo's `CLAUDE.md`.
   - *A required check failed:* push a fix as a new commit, or re-run the check if it was flaky.
   - *Auto-merge not armed:* arm it (step 4).
   - *Behind `main`:* the repo requires branches to be up to date (see Background). Run
-    `gh pr update-branch <pr>`, and turn that requirement off.
+    `gh pr update-branch <pr>` (it merges `main` in, never rebases), and turn that requirement off.
