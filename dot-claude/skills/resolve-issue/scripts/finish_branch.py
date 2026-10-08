@@ -221,11 +221,12 @@ def main(argv: list[str]) -> int:
                 run_gh_text(["pr", "update-branch", args.pr])
                 print(f"PR #{args.pr} was behind main -- updated it; CI reruns.")
                 idle_start = time.monotonic()
+                updated_from_oid = pr.head_oid
             except RuntimeError as error:
                 # Non-fatal: auto-merge stays armed, and a stale BEHIND status or another actor's
-                # update can make the call fail on a branch that no longer needs it.
+                # update can make the call fail on a branch that no longer needs it. The next poll
+                # retries a PR still BEHIND; the idle clock, left running, bounds repeated failures.
                 print(f"PR #{args.pr} update failed; still waiting: {error}", file=sys.stderr)
-            updated_from_oid = pr.head_oid
             time.sleep(POLL_INTERVAL_SECONDS)
             continue
         if outcome == "timeout":
