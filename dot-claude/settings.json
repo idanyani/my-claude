@@ -83,5 +83,13 @@
   "tui": "fullscreen",
   "theme": "dark-daltonized",
   "agentPushNotifEnabled": true,
-  "voiceEnabled": true
+  "voiceEnabled": true,
+  "autoMode": {
+    "environment": [
+      "$defaults",
+      "Source control: github.com/idanyani/* (personal) and github.com/gefen-chat/* (user is org admin); pushes there are routine",
+      "Repository visibility: some idanyani/* repos are public, e.g. idanyani/my-claude",
+      "Cloud provider(s): AWS"
+    ]
+  }
 }
