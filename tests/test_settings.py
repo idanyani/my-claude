@@ -76,7 +76,7 @@ class TestDenyRules:
 
 # The same file installs on every machine and into Tiki's image, whose home directories differ,
 # so a rule naming one home directory never matches anywhere else.
-HOME_DIR_PATH = re.compile(r"/(home|Users)/[^/\s]+/|/root/")
+HOME_DIR_PATH = re.compile(r"(?<![\w./])/(home|Users)/\w|(?<![\w./])/root\b")
 
 
 def _strings(value: object) -> list[str]:
