@@ -1,6 +1,7 @@
 """Contract checks on the shipped dot-claude/settings.json."""
 
 import json
+import re
 from pathlib import Path
 
 SETTINGS_PATH = Path(__file__).parent.parent / "dot-claude" / "settings.json"
@@ -71,3 +72,32 @@ class TestDenyRules:
 
     def test_secret_and_code_paths_are_denied_to_edit(self):
         assert not _missing("Edit", SECRET_PATHS + CODE_PATHS)
+
+
+# The same file installs on every machine and into Tiki's image, whose home directories differ,
+# so a rule naming one home directory never matches anywhere else.
+HOME_DIR_PATH = re.compile(r"/(home|Users)/[^/\s]+/|/root/")
+
+
+def _strings(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [s for k, v in value.items() for s in _strings(k) + _strings(v)]
+    if isinstance(value, list):
+        return [s for item in value for s in _strings(item)]
+    return []
+
+
+class TestPortability:
+    def test_no_value_names_a_home_directory(self):
+        settings = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+        assert not [s for s in _strings(settings) if HOME_DIR_PATH.search(s)]
+
+
+class TestPlugins:
+    def test_each_plugin_is_enabled_from_one_marketplace(self):
+        # install.sh keeps keys the repo lacks, so a plugin is retired by setting it to false.
+        plugins = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))["enabledPlugins"]
+        names = [key.split("@")[0] for key, enabled in plugins.items() if enabled]
+        assert not {name for name in names if names.count(name) > 1}

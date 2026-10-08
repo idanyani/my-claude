@@ -1,6 +1,9 @@
 ---
 name: maintain
 description: Use when the user wants a maintenance sweep of recent work for the debris fast development leaves behind -- says "maintain", "/maintain", "audit the repo", or "check for stale docs / unbacked claims / docs shape / duplication / dead code / test quality / convention drift". Reports ranked findings for triage and makes NO edits. Do NOT use for line-level bug review (use /code-review), security review (use /security-review), or simplifying live code (use /simplify).
+allowed-tools:
+  - Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/changed_files.py *)
+  - Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/check_links.py *)
 ---
 
 # Maintain: sweep recent work for drift and debris
@@ -15,7 +18,7 @@ confidently wrong docs; the fix decision stays with you.
 This skill is repo-agnostic. The repo's `CLAUDE.md` (and the global conventions it inherits) is the
 rubric -- read it. The audit checklist derived from those conventions lives in
 [references/conventions-rubric.md](references/conventions-rubric.md). Helper scripts live in this
-skill's `scripts/` directory, invoked as plain files: `python3 <skill-dir>/scripts/<name>.py`
+skill's `scripts/` directory, invoked as plain files: `python3 ${CLAUDE_SKILL_DIR}/scripts/<name>.py`
 (stdlib-only; they need `python3` and `git` on PATH and run against the current repo).
 
 Scope stays deliberately narrow. Security, line-level correctness bugs, and over-engineering of live
@@ -27,7 +30,7 @@ duplicating a mature tool is the exact anti-pattern this skill exists to catch.
 Read `README.md`, the repo's `CLAUDE.md`, and `git log --oneline -10` so findings account for fresh
 changes. Then compute the file set:
 
-- Default: `python3 <skill-dir>/scripts/changed_files.py` -- the current branch's work (changes
+- Default: `python3 ${CLAUDE_SKILL_DIR}/scripts/changed_files.py` -- the current branch's work (changes
   since the merge-base with `main`, plus uncommitted and untracked files). This matches the pain:
   debris left *during* a cycle.
 - Whole repo: pass `--all` when the user asks for a full sweep.
@@ -47,7 +50,7 @@ anchor to a file or directory), no prose, no preamble. Severity is HIGH / MEDIUM
    longer match the code, including CI stages that no longer match the documented pipeline, and
    claims nothing in the code makes true: an unreflected priority, a bypassed guarantee, a fake
    "real" example, an incomplete rule list, a recipe that cannot run. Seed this agent with the
-   deterministic broken-link findings from `python3 <skill-dir>/scripts/check_links.py` (feed it
+   deterministic broken-link findings from `python3 ${CLAUDE_SKILL_DIR}/scripts/check_links.py` (feed it
    the markdown paths from Phase 1) so it spends judgment on stale prose, not path resolution.
 2. **Duplication and reinvention** -- the same fact, logic, or comment stated in more than one
    place (CI steps and config values included), and new code that reimplements an existing utility
