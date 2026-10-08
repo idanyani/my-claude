@@ -19,34 +19,55 @@ class TestAutoMode:
             assert DEFAULTS_MARKER in entries, f"autoMode.{name} drops the built-in entries"
 
 
-# Credential stores a session must neither read nor modify. Writing to a shell rc file or
-# authorized_keys would plant persistence, so Edit is denied alongside Read.
-CREDENTIAL_PATHS = [
+# Files that hold secrets, or that export them (the shell rc files): reading one leaks the
+# secret and editing one plants code, so both Read and Edit are denied.
+SECRET_PATHS = [
     "~/.ssh/**",
     "~/.aws/**",
     "~/.config/gh/**",
+    "~/.claude/.credentials.json",
     "~/.docker/config.json",
     "~/.gnupg/**",
+    "~/.kube/**",
+    "~/.config/gcloud/**",
+    "~/.azure/**",
     "~/.netrc",
     "~/.git-credentials",
+    "~/.config/git/credentials",
     "~/.npmrc",
     "~/.pypirc",
+    "~/.pgpass",
     "~/.bashrc",
     "~/.zshrc",
     "~/.profile",
     "~/.bash_profile",
 ]
-DENIED_TOOLS = ["Read", "Edit"]
+# Files whose contents run as code later (shell startup, git hooks and helpers, Claude Code's
+# own hooks and permissions) but hold no secrets: only Edit is denied.
+CODE_PATHS = [
+    "~/.bash_aliases",
+    "~/.bash_login",
+    "~/.zshenv",
+    "~/.zprofile",
+    "~/.gitconfig",
+    "~/.config/git/config",
+    "~/.claude/settings.json",
+]
 
 
-class TestCredentialDeny:
-    def test_every_credential_path_is_denied_to_every_file_tool(self):
-        permissions = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))["permissions"]
-        deny = set(permissions.get("deny", []))
-        missing = [
-            f"{tool}({path})"
-            for path in CREDENTIAL_PATHS
-            for tool in DENIED_TOOLS
-            if f"{tool}({path})" not in deny
-        ]
-        assert not missing, f"permissions.deny lacks {missing}"
+def _deny_rules() -> set[str]:
+    permissions = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))["permissions"]
+    return set(permissions.get("deny", []))
+
+
+def _missing(tool: str, paths: list[str]) -> list[str]:
+    deny = _deny_rules()
+    return [f"{tool}({path})" for path in paths if f"{tool}({path})" not in deny]
+
+
+class TestDenyRules:
+    def test_secret_paths_are_denied_to_read(self):
+        assert not _missing("Read", SECRET_PATHS)
+
+    def test_secret_and_code_paths_are_denied_to_edit(self):
+        assert not _missing("Edit", SECRET_PATHS + CODE_PATHS)
