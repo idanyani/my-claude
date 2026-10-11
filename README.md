@@ -48,7 +48,7 @@ which clones this repo if missing and runs `install.sh`. Directly:
 
 ```sh
 git clone git@github.com:idanyani/my-claude.git   # any location works
-cd my-claude && ./install.sh                      # idempotent; re-running heals moved links
+cd my-claude && ./install.sh                      # idempotent; heals moved links, retires dropped ones
 ```
 
 Skills and `CLAUDE.md` are symlinked, so a `git pull` in the clone updates every machine's
