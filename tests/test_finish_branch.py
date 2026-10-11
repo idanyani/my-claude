@@ -12,6 +12,7 @@ UNARMED = {**ARMED, "autoMergeRequest": None}
 CONFLICT = {**ARMED, "mergeable": "CONFLICTING"}
 MERGED = {"state": "MERGED", "mergeable": "UNKNOWN", "autoMergeRequest": None}
 CLOSED = {"state": "CLOSED", "mergeable": "UNKNOWN", "autoMergeRequest": None}
+REFUSED = RuntimeError("gh pr merge exited 1: GraphQL: Pull Request is not mergeable")
 
 
 @pytest.fixture
@@ -20,16 +21,32 @@ def git_calls() -> list[list[str]]:
 
 
 @pytest.fixture
-def run(monkeypatch: pytest.MonkeyPatch, git_calls: list[list[str]]):
-    """Run `main` against scripted `gh pr view` results; returns its exit code."""
+def arm_calls() -> list[str]:
+    return []
+
+
+@pytest.fixture
+def run(monkeypatch: pytest.MonkeyPatch, git_calls: list[list[str]], arm_calls: list[str]):
+    """Run `main` against scripted `gh pr view` results; returns its exit code.
+
+    `refusals` is how many arm attempts GitHub refuses before one succeeds.
+    """
 
     def run_git(args: list[str]) -> str:
         git_calls.append(args)
         return "worktree /home/dev/repo\n" if args[:2] == ["worktree", "list"] else ""
 
-    def start(views: list[dict], *flags: str) -> int:
+    def start(views: list[dict], *flags: str, refusals: int = 0) -> int:
         script: Iterator[dict] = iter(views)
+
+        def arm_auto_merge(pr: str) -> str:
+            arm_calls.append(pr)
+            if len(arm_calls) <= refusals:
+                raise REFUSED
+            return "Pull request will be automatically merged"
+
         monkeypatch.setattr(finish_branch, "run_gh", lambda _args: next(script))
+        monkeypatch.setattr(finish_branch, "arm_auto_merge", arm_auto_merge)
         monkeypatch.setattr(finish_branch, "run_git", run_git)
         monkeypatch.setattr(finish_branch.time, "sleep", lambda _seconds: None)
         return finish_branch.main([PR, *flags])
@@ -55,6 +72,31 @@ def test_waits_while_github_computes_mergeability(run):
     assert run([UNKNOWN, UNKNOWN, CONFLICT]) == finish_branch.EXIT_NEEDS_ATTENTION
 
 
+def test_arms_auto_merge(run, arm_calls):
+    assert run([UNARMED, ARMED]) == 0
+    assert arm_calls == [PR]
+
+
+def test_retries_an_arm_github_refused(run, arm_calls):
+    assert run([UNARMED, UNARMED, ARMED], refusals=1) == 0
+    assert arm_calls == [PR, PR]
+
+
+@pytest.mark.parametrize("view", [ARMED, UNKNOWN, MERGED, CONFLICT, CLOSED])
+def test_arms_only_an_open_unarmed_pr(run, arm_calls, view):
+    run([view] * finish_branch.POLL_LIMIT)
+    assert arm_calls == []
+
+
+def test_reports_the_last_arm_attempt_not_an_earlier_refusal(run, capsys):
+    # GitHub accepted the second attempt, yet the PR never read as armed.
+    views = [UNARMED] * finish_branch.POLL_LIMIT
+    assert run(views, refusals=1) == finish_branch.EXIT_NEEDS_ATTENTION
+    err = capsys.readouterr().err
+    assert "automatically merged" in err
+    assert "not mergeable" not in err
+
+
 def test_rechecks_a_request_cleared_by_the_merge(run):
     assert run([UNARMED, MERGED]) == 0
 
@@ -65,9 +107,10 @@ def test_stops_for_a_person_on_a_conflict(run, git_calls, capsys):
     assert not returned_to_main(git_calls)
 
 
-def test_stops_for_a_person_when_auto_merge_stays_unarmed(run, capsys):
-    assert run([UNARMED] * finish_branch.POLL_LIMIT) == finish_branch.EXIT_NEEDS_ATTENTION
-    assert "gh pr merge --auto" in capsys.readouterr().err
+def test_stops_for_a_person_naming_why_github_kept_refusing_the_arm(run, capsys):
+    views = [UNARMED] * finish_branch.POLL_LIMIT
+    assert run(views, refusals=len(views)) == finish_branch.EXIT_NEEDS_ATTENTION
+    assert "Pull Request is not mergeable" in capsys.readouterr().err
 
 
 def test_proceeds_when_mergeability_stays_unknown(run, git_calls, capsys):

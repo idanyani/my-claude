@@ -69,13 +69,14 @@ stays in the issue. Then: `git push -u origin <branch>`, `gh pr create --fill`, 
 in this session with `/code-review <pr>`. Apply the findings worth applying and push fixes **as
 additional commits -- never amend or force-push the pushed branch; the squash-merge collapses
 them into one commit on `main`**; dismiss the rest with a one-line reason. Review once -- do not
-loop on further advisory findings. Only then arm auto-merge:
-`gh pr merge --auto --squash --delete-branch`.
+loop on further advisory findings.
 
-## Phase 8 -- Finish and clean up
+## Phase 8 -- Merge and finish
 
-`python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` (add `--worktree` if you used it in Phase 4)
-confirms within seconds that GitHub will merge the PR without a person, then returns to `main` --
-with `--worktree`, `cd` to the main checkout it names. It does not wait for CI. If it exits 3, fix
-what it names and re-run it. Then summarize the change,
-the test results, the triage, and the PR link for the user.
+Once the review is addressed (arming authorizes the merge -- see step 4 of
+[references/git-workflow.md](references/git-workflow.md)), run
+`python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` (add `--worktree` if you used it in Phase 4):
+it arms auto-merge, confirms within seconds that GitHub will merge the PR without a person, then
+returns to `main` -- with `--worktree`, `cd` to the main checkout it names. It does not wait for
+CI. If it exits 3, fix what it names and re-run it. Then summarize the change, the test results,
+the triage, and the PR link for the user.
