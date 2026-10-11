@@ -59,6 +59,62 @@ class TestFindSelfMatches:
         (match,) = find_self_matches(command)
         assert match.pattern == "pytest"
 
+    def test_an_arithmetic_shift_is_not_a_heredoc(self):
+        for shift in ("echo $((1 << 4))", "(( x = y << 2 ))"):
+            (match,) = find_self_matches(f"{shift}\npgrep -f pytest\n4")
+            assert match.pattern == "pytest"
+
+    def test_an_ansi_c_quote_with_an_escaped_apostrophe_closes(self):
+        command = "echo $'it\\'s'\ncat <<EOF\npgrep -f pytest\nEOF"
+        assert find_self_matches(command) == []
+
+    def test_a_heredoc_inside_backticks_is_data(self):
+        command = 'x="`cat <<EOF\nA 5" display\npgrep -f pytest\nEOF\n`"\npgrep -f gamma'
+        assert [m.pattern for m in find_self_matches(command)] == ["gamma"]
+
+    def test_a_heredoc_left_open_by_closing_backticks_ends_there(self):
+        # Bash reads the substitution to its closing backtick first, so the heredoc in it ends
+        # at that backtick and the next line runs as a command.
+        command = 'x="`cat <<EOF`"\npgrep -f pytest\nEOF'
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_a_heredoc_operator_without_a_delimiter_hides_nothing(self):
+        (match,) = find_self_matches("cat <<\npgrep -f pytest\n\nEOF")
+        assert match.pattern == "pytest"
+
+    def test_unbalanced_quoting_falls_back_to_heredocs_line_by_line(self):
+        # Bash rejects the unclosed quote, so nothing here runs. A quoting mistake must not
+        # leave every later heredoc body to be scanned as commands.
+        command = 'echo "unclosed\ncat <<EOF\npgrep -f pytest\nEOF'
+        assert find_self_matches(command) == []
+
+    def test_a_dash_heredoc_closes_on_a_tab_indented_delimiter(self):
+        command = "cat <<-EOF\n\tpgrep -f pytest\n\tEOF\npgrep -f gamma"
+        assert [m.pattern for m in find_self_matches(command)] == ["gamma"]
+
+    def test_a_plain_heredoc_does_not_close_on_an_indented_delimiter(self):
+        command = "cat <<EOF\n  EOF\npgrep -f pytest\nEOF\npgrep -f gamma"
+        assert [m.pattern for m in find_self_matches(command)] == ["gamma"]
+
+    def test_a_double_quoted_delimiter_is_unquoted_before_matching(self):
+        command = 'cat <<"EOF"\npgrep -f pytest\nEOF\npgrep -f gamma'
+        assert [m.pattern for m in find_self_matches(command)] == ["gamma"]
+
+    def test_a_heredoc_operator_in_a_comment_opens_nothing(self):
+        command = "echo hi # see <<EOF\npgrep -f pytest\nEOF\npgrep -f gamma"
+        assert [m.pattern for m in find_self_matches(command)] == ["pytest", "gamma"]
+
+    def test_a_heredoc_body_starts_after_an_escaped_newline(self):
+        command = "cat <<EOF \\\n&& pgrep -f pytest\nbody\nEOF"
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_a_heredoc_body_starts_after_a_quoted_newline(self):
+        command = 'cat <<EOF "a\nb" && pgrep -f pytest\nbody\nEOF'
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
     def test_a_redirection_target_is_not_mistaken_for_the_pattern(self):
         # `>/dev/null` tokenizes as an operator plus a word; neither is a pgrep operand.
         (match,) = find_self_matches(

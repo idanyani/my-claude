@@ -36,8 +36,14 @@ QUOTES = frozenset("'\"")
 # Unquoted characters that end a shell word.
 METACHARACTERS = frozenset(" \t;&|()<>")
 
-# What a quoting context stack holds for an open command substitution or subshell.
-SUBSHELL = "("
+# Markers on the stack of open quoting contexts, beside the quote characters themselves.
+ANSI_C_QUOTE = "$'"
+SUBSHELL = "$("  # a command substitution or a plain `(` subshell
+ARITHMETIC = "(("  # `$((...))` or `((...))`, where `<<` is a shift
+BACKTICK = "`"
+
+# Contexts in which a newline is part of a word rather than a command separator.
+QUOTING_CONTEXTS = QUOTES | {ANSI_C_QUOTE}
 
 # Short options that consume the following token, so its value is never mistaken for the pattern.
 SHORT_OPTIONS_WITH_VALUE = frozenset("dgGPstuUFjrqMN")
@@ -132,7 +138,7 @@ def _heredoc_delimiter(line: str, index: int) -> tuple[HeredocDelimiter, int]:
         elif char == "\\":
             index += 1
             word.append(line[index : index + 1])
-        elif char in METACHARACTERS:
+        elif char in METACHARACTERS or char == BACKTICK:  # a backtick may close a substitution
             break
         else:
             word.append(char)
@@ -144,43 +150,104 @@ def _scan_quoting(line: str, contexts: list[str]) -> tuple[list[HeredocDelimiter
     """Advance the open quoting `contexts` across `line`; return the heredocs it opens.
 
     Also returns whether `line` ends in a backslash that escapes its newline. `contexts` is a
-    stack of open quotes and command substitutions: `$(` starts a fresh unquoted context even
-    inside double quotes, which is how the `"$(cat <<'EOF' ...)"` idiom opens a real heredoc.
-    Backticks and arithmetic `$((...))` are not modeled.
+    stack of open quotes and substitutions: `$(` and a backtick start a fresh unquoted context
+    even inside double quotes, which is how the `"$(cat <<'EOF' ...)"` idiom opens a real
+    heredoc. Not modeled: the `)` ending a `case` pattern, which closes a subshell early here.
     """
     delimiters: list[HeredocDelimiter] = []
+    # Bash reads a backtick substitution to its closing backtick before parsing it, so a
+    # heredoc opened inside one ends there.
+    backtick_starts: list[int] = []
     index = 0
     while index < len(line):
         char = line[index]
-        top = contexts[-1] if contexts else SUBSHELL
+        top = contexts[-1] if contexts else None
         if top == "'":
             if char == "'":
+                contexts.pop()
+        elif top == ANSI_C_QUOTE:
+            if char == "\\":
+                index += 1
+            elif char == "'":
                 contexts.pop()
         elif char == "\\":
             if index == len(line) - 1:
                 return delimiters, True
             index += 1
+        elif char == BACKTICK:
+            if top == BACKTICK:
+                contexts.pop()
+                if backtick_starts:
+                    del delimiters[backtick_starts.pop() :]
+            else:
+                contexts.append(BACKTICK)
+                backtick_starts.append(len(delimiters))
+        elif line.startswith("$((", index):
+            contexts.append(ARITHMETIC)
+            index += 2
         elif line.startswith("$(", index):
             contexts.append(SUBSHELL)
             index += 1
         elif top == '"':
             if char == '"':
                 contexts.pop()
-        elif char in QUOTES or char == SUBSHELL:
+        elif line.startswith(ANSI_C_QUOTE, index):
+            contexts.append(ANSI_C_QUOTE)
+            index += 1
+        elif char in QUOTES:
             contexts.append(char)
+        elif line.startswith("((", index):
+            contexts.append(ARITHMETIC)
+            index += 1
+        elif char == "(":
+            contexts.append(SUBSHELL)
         elif char == ")":
-            if contexts:
+            if top == ARITHMETIC and line.startswith("))", index):
+                contexts.pop()
+                index += 1
+            elif top == SUBSHELL:
                 contexts.pop()
         elif char == "#" and (index == 0 or line[index - 1] in METACHARACTERS):
             break  # a comment: its apostrophes quote nothing
+        elif ARITHMETIC in contexts:
+            pass  # `<<` is a shift
         elif line.startswith("<<<", index):
             index += 2  # a here-string, whose operand is an ordinary word
         elif line.startswith("<<", index):
             delimiter, index = _heredoc_delimiter(line, index + 2)
-            delimiters.append(delimiter)
+            if delimiter.word:  # bash rejects an empty one, so there is no body to skip
+                delimiters.append(delimiter)
             continue
         index += 1
     return delimiters, False
+
+
+def _heredoc_free_lines(
+    lines: list[str], tracks_quoting_across_lines: bool
+) -> tuple[list[str], bool]:
+    """`lines` without heredoc bodies, and whether every quoting context closed by the end."""
+    kept = []
+    contexts: list[str] = []
+    pending: list[HeredocDelimiter] = []
+    index = 0
+    while index < len(lines):
+        if not tracks_quoting_across_lines:
+            contexts.clear()
+        delimiters, newline_is_escaped = _scan_quoting(lines[index], contexts)
+        pending.extend(delimiters)
+        kept.append(lines[index])
+        index += 1
+        newline_is_quoted = (
+            tracks_quoting_across_lines and bool(contexts) and contexts[-1] in QUOTING_CONTEXTS
+        )
+        if newline_is_escaped or newline_is_quoted:
+            continue  # the body starts only after a newline the shell reads as a separator
+        for delimiter in pending:
+            while index < len(lines) and not delimiter.closes(lines[index]):
+                index += 1
+            index += 1
+        pending = []
+    return kept, not contexts
 
 
 def _without_heredocs(command: str) -> str:
@@ -190,24 +257,15 @@ def _without_heredocs(command: str) -> str:
     about this bug must not trip the check. Only an unquoted `<<` opens one, so the scan tracks
     quoting. Stripping the bodies as text rather than as tokens keeps their contents away from
     the lexer entirely, so an apostrophe in prose cannot make the whole command unparsable.
+
+    Quoting left open at the end is either invalid bash or a construct the scan misreads, and
+    one misread would otherwise hide every later heredoc. Then each line is scanned on its own,
+    which confines a misread to its line.
     """
     lines = command.split("\n")
-    kept = []
-    contexts: list[str] = []
-    pending: list[HeredocDelimiter] = []
-    index = 0
-    while index < len(lines):
-        delimiters, newline_is_escaped = _scan_quoting(lines[index], contexts)
-        pending.extend(delimiters)
-        kept.append(lines[index])
-        index += 1
-        if newline_is_escaped or (contexts and contexts[-1] in QUOTES):
-            continue  # the body starts only after a newline the shell reads as a separator
-        for delimiter in pending:
-            while index < len(lines) and not delimiter.closes(lines[index]):
-                index += 1
-            index += 1
-        pending = []
+    kept, balanced = _heredoc_free_lines(lines, tracks_quoting_across_lines=True)
+    if not balanced:
+        kept, _ = _heredoc_free_lines(lines, tracks_quoting_across_lines=False)
     return "\n".join(kept)
 
 
