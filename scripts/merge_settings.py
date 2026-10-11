@@ -51,47 +51,44 @@ def shipped_paths(settings: Settings) -> set[str]:
 
 def merge(repo: Settings, live: Settings, dropped: Collection[str] = ()) -> Merge:
     """Merge `repo` into `live`, removing the live keys whose JSON Pointer is in `dropped`."""
+    return _merge(repo, live, (), set(dropped))
+
+
+def _merge(repo: Settings, live: Settings, prefix: KeyPath, dropped: set[str]) -> Merge:
     result = Merge({}, [], [], [])
-    _merge_into(result.merged, repo, live, (), set(dropped), result)
-    return result
-
-
-def _merge_into(
-    merged: Settings,
-    repo: Settings,
-    live: Settings,
-    prefix: KeyPath,
-    dropped: set[str],
-    result: Merge,
-) -> None:
     for key, live_value in live.items():
         keys = (*prefix, key)
         if key in repo:
             if isinstance(repo[key], dict) and isinstance(live_value, dict):
-                merged[key] = {}
-                _merge_into(merged[key], repo[key], live_value, keys, dropped, result)
+                _absorb(result, key, _merge(repo[key], live_value, keys, dropped))
             else:
-                merged[key] = repo[key]
+                result.merged[key] = repo[key]
                 if live_value != repo[key]:
                     result.overwritten.append(_dotted(keys))
         elif _pointer(keys) not in dropped:
-            merged[key] = live_value
+            result.merged[key] = live_value
             result.kept.append(_dotted(keys))
         elif isinstance(live_value, dict):
             # The machine may have added its own keys inside an object the repo dropped; those
             # stay, and the object goes as one removal only when nothing of the machine's is left.
-            inner = Merge({}, result.kept, result.overwritten, [])
-            _merge_into(inner.merged, {}, live_value, keys, dropped, inner)
+            inner = _merge({}, live_value, keys, dropped)
             if inner.merged:
-                merged[key] = inner.merged
-                result.removed.extend(inner.removed)
+                _absorb(result, key, inner)
             else:
                 result.removed.append(_dotted(keys))
         else:
             result.removed.append(_dotted(keys))
     for key, repo_value in repo.items():
         if key not in live:
-            merged[key] = repo_value
+            result.merged[key] = repo_value
+    return result
+
+
+def _absorb(result: Merge, key: str, inner: Merge) -> None:
+    result.merged[key] = inner.merged
+    result.kept.extend(inner.kept)
+    result.overwritten.extend(inner.overwritten)
+    result.removed.extend(inner.removed)
 
 
 def _key_paths(settings: Settings, prefix: KeyPath) -> Iterator[KeyPath]:
@@ -127,9 +124,12 @@ def _read_live(path: Path) -> Settings:
 def _committed_versions(repo: Path) -> Iterator[Settings]:
     """Yield each committed version of `repo` that is a JSON object; none outside a git clone."""
     git = ["git", "-C", str(repo.parent)]
-    log = subprocess.run(
-        [*git, "log", "--format=%H", "--", repo.name], capture_output=True, text=True
-    )
+    try:
+        log = subprocess.run(
+            [*git, "log", "--format=%H", "--", repo.name], capture_output=True, text=True
+        )
+    except FileNotFoundError:  # no git installed
+        return
     if log.returncode != 0:
         return
     for commit in log.stdout.split():

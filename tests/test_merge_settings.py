@@ -247,3 +247,12 @@ class TestBootstrappingFromHistory:
         _write(live, {"theme": "dark", "mine": 1})
         _install(repo, live, tmp_path / "record.json")
         assert json.loads(live.read_text()) == {"theme": "dark", "mine": 1}
+
+    def test_retires_nothing_without_git_installed(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+        repo = tmp_path / "repo.json"
+        live = tmp_path / "live.json"
+        _write(repo, {"theme": "dark"})
+        _write(live, {"theme": "dark", "mine": 1})
+        _install(repo, live, tmp_path / "record.json")
+        assert json.loads(live.read_text()) == {"theme": "dark", "mine": 1}
