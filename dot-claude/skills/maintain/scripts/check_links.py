@@ -5,8 +5,9 @@ Feeds the doc-accuracy concern of a `maintain` sweep with the deterministic half
 the subagent spends its judgment on stale prose rather than path resolution. Takes markdown paths as
 arguments (or on stdin, one per line); non-markdown paths are ignored.
 
-Output: `[HIGH] broken link '<target>' -- <file>:<line>`. Always exits 0 -- this is a reporting aid,
-not a gate.
+Output: `[HIGH] broken link '<target>' -- <file>:<line>`. A file that cannot be read (not UTF-8, or
+gone between listing and reading) is named on stderr and skipped, so it cannot hide the findings in
+the rest of the batch. Always exits 0 -- this is a reporting aid, not a gate.
 
 Stdlib-only; needs `git` on PATH to locate the repo root.
 """
@@ -25,9 +26,8 @@ def _repo_root() -> Path:
     return Path(result.stdout.strip())
 
 
-def broken_links_in(md_path: Path, repo_root: Path) -> list[tuple[int, str]]:
-    """(line_number, target) for each broken intra-repo link in a markdown file."""
-    text = md_path.read_text(encoding="utf-8")
+def broken_links_in(md_path: Path, text: str, repo_root: Path) -> list[tuple[int, str]]:
+    """(line_number, target) for each broken intra-repo link in a markdown file's text."""
     return [
         (line_number, target)
         for line_number, target in extract_links(text)
@@ -45,7 +45,12 @@ def main(argv: list[str]) -> int:
         path = Path(raw)
         if path.suffix != ".md" or not path.is_file():
             continue
-        for line_number, target in broken_links_in(path, repo_root):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as error:
+            print(f"skipped unreadable {raw}: {error}", file=sys.stderr)
+            continue
+        for line_number, target in broken_links_in(path, text, repo_root):
             print(f"[HIGH] broken link '{target}' -- {raw}:{line_number}")
     return 0
 
