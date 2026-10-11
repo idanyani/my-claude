@@ -20,8 +20,8 @@ from dataclasses import dataclass
 # punctuation substitutions, near-always an editor auto-correct slip. Keyed by codepoint so this
 # table itself stays pure ASCII; the hook would otherwise flag its own source.
 GLYPH_REPLACEMENTS = {
-    0x2014: "--",  # em dash
-    0x2013: "-",  # en dash
+    0x2014: "---",  # em dash (LaTeX convention)
+    0x2013: "--",  # en dash (LaTeX convention)
     0x2018: "'",  # left single quotation mark
     0x2019: "'",  # right single quotation mark / typographic apostrophe
     0x201C: '"',  # left double quotation mark
