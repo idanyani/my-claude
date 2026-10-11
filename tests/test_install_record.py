@@ -23,11 +23,21 @@ class TestReadRecord:
     def test_a_missing_file_is_an_empty_record(self, tmp_path):
         assert read_record(tmp_path / "missing.json") == {}
 
-    @pytest.mark.parametrize("broken", ["", "{trunc", "[]", '{"links": "a"}'])
+    @pytest.mark.parametrize("broken", ["", "{trunc", "[]"])
     def test_an_unreadable_file_is_an_empty_record(self, tmp_path, broken):
         path = tmp_path / "record.json"
         path.write_text(broken)
         assert read_record(path) == {}
+
+    def test_a_non_utf8_file_is_an_empty_record(self, tmp_path):
+        path = tmp_path / "record.json"
+        path.write_bytes(b"\xff")
+        assert read_record(path) == {}
+
+    def test_drops_only_a_malformed_kind(self, tmp_path):
+        path = tmp_path / "record.json"
+        path.write_text(json.dumps({"links": ["a"], "settings": [1]}))
+        assert read_record(path) == {"links": ["a"]}
 
 
 class TestWriteKind:

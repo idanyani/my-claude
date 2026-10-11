@@ -27,14 +27,16 @@ def read_record(path: Path) -> Record:
     """Return the record, or an empty one when the file is missing or unreadable."""
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
+    except (OSError, ValueError):
         return {}
-    if not isinstance(record, dict) or not all(
-        isinstance(entries, list) and all(isinstance(e, str) for e in entries)
-        for entries in record.values()
-    ):
+    if not isinstance(record, dict):
         return {}
-    return record
+    # Drop only a malformed kind, so one kind's damage never erases another's entries.
+    return {
+        kind: entries
+        for kind, entries in record.items()
+        if isinstance(entries, list) and all(isinstance(e, str) for e in entries)
+    }
 
 
 def write_kind(path: Path, kind: str, entries: set[str]) -> None:
