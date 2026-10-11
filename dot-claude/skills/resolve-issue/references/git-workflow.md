@@ -40,19 +40,17 @@ and `gh` on PATH; they run against the current working directory's repo.
    commit into one on `main`, so branch commit count does not matter.** Dismiss the rest with a
    one-line reason. Review once -- do not loop on further advisory findings; record any
    leftover suggestion as a follow-up issue.
-4. **Merge.** Once the commit is final, `gh pr merge --auto --squash --delete-branch`.
-   Squash is what collapses the branch's commits into a single commit on `main` -- that is the
-   guarantee, so the branch itself may carry several commits (initial work plus review fixes).
-   Arming auto-merge is what authorizes the
-   merge, so do it only after addressing the review -- never before. GitHub then merges the
-   moment `verify` is green (immediately, if it already is); you do not watch the run
-   yourself.
-5. **Return to `main`.** `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` confirms
-   what GitHub knows within seconds -- auto-merge is armed and the PR has no conflict with
-   `main` -- then checks out an up-to-date `main` (with `--worktree`, `cd` to the main checkout
-   it names). It does not wait for CI: the merge lands on its own, and the next
-   `start_branch` deletes the branch and its worktree once the PR has merged. When the PR
-   needs you, it stops and says why (see Troubleshooting).
+4. **Merge and return to `main`.** Once the commit is final,
+   `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` arms auto-merge with a squash
+   merge -- squash is what collapses the branch's commits into a single commit on `main`, so
+   the branch itself may carry several commits (initial work plus review fixes). Arming
+   auto-merge is what authorizes the merge, so do it only after addressing the review -- never
+   before. GitHub then merges the moment `verify` is green (immediately, if it already is);
+   you do not watch the run yourself. The script confirms what GitHub knows within seconds --
+   auto-merge is armed and the PR has no conflict with `main` -- then checks out an up-to-date
+   `main` (with `--worktree`, `cd` to the main checkout it names). The next `start_branch`
+   deletes the branch and its worktree once the PR has merged. When the PR needs you, it stops
+   and says why (see Troubleshooting).
 
 Pause for explicit approval before pushing risky or ambiguous changes. Commit-message
 conventions live in the repo's `CLAUDE.md`.
@@ -75,6 +73,6 @@ stuck cases.
     resolve, and push a new commit (never rebase or force-push). `finish_branch.py` exits 3 on
     a conflict it sees.
   - *A required check failed:* push a fix as a new commit, or re-run the check if it was flaky.
-  - *Auto-merge not armed:* arm it (step 4). `finish_branch.py` exits 3 on this too.
+  - *Auto-merge not armed:* re-run `finish_branch.py` (step 4), which arms it.
   - *Behind `main`:* the repo requires branches to be up to date (see Background). Run
     `gh pr update-branch <pr>` (it merges `main` in, never rebases), and turn that requirement off.

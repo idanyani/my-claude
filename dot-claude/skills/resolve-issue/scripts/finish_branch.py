@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Finish a resolved issue: confirm GitHub will merge its PR without a person, then return to `main`.
+"""Finish a resolved issue: arm its PR's auto-merge, confirm GitHub will merge it, return to `main`.
 
 Usage: python3 <skill-dir>/scripts/finish_branch.py <pr> [--worktree]
 
-Run it right after arming auto-merge. It checks only what GitHub knows within seconds -- the PR
-merged, or auto-merge is armed and the PR has no conflict with `main` -- polling briefly while
-GitHub settles, and never waits for CI. Whatever surfaces later (a failed check, a conflict with a
+Arming authorizes the merge, so run it only once the review is addressed. It arms auto-merge
+(squash, deleting the remote branch), retrying while GitHub refuses, and checks only what GitHub
+knows within seconds -- the PR merged, or auto-merge is armed and the PR has no conflict with
+`main` -- polling briefly while GitHub settles. It never waits for CI. Whatever surfaces later (a failed check, a conflict with a
 PR merged after this one, CI that never starts) leaves the PR open, where `gh pr ls` lists it (see
 references/git-workflow.md). The next start_branch.py deletes the merged branch.
 
@@ -15,14 +16,14 @@ to, so the next start_branch.py runs from there and its sweep can remove the sib
 Exit 0: the PR merged, or will merge once its checks pass; the message says which, or that GitHub
     was still checking it for conflicts.
 Exit 1: the PR closed without merging, or a git/gh call failed.
-Exit 3: the PR needs a person -- it conflicts with main, or auto-merge is not armed; the message
-    names which. Fix that and re-run.
+Exit 3: the PR needs a person -- it conflicts with main, or GitHub kept refusing to arm
+    auto-merge; the message names which. Fix that and re-run.
 """
 
 import sys
 import time
 
-from lib.gh import run_gh, run_git
+from lib.gh import run_gh, run_gh_text, run_git
 from lib.merge import SETTLING, arm_verdict, parse_args
 from lib.sweep import parse_main_worktree
 
@@ -36,12 +37,25 @@ def pr_verdict(pr: str) -> str:
     return arm_verdict(view["state"], view["mergeable"], view["autoMergeRequest"] is not None)
 
 
+def arm_auto_merge(pr: str) -> None:
+    run_gh_text(["pr", "merge", pr, "--auto", "--squash", "--delete-branch"])
+
+
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
+    arm_error: RuntimeError | None = None
     verdict = pr_verdict(args.pr)
     for _ in range(POLL_LIMIT - 1):
         if verdict not in SETTLING:
             break
+        if verdict == "unarmed":
+            # gh picks "merge now" over "enable auto-merge" from a status that, right after a push,
+            # can still describe the previous head, and GitHub then refuses; a refused attempt
+            # changes nothing, so the next poll retries it (idanyani/my-claude#71).
+            try:
+                arm_auto_merge(args.pr)
+            except RuntimeError as error:
+                arm_error = error
         time.sleep(POLL_INTERVAL_SECONDS)
         verdict = pr_verdict(args.pr)
 
@@ -57,9 +71,9 @@ def main(argv: list[str]) -> int:
         return EXIT_NEEDS_ATTENTION
     if verdict == "unarmed":
         print(
-            f"PR #{args.pr} has no auto-merge armed, so nothing will merge it -- run "
-            "`gh pr merge --auto --squash --delete-branch` and re-run. If GitHub refuses because "
-            "no check has run, see Troubleshooting in references/git-workflow.md.",
+            f"PR #{args.pr} is still not armed for auto-merge ({arm_error or 'no error reported'}) "
+            "-- if no check has run, see Troubleshooting in references/git-workflow.md; then "
+            "re-run.",
             file=sys.stderr,
         )
         return EXIT_NEEDS_ATTENTION
