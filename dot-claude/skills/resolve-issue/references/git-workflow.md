@@ -45,29 +45,36 @@ and `gh` on PATH; they run against the current working directory's repo.
    guarantee, so the branch itself may carry several commits (initial work plus review fixes).
    Arming auto-merge is what authorizes the
    merge, so do it only after addressing the review -- never before. GitHub then merges the
-   moment `verify` is green (immediately, if it already is) and notifies you; you do not
-   watch the run yourself.
-5. **Return to `main` and clean up.** `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>`
-   waits for the merge, then syncs `main` and deletes the local branch (with `--worktree`,
-   it first removes the sibling worktree). When the PR cannot merge until you act, it stops
-   and says why (see Troubleshooting). Launch it with the Bash tool's `run_in_background`: its
-   wait outlasts the tool's 120-second foreground default, which would kill it before the
-   cleanup. The harness reports its exit, so do not poll for it. To skip the wait, just
-   `git checkout main` and let the merge land asynchronously -- the next `start_branch` deletes
-   the branch once its PR has merged.
+   moment `verify` is green (immediately, if it already is); you do not watch the run
+   yourself.
+5. **Return to `main`.** `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` confirms
+   what GitHub knows within seconds -- auto-merge is armed and the PR has no conflict with
+   `main` -- then checks out an up-to-date `main` (with `--worktree`, `cd` to the main checkout
+   it names). It does not wait for CI: the merge lands on its own, and the next
+   `start_branch` deletes the branch and its worktree once the PR has merged. When the PR
+   needs you, it stops and says why (see Troubleshooting).
 
 Pause for explicit approval before pushing risky or ambiguous changes. Commit-message
 conventions live in the repo's `CLAUDE.md`.
+
+## Where things stand
+
+An issue stays open until its PR merges: GitHub closes a `Resolves #N` issue only when the commit
+reaches the default branch. So `gh issue ls` lists the open work, and `gh pr ls` is empty unless
+a PR has not merged yet -- its CI is still running, it is stuck, or another session is still
+working on it. `gh pr checks <pr>` and `gh pr view <pr>` say which; Troubleshooting covers the
+stuck cases.
 
 ## Troubleshooting
 
 - **PR will not merge -- "no checks reported."** A push can land without firing CI, so no
   `verify` run attaches and auto-merge cannot arm. Close and reopen the PR to re-fire CI.
-- **`finish_branch.py` exits 3.** The PR cannot merge until you act; the message says why.
-  Fix that, then re-run `finish_branch.py`:
+- **An open PR does not merge.** Auto-merge stays armed through each fix below, so pushing it
+  is enough:
   - *Conflict with `main`:* another PR changed the same lines. Merge `main` into the branch,
-    resolve, and push a new commit (never rebase or force-push).
+    resolve, and push a new commit (never rebase or force-push). `finish_branch.py` exits 3 on
+    a conflict it sees.
   - *A required check failed:* push a fix as a new commit, or re-run the check if it was flaky.
-  - *Auto-merge not armed:* arm it (step 4).
+  - *Auto-merge not armed:* arm it (step 4). `finish_branch.py` exits 3 on this too.
   - *Behind `main`:* the repo requires branches to be up to date (see Background). Run
     `gh pr update-branch <pr>` (it merges `main` in, never rebases), and turn that requirement off.

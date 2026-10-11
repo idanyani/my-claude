@@ -170,6 +170,15 @@ class TestStartBranch:
         assert start_branch.main(["8", "next"]) == 0
         assert branches(clone) == {"main", "8-next"}
 
+    def test_places_a_worktree_beside_the_main_checkout_from_a_sibling(
+        self, clone, merged, tmp_path, monkeypatch
+    ):
+        sibling = tmp_path / "work-7"
+        git(clone, "worktree", "add", "-q", "-b", "7-x", str(sibling), "main")
+        monkeypatch.chdir(sibling)
+        assert start_branch.main(["8", "next", "--worktree"]) == 0
+        assert (tmp_path / "work-8").is_dir()
+
 
 PORCELAIN = "\n".join(
     [

@@ -14,7 +14,7 @@ import sys
 
 from lib.branch import branch_name, worktree_path, worktree_setup_hint
 from lib.gh import run_git
-from lib.sweep import DELETED, sweep_merged_branches
+from lib.sweep import DELETED, parse_main_worktree, sweep_merged_branches
 
 USAGE = "usage: start_branch.py <number> <kebab-summary> [--worktree]"
 
@@ -59,8 +59,13 @@ def main(argv: list[str]) -> int:
     report_sweep(sweep_merged_branches())
 
     if worktree:
-        repo_name = os.path.basename(run_git(["rev-parse", "--show-toplevel"]).strip())
-        path = worktree_path(repo_name, issue_number)
+        # Name and place the worktree after the main checkout, even when run from a sibling.
+        main_checkout = parse_main_worktree(run_git(["worktree", "list", "--porcelain"]))
+        path = os.path.normpath(
+            os.path.join(
+                main_checkout, worktree_path(os.path.basename(main_checkout), issue_number)
+            )
+        )
         # Base on origin/main (fresh after the sweep's fetch), not the local `main` ref, which the
         # worktree path never updates and so could be stale -- the "fresh main" promise holds
         # without disturbing the current checkout.
