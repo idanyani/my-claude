@@ -7,6 +7,7 @@ non-ASCII content the hook must NOT flag, only typographic substitutions and emo
 
 from pathlib import Path
 
+import pytest
 from check_prose import Violation, find_violations, format_report, is_emoji
 
 HOOK = Path(__file__).parent.parent / "dot-claude" / "hooks" / "check_prose.py"
@@ -14,6 +15,8 @@ HOOK = Path(__file__).parent.parent / "dot-claude" / "hooks" / "check_prose.py"
 EM_DASH = chr(0x2014)
 EN_DASH = chr(0x2013)
 RIGHT_ARROW = chr(0x2192)
+LEFT_ARROW = chr(0x2190)
+LEFT_RIGHT_ARROW = chr(0x2194)
 ELLIPSIS = chr(0x2026)
 NBSP = chr(0x00A0)
 SPARKLES_EMOJI = chr(0x2728)
@@ -26,9 +29,13 @@ class TestFindViolations:
         assert violation.replacement == "--"
         assert violation.char == EM_DASH
 
-    def test_flags_a_unicode_arrow_with_an_ascii_arrow(self):
-        (violation,) = find_violations(f"x {RIGHT_ARROW} y")
-        assert violation.replacement == "->"
+    @pytest.mark.parametrize(
+        ("arrow", "ascii_arrow"),
+        [(RIGHT_ARROW, "-->"), (LEFT_ARROW, "<--"), (LEFT_RIGHT_ARROW, "<-->")],
+    )
+    def test_flags_a_unicode_arrow_with_the_conventions_ascii_arrow(self, arrow, ascii_arrow):
+        (violation,) = find_violations(f"x {arrow} y")
+        assert violation.replacement == ascii_arrow
 
     def test_flags_en_dash_ellipsis_and_nbsp(self):
         replacements = {v.replacement for v in find_violations(f"{EN_DASH}{ELLIPSIS}{NBSP}")}
@@ -40,7 +47,7 @@ class TestFindViolations:
         assert violation.char == SPARKLES_EMOJI
 
     def test_clean_ascii_is_silent(self):
-        assert find_violations("plain ascii -- with an arrow -> and ... ellipsis") == []
+        assert find_violations("plain ascii -- with an arrow --> and ... ellipsis") == []
 
     def test_hebrew_is_not_flagged(self):
         # Legitimate non-ASCII content; only typographic slips and emoji are violations.
