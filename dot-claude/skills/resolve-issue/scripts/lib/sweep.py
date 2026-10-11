@@ -18,7 +18,8 @@ DELETED = "deleted"
 def parse_gone_branches(for_each_ref: str) -> list[str]:
     """Local branches whose upstream is gone.
 
-    Parses `git for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads`.
+    Parses `git for-each-ref --format='%(refname:lstrip=2) %(upstream:track)' refs/heads`;
+    `lstrip=2` rather than `short`, which turns a branch sharing a tag's name into `heads/<name>`.
     """
     gone = []
     for line in for_each_ref.splitlines():
@@ -26,6 +27,18 @@ def parse_gone_branches(for_each_ref: str) -> list[str]:
         if track == "[gone]":
             gone.append(branch)
     return gone
+
+
+def parse_main_worktree(porcelain: str) -> str:
+    """The main checkout's path from `git worktree list --porcelain`.
+
+    Its first entry is always the main worktree. Cleanup runs from there so it survives removing
+    the worktree it was invoked in.
+    """
+    first = porcelain.split("\n")[0]
+    if not first.startswith("worktree "):
+        raise ValueError("could not determine the main worktree")
+    return first[len("worktree ") :]
 
 
 def parse_worktree_for_branch(porcelain: str, branch: str) -> str | None:
@@ -77,7 +90,7 @@ def sweep_merged_branches() -> dict[str, str]:
     """
     run_git(["fetch", "--prune"])
     for_each_ref = run_git(
-        ["for-each-ref", "--format=%(refname:short) %(upstream:track)", "refs/heads"]
+        ["for-each-ref", "--format=%(refname:lstrip=2) %(upstream:track)", "refs/heads"]
     )
     porcelain = run_git(["worktree", "list", "--porcelain"])
     here = run_git(["rev-parse", "--show-toplevel"]).strip()
@@ -93,8 +106,10 @@ def sweep_merged_branches() -> dict[str, str]:
 def _sweep_branch(branch: str, porcelain: str, here: str) -> str:
     """Delete one `[gone]` branch if its PR merged; return `DELETED` or why it was kept."""
     worktree = parse_worktree_for_branch(porcelain, branch)
-    if worktree == here:
-        return "checked out in this worktree"
+    # git cannot remove the main checkout, and removing the sweep's own worktree would delete the
+    # caller's cwd.
+    if worktree in (here, parse_main_worktree(porcelain)):
+        return f"checked out in {worktree}"
     heads = merged_pr_heads(branch)
     if not heads:
         return "no merged PR from it -- its remote branch was deleted without a merge"

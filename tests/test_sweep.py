@@ -11,7 +11,13 @@ from pathlib import Path
 import pytest
 import start_branch
 from lib import sweep
-from lib.sweep import DELETED, is_ancestor, parse_gone_branches, parse_worktree_for_branch
+from lib.sweep import (
+    DELETED,
+    is_ancestor,
+    parse_gone_branches,
+    parse_main_worktree,
+    parse_worktree_for_branch,
+)
 
 PR = "7"
 
@@ -126,6 +132,25 @@ class TestSweepMergedBranches:
         assert sibling.exists()
         assert "7-x" in branches(clone)
 
+    def test_keeps_the_branch_checked_out_in_the_main_checkout(
+        self, clone, merged, tmp_path, monkeypatch
+    ):
+        tip = gone_branch(clone, "7-x")
+        publish_pr_head(clone, tip)
+        merged["7-x"] = [(PR, tip)]
+        git(clone, "checkout", "-q", "7-x")
+        sibling = tmp_path / "work-8"
+        git(clone, "worktree", "add", "-q", "-b", "8-y", str(sibling), "main")
+        monkeypatch.chdir(sibling)
+        assert sweep.sweep_merged_branches()["7-x"] == f"checked out in {clone}"
+
+    def test_deletes_a_merged_branch_that_shares_a_tags_name(self, clone, merged):
+        tip = gone_branch(clone, "v1")
+        git(clone, "tag", "v1", "main")
+        publish_pr_head(clone, tip)
+        merged["v1"] = [(PR, tip)]
+        assert sweep.sweep_merged_branches() == {"v1": DELETED}
+
     def test_keeps_a_branch_when_github_cannot_be_asked(self, clone, monkeypatch):
         def unreachable(_branch: str) -> list[tuple[str, str]]:
             raise RuntimeError("gh pr list exited 1: connection timed out")
@@ -158,6 +183,15 @@ PORCELAIN = "\n".join(
         "",
     ]
 )
+
+
+class TestParseMainWorktree:
+    def test_returns_the_first_worktrees_path(self):
+        assert parse_main_worktree(PORCELAIN) == "/home/dev/tiki"
+
+    def test_raises_when_there_is_no_worktree_entry(self):
+        with pytest.raises(ValueError):
+            parse_main_worktree("")
 
 
 class TestParseWorktreeForBranch:

@@ -30,8 +30,9 @@ and `gh` on PATH; they run against the current working directory's repo.
    <kebab-summary>` (add `--worktree` for a sibling worktree; the script prints the
    dependency-install command the fresh worktree needs). It refuses a dirty tree (it never
    stashes silently -- surface that and ask), deletes the local branches whose PR merged
-   (keeping and listing any it cannot confirm), then branches from a freshly pulled `main`. Never push to `main` directly -- branch protection rejects it for
-   everyone, administrators included.
+   (keeping and listing any it cannot confirm), then branches from a freshly pulled `main`.
+   Never push to `main` directly -- branch protection rejects it for everyone, administrators
+   included.
 2. **Open the PR.** `git push -u origin <branch>`, then `gh pr create --fill`.
 3. **Review the PR.** Run `/code-review <pr>` in this session. Apply the findings worth
    applying and push any fixes **as new commits -- the branch is already pushed and under

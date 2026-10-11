@@ -44,7 +44,7 @@ def report_sweep(outcomes: dict[str, str]) -> None:
         if outcome == DELETED:
             print(f"Deleted merged branch {branch}.")
         else:
-            print(f"Kept branch {branch}: {outcome}.")
+            print(f"Kept branch {branch}: {outcome}")
 
 
 def main(argv: list[str]) -> int:

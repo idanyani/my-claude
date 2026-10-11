@@ -38,10 +38,9 @@ from lib.merge import (
     failed_required_checks,
     merge_decision,
     parse_args,
-    parse_main_worktree,
     parse_required_checks,
 )
-from lib.sweep import is_ancestor, parse_worktree_for_branch
+from lib.sweep import is_ancestor, parse_main_worktree, parse_worktree_for_branch
 
 POLL_INTERVAL_SECONDS = 20
 EXIT_NEEDS_ATTENTION = 3

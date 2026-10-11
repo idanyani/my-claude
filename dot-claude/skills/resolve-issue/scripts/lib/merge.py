@@ -52,18 +52,6 @@ def parse_args(argv: list[str]) -> FinishArgs:
     return FinishArgs(pr=pr, worktree=worktree, timeout_ms=int(seconds * 1000))
 
 
-def parse_main_worktree(porcelain: str) -> str:
-    """The main checkout's path from `git worktree list --porcelain`.
-
-    Its first entry is always the main worktree. Cleanup runs from there so it survives removing
-    the worktree it was invoked in.
-    """
-    first = porcelain.split("\n")[0]
-    if not first.startswith("worktree "):
-        raise ValueError("could not determine the main worktree")
-    return first[len("worktree ") :]
-
-
 @dataclass(frozen=True)
 class PrStatus:
     """One poll of the PR: its `gh pr view` fields plus the required checks that failed."""
