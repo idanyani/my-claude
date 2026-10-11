@@ -110,7 +110,6 @@
     "feature-dev@claude-plugins-official": true,
     "code-review@claude-plugins-official": true,
     "commit-commands@claude-plugins-official": true,
-    "frontend-design@claude-code-plugins": false,
     "typescript-lsp@claude-plugins-official": true,
     "document-skills@anthropic-agent-skills": true
   },
