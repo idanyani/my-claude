@@ -52,6 +52,7 @@ anchor to a file or directory), no prose, no preamble. Severity is HIGH / MEDIUM
    "real" example, an incomplete rule list, a recipe that cannot run. Seed this agent with the
    deterministic broken-link findings from `python3 ${CLAUDE_SKILL_DIR}/scripts/check_links.py` (feed it
    the markdown paths from Phase 1) so it spends judgment on stale prose, not path resolution.
+   Also hand it any file the script names on stderr as skipped unreadable: its links went unchecked.
 2. **Duplication and reinvention** -- the same fact, logic, or comment stated in more than one
    place (CI steps and config values included), and new code that reimplements an existing utility
    or pattern instead of reusing it.

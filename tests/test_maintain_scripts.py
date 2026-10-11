@@ -115,10 +115,18 @@ def _git(repo: Path, *args: str) -> None:
     subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True)
 
 
+@pytest.fixture
+def temp_repo(tmp_path, monkeypatch):
+    """An empty git repo as the working directory."""
+    _git(tmp_path, "init", "-b", "main")
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
+
+
 class TestChangedFilesAgainstTempRepo:
     @pytest.fixture
-    def repo(self, tmp_path, monkeypatch):
-        _git(tmp_path, "init", "-b", "main")
+    def repo(self, temp_repo):
+        tmp_path = temp_repo
         _git(tmp_path, "config", "user.email", "t@e.st")
         _git(tmp_path, "config", "user.name", "Tester")
         (tmp_path / "kept.py").write_text("base\n")
@@ -127,7 +135,6 @@ class TestChangedFilesAgainstTempRepo:
         _git(tmp_path, "checkout", "-b", "feature")
         (tmp_path / "kept.py").write_text("changed\n")
         (tmp_path / "uv.lock").write_text("noise\n")  # generated: must be filtered out
-        monkeypatch.chdir(tmp_path)
         return tmp_path
 
     def test_reports_branch_changes_and_filters_generated(self, repo):
@@ -140,19 +147,28 @@ class TestChangedFilesAgainstTempRepo:
 
 class TestCheckLinksAgainstTempRepo:
     @pytest.fixture
-    def repo(self, tmp_path, monkeypatch):
-        _git(tmp_path, "init", "-b", "main")
-        monkeypatch.chdir(tmp_path)
-        return tmp_path
+    def repo(self, temp_repo):
+        (temp_repo / "good.md").write_text("[y](missing.md)\n")
+        return temp_repo
 
-    def test_reports_other_files_past_an_unreadable_one(self, repo, capsys):
+    def _assert_skipped_and_good_reported(self, capsys, skipped: str) -> None:
+        captured = capsys.readouterr()
+        assert captured.out == "[HIGH] broken link 'missing.md' -- good.md:1\n"
+        assert captured.err.startswith(f"skipped unreadable {skipped}: ")
+
+    def test_reports_other_files_past_a_non_utf8_one(self, repo, capsys):
         import check_links
 
         (repo / "latin1.md").write_bytes("caf\xe9 [x](gone.md)\n".encode("latin-1"))
-        (repo / "good.md").write_text("[y](missing.md)\n")
 
         assert check_links.main(["latin1.md", "good.md"]) == 0
+        self._assert_skipped_and_good_reported(capsys, "latin1.md")
 
-        captured = capsys.readouterr()
-        assert "[HIGH] broken link 'missing.md' -- good.md:1" in captured.out
-        assert "latin1.md" in captured.err
+    def test_reports_other_files_past_one_gone_before_reading(self, repo, capsys, monkeypatch):
+        import check_links
+
+        # Simulates the file vanishing between the is_file() check and the read.
+        monkeypatch.setattr(check_links.Path, "is_file", lambda self: True)
+
+        assert check_links.main(["vanished.md", "good.md"]) == 0
+        self._assert_skipped_and_good_reported(capsys, "vanished.md")

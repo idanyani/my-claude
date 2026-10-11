@@ -26,9 +26,8 @@ def _repo_root() -> Path:
     return Path(result.stdout.strip())
 
 
-def broken_links_in(md_path: Path, repo_root: Path) -> list[tuple[int, str]]:
-    """(line_number, target) for each broken intra-repo link in a markdown file."""
-    text = md_path.read_text(encoding="utf-8")
+def broken_links_in(md_path: Path, text: str, repo_root: Path) -> list[tuple[int, str]]:
+    """(line_number, target) for each broken intra-repo link in a markdown file's text."""
     return [
         (line_number, target)
         for line_number, target in extract_links(text)
@@ -47,11 +46,11 @@ def main(argv: list[str]) -> int:
         if path.suffix != ".md" or not path.is_file():
             continue
         try:
-            broken_links = broken_links_in(path, repo_root)
+            text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as error:
             print(f"skipped unreadable {raw}: {error}", file=sys.stderr)
             continue
-        for line_number, target in broken_links:
+        for line_number, target in broken_links_in(path, text, repo_root):
             print(f"[HIGH] broken link '{target}' -- {raw}:{line_number}")
     return 0
 
