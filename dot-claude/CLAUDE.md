@@ -70,7 +70,8 @@
 
 ## Prose and docs
 
-- ASCII in code and text files: `-->` not Unicode arrows, `--`/`---` not em/en-dashes.
+- ASCII in code and text files: `-->` not Unicode arrows; LaTeX dashes (`--` en dash, `---`
+  em dash) not Unicode ones.
 - US English spelling (`normalize`, `catalog`).
 - Emojis only in user-facing scripts, never in code or docs.
 - No AI-tic filler ("delve", "load-bearing", "testament"): state plainly what is critical

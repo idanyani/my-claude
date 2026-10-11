@@ -24,10 +24,11 @@ ALEPH = chr(0x05D0)  # Hebrew letter: legitimate non-ASCII, never a violation
 
 
 class TestFindViolations:
-    def test_flags_an_em_dash_with_the_ascii_double_hyphen(self):
-        (violation,) = find_violations(f"a {EM_DASH} b")
-        assert violation.replacement == "--"
-        assert violation.char == EM_DASH
+    @pytest.mark.parametrize(("dash", "latex_dash"), [(EM_DASH, "---"), (EN_DASH, "--")])
+    def test_flags_a_dash_with_its_latex_ascii_form(self, dash, latex_dash):
+        (violation,) = find_violations(f"a {dash} b")
+        assert violation.replacement == latex_dash
+        assert violation.char == dash
 
     @pytest.mark.parametrize(
         ("arrow", "ascii_arrow"),
@@ -37,9 +38,9 @@ class TestFindViolations:
         (violation,) = find_violations(f"x {arrow} y")
         assert violation.replacement == ascii_arrow
 
-    def test_flags_en_dash_ellipsis_and_nbsp(self):
-        replacements = {v.replacement for v in find_violations(f"{EN_DASH}{ELLIPSIS}{NBSP}")}
-        assert replacements == {"-", "...", " "}
+    def test_flags_ellipsis_and_nbsp(self):
+        replacements = {v.replacement for v in find_violations(f"{ELLIPSIS}{NBSP}")}
+        assert replacements == {"...", " "}
 
     def test_flags_an_emoji_with_no_ascii_replacement(self):
         (violation,) = find_violations(f"ship it {SPARKLES_EMOJI}")
@@ -69,10 +70,10 @@ class TestIsEmoji:
 
 class TestFormatReport:
     def test_names_file_line_column_and_codepoint(self):
-        report = format_report("docs/x.md", [Violation(2, 3, EM_DASH, "--")])
+        report = format_report("docs/x.md", [Violation(2, 3, EM_DASH, "---")])
         assert "docs/x.md:2:3" in report
         assert "U+2014" in report
-        assert "`--`" in report
+        assert "`---`" in report
 
 
 class TestHookFileContract:
