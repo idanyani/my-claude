@@ -41,6 +41,12 @@ ANSI_C_QUOTE = "$'"
 SUBSHELL = "$("  # a command substitution or a plain `(` subshell
 ARITHMETIC = "(("  # `$((...))` or `((...))`, where `<<` is a shift
 BACKTICK = "`"
+CASE = "case"  # a `case` command, whose pattern lists end in an unquoted `)`
+
+# The header that opens a `case` command. Requiring the `in` keeps a plain argument such as
+# `echo case` from opening one.
+CASE_HEADER = re.compile(r"case[ \t]+\S+[ \t]+in(?=[ \t;]|$)")
+CASE_END = re.compile(r"esac(?=[ \t;&|()<>`]|$)")
 
 # Contexts in which a newline is part of a word rather than a command separator.
 QUOTING_CONTEXTS = QUOTES | {ANSI_C_QUOTE}
@@ -146,13 +152,17 @@ def _heredoc_delimiter(line: str, index: int) -> tuple[HeredocDelimiter, int]:
     return HeredocDelimiter("".join(word), strips_tabs), index
 
 
+def _starts_word(line: str, index: int) -> bool:
+    return index == 0 or line[index - 1] in METACHARACTERS or line[index - 1] == BACKTICK
+
+
 def _scan_quoting(line: str, contexts: list[str]) -> tuple[list[HeredocDelimiter], bool]:
     """Advance the open quoting `contexts` across `line`; return the heredocs it opens.
 
     Also returns whether `line` ends in a backslash that escapes its newline. `contexts` is a
     stack of open quotes and substitutions: `$(` and a backtick start a fresh unquoted context
     even inside double quotes, which is how the `"$(cat <<'EOF' ...)"` idiom opens a real
-    heredoc. Not modeled: the `)` ending a `case` pattern, which closes a subshell early here.
+    heredoc.
     """
     delimiters: list[HeredocDelimiter] = []
     # Bash reads a backtick substitution to its closing backtick before parsing it, so a
@@ -209,6 +219,10 @@ def _scan_quoting(line: str, contexts: list[str]) -> tuple[list[HeredocDelimiter
                 contexts.pop()
         elif char == "#" and (index == 0 or line[index - 1] in METACHARACTERS):
             break  # a comment: its apostrophes quote nothing
+        elif _starts_word(line, index) and CASE_HEADER.match(line, index):
+            contexts.append(CASE)
+        elif top == CASE and _starts_word(line, index) and CASE_END.match(line, index):
+            contexts.pop()
         elif ARITHMETIC in contexts:
             pass  # `<<` is a shift
         elif line.startswith("<<<", index):

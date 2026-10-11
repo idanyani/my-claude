@@ -79,6 +79,28 @@ class TestFindSelfMatches:
         (match,) = find_self_matches(command)
         assert match.pattern == "pytest"
 
+    def test_a_case_pattern_paren_does_not_close_a_command_substitution(self):
+        # The `)` after the pattern `a` ends the pattern, not the `$(`, so the `"<<EOF"` after
+        # it is quoted text inside the substitution.
+        command = 'echo "$(case $x in a) echo "<<EOF";; esac)"\npgrep -f pytest'
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_a_multiline_case_pattern_paren_does_not_close_a_command_substitution(self):
+        command = 'x="$(case $y in\na) echo "<<EOF";;\nesac)"\npgrep -f pytest'
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_the_paren_after_esac_closes_the_command_substitution(self):
+        command = 'echo "$(case $x in a) :;; esac) <<EOF"\npgrep -f pytest'
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_the_word_case_as_an_argument_opens_no_case(self):
+        command = 'echo "$(echo case) <<EOF"\npgrep -f pytest'
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
     def test_a_heredoc_operator_without_a_delimiter_hides_nothing(self):
         (match,) = find_self_matches("cat <<\npgrep -f pytest\n\nEOF")
         assert match.pattern == "pytest"
