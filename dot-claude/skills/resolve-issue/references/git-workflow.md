@@ -49,8 +49,8 @@ and `gh` on PATH; they run against the current working directory's repo.
    yourself.
 5. **Return to `main`.** `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` confirms
    what GitHub knows within seconds -- auto-merge is armed and the PR has no conflict with
-   `main` -- then checks out an up-to-date `main` (with `--worktree`, it leaves the sibling
-   worktree in place). It does not wait for CI: the merge lands on its own, and the next
+   `main` -- then checks out an up-to-date `main` (with `--worktree`, `cd` to the main checkout
+   it names). It does not wait for CI: the merge lands on its own, and the next
    `start_branch` deletes the branch and its worktree once the PR has merged. When the PR
    needs you, it stops and says why (see Troubleshooting).
 

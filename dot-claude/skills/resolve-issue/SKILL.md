@@ -75,6 +75,7 @@ loop on further advisory findings. Only then arm auto-merge:
 ## Phase 8 -- Finish and clean up
 
 `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` (add `--worktree` if you used it in Phase 4)
-confirms within seconds that GitHub will merge the PR without a person, then returns to `main`; it
-does not wait for CI. If it exits 3, fix what it names and re-run it. Then summarize the change,
+confirms within seconds that GitHub will merge the PR without a person, then returns to `main` --
+with `--worktree`, `cd` to the main checkout it names. It does not wait for CI. If it exits 3, fix
+what it names and re-run it. Then summarize the change,
 the test results, the triage, and the PR link for the user.

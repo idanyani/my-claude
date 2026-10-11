@@ -25,7 +25,7 @@ def run(monkeypatch: pytest.MonkeyPatch, git_calls: list[list[str]]):
 
     def run_git(args: list[str]) -> str:
         git_calls.append(args)
-        return ""
+        return "worktree /home/dev/repo\n" if args[:2] == ["worktree", "list"] else ""
 
     def start(views: list[dict], *flags: str) -> int:
         script: Iterator[dict] = iter(views)
@@ -38,7 +38,7 @@ def run(monkeypatch: pytest.MonkeyPatch, git_calls: list[list[str]]):
 
 
 def returned_to_main(git_calls: list[list[str]]) -> bool:
-    return ["checkout", "main"] in git_calls
+    return git_calls[-2:] == [["checkout", "main"], ["pull", "--ff-only"]]
 
 
 def test_returns_to_main_once_auto_merge_is_armed_without_conflicts(run, git_calls):
@@ -56,7 +56,6 @@ def test_waits_while_github_computes_mergeability(run):
 
 
 def test_rechecks_a_request_cleared_by_the_merge(run):
-    # GitHub clears the auto-merge request just before the PR reads MERGED.
     assert run([UNARMED, MERGED]) == 0
 
 
@@ -82,6 +81,7 @@ def test_fails_on_a_pr_closed_without_merging(run, git_calls):
     assert not returned_to_main(git_calls)
 
 
-def test_stays_in_the_worktree_with_the_worktree_flag(run, git_calls):
+def test_names_the_main_checkout_to_leave_a_worktree_for(run, git_calls, capsys):
     assert run([ARMED], "--worktree") == 0
-    assert git_calls == []
+    assert not returned_to_main(git_calls)
+    assert "cd /home/dev/repo" in capsys.readouterr().out

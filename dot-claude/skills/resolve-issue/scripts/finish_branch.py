@@ -9,8 +9,8 @@ GitHub settles, and never waits for CI. Whatever surfaces later (a failed check,
 PR merged after this one, CI that never starts) leaves the PR open, where `gh pr ls` lists it (see
 references/git-workflow.md). The next start_branch.py deletes the merged branch.
 
-In place, it checks out an up-to-date `main`; with `--worktree`, it leaves the sibling worktree for
-the next start_branch.py to remove.
+In place, it checks out an up-to-date `main`. With `--worktree`, it names the main checkout to `cd`
+to, so the next start_branch.py runs from there and its sweep can remove the sibling worktree.
 
 Exit 0: the PR merged, or will merge once its checks pass; the message says which, or that GitHub
     was still checking it for conflicts.
@@ -24,6 +24,7 @@ import time
 
 from lib.gh import run_gh, run_git
 from lib.merge import SETTLING, arm_verdict, parse_args
+from lib.sweep import parse_main_worktree
 
 POLL_INTERVAL_SECONDS = 5
 POLL_LIMIT = 6
@@ -57,25 +58,32 @@ def main(argv: list[str]) -> int:
     if verdict == "unarmed":
         print(
             f"PR #{args.pr} has no auto-merge armed, so nothing will merge it -- run "
-            "`gh pr merge --auto --squash --delete-branch` and re-run.",
+            "`gh pr merge --auto --squash --delete-branch` and re-run. If GitHub refuses because "
+            "no check has run, see Troubleshooting in references/git-workflow.md.",
             file=sys.stderr,
         )
         return EXIT_NEEDS_ATTENTION
 
-    if not args.worktree:
-        run_git(["checkout", "main"])
-        run_git(["pull", "--ff-only"])
+    # Report the verdict before touching the checkout, so a failed pull cannot hide it.
     if verdict == "merged":
         print(f"PR #{args.pr} merged.")
     elif verdict == "armed":
         print(
-            f"PR #{args.pr} will merge once its required checks pass; `gh pr ls` lists it until then."
+            f"PR #{args.pr} has auto-merge armed and no conflict with main; it merges once its "
+            f"required checks pass (`gh pr checks {args.pr}`)."
         )
     else:
         print(
-            f"GitHub was still checking PR #{args.pr} for conflicts; `gh pr ls` lists it until it "
-            "merges."
+            f"PR #{args.pr} has auto-merge armed; GitHub was still checking it for conflicts. "
+            "`gh pr ls` lists it until it merges."
         )
+    if args.worktree:
+        main_checkout = parse_main_worktree(run_git(["worktree", "list", "--porcelain"]))
+        # Leaving the worktree lets the next start_branch.py's sweep remove it.
+        print(f"Left the worktree in place -- `cd {main_checkout}` to leave it.")
+    else:
+        run_git(["checkout", "main"])
+        run_git(["pull", "--ff-only"])
     return 0
 
 
