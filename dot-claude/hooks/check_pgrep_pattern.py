@@ -19,12 +19,13 @@ import json
 import re
 import shlex
 import sys
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 PROCESS_MATCHERS = frozenset({"pgrep", "pkill"})
 
 # Tokens that end one command and begin the next, bounding a single pgrep/pkill invocation.
-COMMAND_SEPARATORS = frozenset({"&&", "||", "|", ";", "&", "(", ")", "\n"})
+COMMAND_SEPARATORS = frozenset({"&&", "||", "|", ";", "&", "(", ")"})
 
 # A redirection ends the argument list: neither the operator nor its target is a pgrep operand.
 # Only bare operators match, so a quoted pattern containing `>` is still read as the pattern.
@@ -63,6 +64,11 @@ LONG_OPTIONS_WITH_VALUE = frozenset(
 # A bracket expression anywhere in the pattern breaks the self-match: the literal text `[p]ytest`
 # does not satisfy the regex `[p]ytest`, while a real `pytest` command line does.
 BRACKET_EXPRESSION = re.compile(r"\[[^]]+]")
+
+# What `shlex` raises when the text ends right after a backslash: outside single quotes, that
+# backslash escapes the newline that follows it in the command -- a line continuation. The
+# message is the only signal the public API gives; the lexer's state is undocumented.
+DANGLING_ESCAPE = "No escaped character"
 
 # Shell expansions make the pattern differ from the literal text in the caller's argv, so a
 # self-match is no longer provable from the command alone.
@@ -110,6 +116,54 @@ def _without_heredocs(command: str) -> str:
     return "\n".join(kept)
 
 
+def _open_quote(text: str) -> str:
+    """The quote character left open at the end of `text`, which lexes only with a quote open."""
+    try:
+        _tokenize(text + '"')
+    except ValueError:
+        return "'"
+    return '"'
+
+
+def _command_lines(command: str) -> Iterator[list[str]]:
+    """Tokens of each line of `command` as the shell reads it, joining physical lines.
+
+    A newline ends a command only when it is unquoted and unescaped. A backslash-newline outside
+    single quotes is a line continuation, which the shell removes before splitting words; a
+    newline inside open quotes belongs to the quoted word.
+    """
+    lines = command.split("\n")
+    pending = ""
+    open_quote = None
+    first_pending_line = 0
+    for index, line in enumerate(lines):
+        if not pending:
+            first_pending_line = index
+        text = pending + line
+        if open_quote and open_quote not in line and not line.endswith("\\"):
+            # Nothing on this line can close the quote, so lexing again would only repeat the
+            # failure -- and cost time quadratic in the length of a long quoted argument.
+            pending = text + "\n"
+            continue
+        try:
+            tokens = _tokenize(text)
+        except ValueError as error:
+            if str(error) == DANGLING_ESCAPE:
+                pending, open_quote = text[:-1], None
+            else:
+                pending, open_quote = text + "\n", _open_quote(text)
+            continue
+        pending, open_quote = "", None
+        yield tokens
+    # A quote shlex never saw closed may still be valid bash, such as ANSI-C `$'it\\'s'`; scan
+    # those lines one by one so it hides no later command.
+    for line in lines[first_pending_line:] if pending else []:
+        try:
+            yield _tokenize(line)
+        except ValueError:
+            continue
+
+
 def _pattern_of_invocation(tokens: list[str], start: int) -> tuple[str | None, int]:
     """The `-f` pattern of the pgrep/pkill invocation at `start`, and the index just past it.
 
@@ -152,7 +206,7 @@ def _pattern_of_invocation(tokens: list[str], start: int) -> tuple[str | None, i
 
 
 def _matches_in_line(tokens: list[str]) -> list[SelfMatch]:
-    """Every self-matching pattern among one line's tokens."""
+    """Every self-matching pattern among one command line's tokens."""
     matches = []
     index = 0
     while index < len(tokens):
@@ -173,16 +227,12 @@ def _matches_in_line(tokens: list[str]) -> list[SelfMatch]:
 def find_self_matches(command: str) -> list[SelfMatch]:
     """Every `pgrep -f`/`pkill -f` pattern in `command` that provably matches the caller itself.
 
-    Each line is scanned on its own: `shlex` treats a newline as plain whitespace, so a single
-    token stream would let one invocation collect operands from the command on the next line.
+    Each command line is scanned on its own: `shlex` treats a newline as plain whitespace, so a
+    single token stream would let one invocation collect operands from the command on the next
+    line.
     """
     matches = []
-    for line in _without_heredocs(command).split("\n"):
-        try:
-            tokens = _tokenize(line)
-        except ValueError:
-            # Unbalanced quoting on this line; the shell rejects it before matching anything.
-            continue
+    for tokens in _command_lines(_without_heredocs(command)):
         matches.extend(_matches_in_line(tokens))
     return matches
 
