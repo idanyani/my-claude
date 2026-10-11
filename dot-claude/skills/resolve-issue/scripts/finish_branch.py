@@ -3,12 +3,12 @@
 
 Usage: python3 <skill-dir>/scripts/finish_branch.py <pr> [--worktree]
 
-Arming authorizes the merge, so run it only once the review is addressed. It arms auto-merge
-(squash, deleting the remote branch), retrying while GitHub refuses, and checks only what GitHub
-knows within seconds -- the PR merged, or auto-merge is armed and the PR has no conflict with
-`main` -- polling briefly while GitHub settles. It never waits for CI. Whatever surfaces later (a failed check, a conflict with a
-PR merged after this one, CI that never starts) leaves the PR open, where `gh pr ls` lists it (see
-references/git-workflow.md). The next start_branch.py deletes the merged branch.
+It arms auto-merge (squash, deleting the remote branch), retrying while GitHub refuses, and checks
+only what GitHub knows within seconds -- the PR merged, or auto-merge is armed and the PR has no
+conflict with `main` -- polling briefly while GitHub settles. It never waits for CI. Whatever
+surfaces later (a failed check, a conflict with a PR merged after this one, CI that never starts)
+leaves the PR open, where `gh pr ls` lists it (see references/git-workflow.md). The next
+start_branch.py deletes the merged branch.
 
 In place, it checks out an up-to-date `main`. With `--worktree`, it names the main checkout to `cd`
 to, so the next start_branch.py runs from there and its sweep can remove the sibling worktree.
@@ -37,13 +37,15 @@ def pr_verdict(pr: str) -> str:
     return arm_verdict(view["state"], view["mergeable"], view["autoMergeRequest"] is not None)
 
 
-def arm_auto_merge(pr: str) -> None:
-    run_gh_text(["pr", "merge", pr, "--auto", "--squash", "--delete-branch"])
+def arm_auto_merge(pr: str) -> str:
+    """Arm auto-merge, or merge at once if gh reads the PR as ready; returns what gh reported."""
+    return run_gh_text(["pr", "merge", pr, "--auto", "--squash", "--delete-branch"]).strip()
 
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
-    arm_error: RuntimeError | None = None
+    # What the last arm attempt reported, success or refusal, for an exit-3 message.
+    arm_outcome = "not attempted"
     verdict = pr_verdict(args.pr)
     for _ in range(POLL_LIMIT - 1):
         if verdict not in SETTLING:
@@ -53,9 +55,9 @@ def main(argv: list[str]) -> int:
             # can still describe the previous head, and GitHub then refuses; a refused attempt
             # changes nothing, so the next poll retries it (idanyani/my-claude#71).
             try:
-                arm_auto_merge(args.pr)
+                arm_outcome = arm_auto_merge(args.pr) or "gh reported nothing"
             except RuntimeError as error:
-                arm_error = error
+                arm_outcome = str(error)
         time.sleep(POLL_INTERVAL_SECONDS)
         verdict = pr_verdict(args.pr)
 
@@ -71,9 +73,9 @@ def main(argv: list[str]) -> int:
         return EXIT_NEEDS_ATTENTION
     if verdict == "unarmed":
         print(
-            f"PR #{args.pr} is still not armed for auto-merge ({arm_error or 'no error reported'}) "
-            "-- if no check has run, see Troubleshooting in references/git-workflow.md; then "
-            "re-run.",
+            f"PR #{args.pr} is still not armed for auto-merge; the last attempt reported: "
+            f"{arm_outcome} -- if no check has run, see Troubleshooting in "
+            "references/git-workflow.md; then re-run.",
             file=sys.stderr,
         )
         return EXIT_NEEDS_ATTENTION

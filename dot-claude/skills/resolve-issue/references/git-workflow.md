@@ -41,16 +41,14 @@ and `gh` on PATH; they run against the current working directory's repo.
    one-line reason. Review once -- do not loop on further advisory findings; record any
    leftover suggestion as a follow-up issue.
 4. **Merge and return to `main`.** Once the commit is final,
-   `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` arms auto-merge with a squash
-   merge -- squash is what collapses the branch's commits into a single commit on `main`, so
-   the branch itself may carry several commits (initial work plus review fixes). Arming
-   auto-merge is what authorizes the merge, so do it only after addressing the review -- never
-   before. GitHub then merges the moment `verify` is green (immediately, if it already is);
-   you do not watch the run yourself. The script confirms what GitHub knows within seconds --
-   auto-merge is armed and the PR has no conflict with `main` -- then checks out an up-to-date
-   `main` (with `--worktree`, `cd` to the main checkout it names). The next `start_branch`
-   deletes the branch and its worktree once the PR has merged. When the PR needs you, it stops
-   and says why (see Troubleshooting).
+   `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` arms a squash auto-merge and
+   returns to `main` (with `--worktree`, `cd` to the main checkout it names). Squash collapses
+   the branch's commits into a single commit on `main`, so the branch itself may carry several
+   commits (initial work plus review fixes). Arming auto-merge is what authorizes the merge, so
+   do it only after addressing the review -- never before. GitHub then merges the moment
+   `verify` is green; you do not watch the run, and the next `start_branch` deletes the branch
+   and its worktree once the PR has merged. When the PR needs you, the script stops and says
+   why (see Troubleshooting).
 
 Pause for explicit approval before pushing risky or ambiguous changes. Commit-message
 conventions live in the repo's `CLAUDE.md`.

@@ -73,7 +73,8 @@ loop on further advisory findings.
 
 ## Phase 8 -- Merge and finish
 
-Only once the review is addressed, run
+Once the review is addressed (arming authorizes the merge -- see step 4 of
+[references/git-workflow.md](references/git-workflow.md)), run
 `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` (add `--worktree` if you used it in Phase 4):
 it arms auto-merge, confirms within seconds that GitHub will merge the PR without a person, then
 returns to `main` -- with `--worktree`, `cd` to the main checkout it names. It does not wait for

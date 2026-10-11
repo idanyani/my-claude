@@ -39,10 +39,11 @@ def run(monkeypatch: pytest.MonkeyPatch, git_calls: list[list[str]], arm_calls: 
     def start(views: list[dict], *flags: str, refusals: int = 0) -> int:
         script: Iterator[dict] = iter(views)
 
-        def arm_auto_merge(pr: str) -> None:
+        def arm_auto_merge(pr: str) -> str:
             arm_calls.append(pr)
             if len(arm_calls) <= refusals:
                 raise REFUSED
+            return "Pull request will be automatically merged"
 
         monkeypatch.setattr(finish_branch, "run_gh", lambda _args: next(script))
         monkeypatch.setattr(finish_branch, "arm_auto_merge", arm_auto_merge)
@@ -81,10 +82,19 @@ def test_retries_an_arm_github_refused(run, arm_calls):
     assert arm_calls == [PR, PR]
 
 
-@pytest.mark.parametrize("view", [ARMED, MERGED, CONFLICT, CLOSED])
+@pytest.mark.parametrize("view", [ARMED, UNKNOWN, MERGED, CONFLICT, CLOSED])
 def test_arms_only_an_open_unarmed_pr(run, arm_calls, view):
-    run([view])
+    run([view] * finish_branch.POLL_LIMIT)
     assert arm_calls == []
+
+
+def test_reports_the_last_arm_attempt_not_an_earlier_refusal(run, capsys):
+    # GitHub accepted the second attempt, yet the PR never read as armed.
+    views = [UNARMED] * finish_branch.POLL_LIMIT
+    assert run(views, refusals=1) == finish_branch.EXIT_NEEDS_ATTENTION
+    err = capsys.readouterr().err
+    assert "automatically merged" in err
+    assert "not mergeable" not in err
 
 
 def test_rechecks_a_request_cleared_by_the_merge(run):

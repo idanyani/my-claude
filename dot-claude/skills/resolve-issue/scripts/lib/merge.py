@@ -22,13 +22,14 @@ def parse_args(argv: list[str]) -> FinishArgs:
     return FinishArgs(pr=positional[0], worktree="--worktree" in argv)
 
 
-# Verdicts GitHub may revise within seconds of arming auto-merge: it computes mergeability lazily
-# after a push, and it clears the auto-merge request just before the PR reads MERGED.
+# Verdicts that may change within seconds, so finish_branch.py polls through them: GitHub computes
+# mergeability lazily after a push; an unarmed PR is armed on the next poll, and GitHub also clears
+# the auto-merge request just before the PR reads MERGED.
 SETTLING = ("unknown", "unarmed")
 
 
 def arm_verdict(state: str, mergeable: str, auto_merge_armed: bool) -> str:
-    """What GitHub knows about a PR seconds after auto-merge was armed.
+    """What GitHub knows about a PR while finish_branch.py arms and checks it.
 
     Returns one of "merged", "closed", "conflict", "unarmed", "unknown", "armed".
     """
