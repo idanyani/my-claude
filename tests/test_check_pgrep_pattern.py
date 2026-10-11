@@ -84,6 +84,28 @@ class TestFindSelfMatches:
         (match,) = find_self_matches("pgrep -f pytest\necho hi")
         assert match.pattern == "pytest"
 
+    def test_a_backslash_continued_invocation_is_flagged(self):
+        (match,) = find_self_matches("pgrep -f \\\n  pytest")
+        assert match.pattern == "pytest"
+
+    def test_a_continuation_inside_a_word_joins_it_as_the_shell_does(self):
+        # The shell removes backslash-newline before splitting words, quoted or not.
+        (unquoted,) = find_self_matches("pgrep -f pyt\\\nest")
+        (double_quoted,) = find_self_matches('pgrep -f "pyt\\\nest"')
+        assert unquoted.pattern == double_quoted.pattern == "pytest"
+
+    def test_a_backslash_newline_in_single_quotes_stays_literal(self):
+        (match,) = find_self_matches("pgrep -f 'pyt\\\nest'")
+        assert match.pattern == "pyt\\\nest"
+
+    def test_an_invocation_after_a_multiline_quoted_string_is_flagged(self):
+        (match,) = find_self_matches('echo "a\nb"; pgrep -f pytest')
+        assert match.pattern == "pytest"
+
+    def test_an_invocation_quoted_inside_a_multiline_argument_is_data(self):
+        # A commit message that mentions the bug is text, not a command the shell runs.
+        assert find_self_matches('git commit -m "Harden\npgrep -f pytest\nloops"') == []
+
     def test_a_double_dash_operand_list_stops_at_the_separator(self):
         assert find_self_matches('pgrep -f -- "[p]ytest" ; echo ok') == []
         (match,) = find_self_matches("pgrep -f -- pytest && echo hi")
