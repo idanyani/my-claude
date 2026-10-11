@@ -13,15 +13,13 @@ Usage: merge_settings.py <repo-settings.json> <live-settings.json>
 
 import argparse
 import json
-import os
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any
 
-Settings = dict[str, Any]
+from install_record import write_json_atomically
 
-NEW_FILE_MODE = 0o644
+Settings = dict[str, Any]
 
 
 def merge(repo: Settings, live: Settings) -> tuple[Settings, list[str], list[str]]:
@@ -72,22 +70,6 @@ def _read_live(path: Path) -> Settings:
     return live
 
 
-def _write_atomically(path: Path, settings: Settings) -> None:
-    # Resolve so a symlinked live file is updated through its link rather than replaced.
-    target = path.resolve()
-    fd, tmp = tempfile.mkstemp(dir=target.parent, prefix=target.name, suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(settings, f, indent=2, ensure_ascii=False)
-            f.write("\n")
-        # mkstemp creates the file owner-only; keep the mode the live file had, as `cp` did.
-        os.chmod(tmp, target.stat().st_mode & 0o777 if target.exists() else NEW_FILE_MODE)
-        os.replace(tmp, target)
-    except BaseException:
-        os.unlink(tmp)
-        raise
-
-
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("repo", type=Path)
@@ -96,7 +78,7 @@ def main(argv: list[str]) -> int:
 
     repo = json.loads(args.repo.read_text(encoding="utf-8"))
     merged, kept, overwritten = merge(repo, _read_live(args.live))
-    _write_atomically(args.live, merged)
+    write_json_atomically(args.live, merged)
 
     for path in kept:
         print(
