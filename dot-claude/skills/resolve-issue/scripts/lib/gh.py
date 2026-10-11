@@ -1,8 +1,8 @@
 """Subprocess shell-outs for the resolve-issue PR-lifecycle scripts.
 
-One home for "run `gh`/`git`, surface a failure as a descriptive error." The pure decision logic
-lives beside these in the other `lib/` modules and is unit-tested without touching the network;
-these thin wrappers are the side-effecting seam the executables call.
+One home for "run `gh`/`git`, surface a failure as a descriptive error." These thin wrappers are
+the side-effecting seam the executables and `sweep.py` call; the pure decision logic beside them
+in `lib/` is unit-tested without touching the network.
 """
 
 import json

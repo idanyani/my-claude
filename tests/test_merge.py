@@ -7,9 +7,7 @@ from lib.merge import (
     failed_required_checks,
     merge_decision,
     parse_args,
-    parse_main_worktree,
     parse_required_checks,
-    parse_worktree_for_branch,
 )
 
 CAP_MS = 300_000
@@ -178,37 +176,3 @@ class TestBranchDeletionPlan:
     def test_a_diverged_present_branch_raises(self):
         with pytest.raises(ValueError, match="unpushed"):
             branch_deletion_plan("aaaa", "3-fix", "bbbb", local_is_ancestor=False)
-
-
-PORCELAIN = "\n".join(
-    [
-        "worktree /home/dev/tiki",
-        "HEAD 1111111111111111111111111111111111111111",
-        "branch refs/heads/main",
-        "",
-        "worktree /home/dev/tiki-116",
-        "HEAD 2222222222222222222222222222222222222222",
-        "branch refs/heads/116-port-worktree-isolation",
-        "",
-    ]
-)
-
-
-class TestParseMainWorktree:
-    def test_returns_the_first_worktrees_path(self):
-        assert parse_main_worktree(PORCELAIN) == "/home/dev/tiki"
-
-    def test_raises_when_there_is_no_worktree_entry(self):
-        with pytest.raises(ValueError):
-            parse_main_worktree("")
-
-
-class TestParseWorktreeForBranch:
-    def test_finds_the_worktree_holding_a_branch(self):
-        assert (
-            parse_worktree_for_branch(PORCELAIN, "116-port-worktree-isolation")
-            == "/home/dev/tiki-116"
-        )
-
-    def test_returns_none_when_no_worktree_holds_the_branch(self):
-        assert parse_worktree_for_branch(PORCELAIN, "999-absent") is None
