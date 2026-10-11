@@ -64,17 +64,6 @@ def parse_main_worktree(porcelain: str) -> str:
     return first[len("worktree ") :]
 
 
-def parse_worktree_for_branch(porcelain: str, branch: str) -> str | None:
-    """Path of the worktree holding `branch` in `git worktree list --porcelain`, or None."""
-    path: str | None = None
-    for line in porcelain.split("\n"):
-        if line.startswith("worktree "):
-            path = line[len("worktree ") :]
-        elif line == f"branch refs/heads/{branch}":
-            return path
-    return None
-
-
 @dataclass(frozen=True)
 class PrStatus:
     """One poll of the PR: its `gh pr view` fields plus the required checks that failed."""
@@ -127,7 +116,7 @@ def merge_decision(pr: PrStatus, elapsed_ms: float, timeout_ms: float) -> str:
     off (references/git-workflow.md, Background).
 
     Otherwise the wait continues until `elapsed_ms` reaches the cap, at which point it times out
-    (the caller proceeds; the next start-branch / clean-gone cleans up the deferred merge later).
+    (the caller proceeds; the next start_branch.py deletes the branch once its PR merges).
 
     Returns one of: "merged", "closed", "conflict", "unarmed", "check_failed", "behind",
     "timeout", "continue".

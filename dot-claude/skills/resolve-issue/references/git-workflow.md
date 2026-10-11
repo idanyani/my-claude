@@ -29,8 +29,8 @@ and `gh` on PATH; they run against the current working directory's repo.
 1. **Branch from `main`.** `python3 ${CLAUDE_SKILL_DIR}/scripts/start_branch.py <number>
    <kebab-summary>` (add `--worktree` for a sibling worktree; the script prints the
    dependency-install command the fresh worktree needs). It refuses a dirty tree (it never
-   stashes silently -- surface that and ask), prunes `[gone]` branches, then branches from a
-   freshly pulled `main`. Never push to `main` directly -- branch protection rejects it for
+   stashes silently -- surface that and ask), deletes the local branches whose PR merged
+   (keeping and listing any it cannot confirm), then branches from a freshly pulled `main`. Never push to `main` directly -- branch protection rejects it for
    everyone, administrators included.
 2. **Open the PR.** `git push -u origin <branch>`, then `gh pr create --fill`.
 3. **Review the PR.** Run `/code-review <pr>` in this session. Apply the findings worth
@@ -53,7 +53,7 @@ and `gh` on PATH; they run against the current working directory's repo.
    wait outlasts the tool's 120-second foreground default, which would kill it before the
    cleanup. The harness reports its exit, so do not poll for it. To skip the wait, just
    `git checkout main` and let the merge land asynchronously -- the next `start_branch` deletes
-   the `[gone]` branch.
+   the branch once its PR has merged.
 
 Pause for explicit approval before pushing risky or ambiguous changes. Commit-message
 conventions live in the repo's `CLAUDE.md`.

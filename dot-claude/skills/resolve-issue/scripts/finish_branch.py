@@ -18,7 +18,7 @@ Exit 1: the PR closed without merging, a git/gh call failed, or GitHub stayed un
     the timeout. Only the first poll of the PR's status fails at once; after that, a failed poll
     is retried until the timeout.
 Exit 2: the bounded wait expired without a merge and nothing failed -- the caller
-    proceeds; the next start-branch / clean-gone removes the branch once it goes [gone].
+    proceeds; the next start_branch.py deletes the branch once its PR merges.
 Exit 3: the PR needs a person -- it conflicts with main, a required check failed, auto-merge
     is not armed, or it is behind a main that requires branches to be up to date; the message
     names which. Fix that and re-run.
@@ -40,8 +40,8 @@ from lib.merge import (
     parse_args,
     parse_main_worktree,
     parse_required_checks,
-    parse_worktree_for_branch,
 )
+from lib.sweep import is_ancestor, parse_worktree_for_branch
 
 POLL_INTERVAL_SECONDS = 20
 EXIT_NEEDS_ATTENTION = 3
@@ -97,29 +97,6 @@ def local_branch_oid(branch: str) -> str | None:
         return None
     raise RuntimeError(
         f"git rev-parse refs/heads/{branch} exited {result.returncode}: {result.stderr.strip()}"
-    )
-
-
-def is_ancestor(pr: str, local_oid: str, pr_head_oid: str) -> bool:
-    """Whether the local tip is contained in the merged PR head.
-
-    A head GitHub advanced with an update-branch merge commit exists only on the remote, so fetch
-    it from the PR ref, which outlives the deleted branch.
-    """
-    if local_oid == pr_head_oid:
-        return True
-    run_git(["fetch", "origin", f"pull/{pr}/head"])
-    result = subprocess.run(
-        ["git", "merge-base", "--is-ancestor", local_oid, pr_head_oid],
-        capture_output=True,
-        text=True,
-    )
-    # Exit 1 is a definite "no"; any other nonzero status is a real failure that must surface
-    # rather than masquerade as a diverged branch.
-    if result.returncode in (0, 1):
-        return result.returncode == 0
-    raise RuntimeError(
-        f"git merge-base --is-ancestor exited {result.returncode}: {result.stderr.strip()}"
     )
 
 
@@ -251,8 +228,7 @@ def main(argv: list[str]) -> int:
             print(
                 f"PR #{args.pr} not merged after {args.timeout_ms / 1000:g}s "
                 f"(still OPEN, merge state {pr.merge_state_status}, no required check failed) -- "
-                "proceeding; the next start-branch / clean-gone removes the branch once it goes "
-                "[gone].",
+                "proceeding; the next start_branch.py deletes the branch once its PR merges.",
                 file=sys.stderr,
             )
             return 2

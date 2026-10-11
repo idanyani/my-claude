@@ -5,7 +5,8 @@ Usage: python3 <skill-dir>/scripts/start_branch.py <number> <kebab-summary> [--w
 
 Default: branch in place from a fresh `main`. With `--worktree`: create a sibling worktree instead.
 Either way it refuses a dirty tree rather than stashing -- the caller surfaces that and asks the
-user.
+user -- and first deletes the local branches whose PR merged (`lib/sweep.py`), so they do not
+accumulate.
 """
 
 import os
@@ -13,6 +14,7 @@ import sys
 
 from lib.branch import branch_name, worktree_path, worktree_setup_hint
 from lib.gh import run_git
+from lib.sweep import DELETED, sweep_merged_branches
 
 USAGE = "usage: start_branch.py <number> <kebab-summary> [--worktree]"
 
@@ -37,18 +39,29 @@ def require_clean_tree() -> None:
         raise RuntimeError("working tree is dirty -- stop and ask the user; never stash silently.")
 
 
+def report_sweep(outcomes: dict[str, str]) -> None:
+    for branch, outcome in outcomes.items():
+        if outcome == DELETED:
+            print(f"Deleted merged branch {branch}.")
+        else:
+            print(f"Kept branch {branch}: {outcome}.")
+
+
 def main(argv: list[str]) -> int:
     issue_number, summary, worktree = parse_args(argv)
     branch = branch_name(issue_number, summary)
 
     require_clean_tree()
-    # Prune so merged [gone] branches do not accumulate, then base the new branch on fresh main.
-    run_git(["fetch", "--prune"])
+    if not worktree:
+        # Leave the current branch first, so the sweep may delete it if its PR merged.
+        run_git(["checkout", "main"])
+    # The sweep's fetch also freshens origin/main, the base of the new branch.
+    report_sweep(sweep_merged_branches())
 
     if worktree:
         repo_name = os.path.basename(run_git(["rev-parse", "--show-toplevel"]).strip())
         path = worktree_path(repo_name, issue_number)
-        # Base on origin/main (fresh after the fetch above), not the local `main` ref, which the
+        # Base on origin/main (fresh after the sweep's fetch), not the local `main` ref, which the
         # worktree path never updates and so could be stale -- the "fresh main" promise holds
         # without disturbing the current checkout.
         run_git(["worktree", "add", path, "-b", branch, "origin/main"])
@@ -57,7 +70,6 @@ def main(argv: list[str]) -> int:
         print(f"Worktree ready at {path} on branch {branch}.{suffix}")
         return 0
 
-    run_git(["checkout", "main"])
     run_git(["pull"])
     run_git(["checkout", "-b", branch])
     print(f"Branch {branch} ready (in place).")
