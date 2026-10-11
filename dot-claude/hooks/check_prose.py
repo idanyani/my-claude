@@ -2,11 +2,11 @@
 """PostToolUse hook: flag the CLAUDE.md prose-convention violations a language linter misses.
 
 The global conventions require ASCII typography in code and text files and reserve emojis for
-user-facing scripts; `GLYPH_REPLACEMENTS` maps each forbidden glyph to the ASCII replacement to suggest.
-Language linters (ruff, mypy, eslint) never check this, and it is deterministic, so it belongs in
-a hook rather than the judgment-based `maintain` skill. This runs after every Edit/Write, reads the
-hook payload on stdin, scans the edited file, and returns advisory (non-blocking) feedback naming
-each offending line and its ASCII replacement.
+user-facing scripts; `GLYPH_REPLACEMENTS` maps each forbidden glyph to the ASCII replacement to
+suggest. Language linters (ruff, mypy, eslint) never check this, and it is deterministic, so it
+belongs in a hook rather than the judgment-based `maintain` skill. This runs after every
+Edit/Write, reads the hook payload on stdin, scans the edited file, and returns advisory
+(non-blocking) feedback naming each offending line and its ASCII replacement.
 
 Stdlib-only: it needs just `python3`, so it runs in any repo the config is installed into.
 """
