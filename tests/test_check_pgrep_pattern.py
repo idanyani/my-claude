@@ -34,6 +34,31 @@ class TestFindSelfMatches:
         (match,) = find_self_matches(command)
         assert match.pattern == "pytest"
 
+    def test_a_quoted_heredoc_operator_hides_no_later_command(self):
+        # Inside quotes `<<EOF` is literal text, so the `EOF` line below is a command, not
+        # the end of a heredoc body.
+        command = 'echo "a <<EOF b"\npgrep -f pytest\nEOF\npgrep -f pytest'
+        assert [m.pattern for m in find_self_matches(command)] == ["pytest", "pytest"]
+
+    def test_a_quoted_heredoc_operator_without_a_closing_line_hides_nothing(self):
+        command = 'git commit -m "Explain\ncat <<EOF usage\n"\npgrep -f pytest'
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_a_heredoc_in_a_quoted_command_substitution_is_data(self):
+        # The `"$(cat <<'EOF' ... EOF\n)"` commit-message idiom: the substitution opens a
+        # fresh quoting context, so its heredoc is real even inside double quotes, and a
+        # stray double quote in the body does not unbalance the quoting around it.
+        command = (
+            'git commit -m "$(cat <<\'EOF\'\nA 5" display\npgrep -f pytest\nEOF\n)"\npgrep -f gamma'
+        )
+        assert [m.pattern for m in find_self_matches(command)] == ["gamma"]
+
+    def test_a_here_string_is_not_a_heredoc(self):
+        command = "cat <<<EOF\npgrep -f pytest\nEOF"
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
     def test_a_redirection_target_is_not_mistaken_for_the_pattern(self):
         # `>/dev/null` tokenizes as an operator plus a word; neither is a pgrep operand.
         (match,) = find_self_matches(

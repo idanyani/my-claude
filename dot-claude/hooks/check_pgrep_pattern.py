@@ -31,10 +31,13 @@ COMMAND_SEPARATORS = frozenset({"&&", "||", "|", ";", "&", "(", ")"})
 # Only bare operators match, so a quoted pattern containing `>` is still read as the pattern.
 REDIRECTION = re.compile(r"^\d*(?:>>?|<<?|[<>]&)-?$")
 
-# A heredoc body is data the command reads on stdin, never anything the shell runs -- writing
-# about this bug must not trip the check. Everything from the delimiter to its closing line is
-# dropped before the scan.
-HEREDOC_START = re.compile(r"""<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1""")
+QUOTES = frozenset("'\"")
+
+# Unquoted characters that end a shell word.
+METACHARACTERS = frozenset(" \t;&|()<>")
+
+# What a quoting context stack holds for an open command substitution or subshell.
+SUBSHELL = "("
 
 # Short options that consume the following token, so its value is never mistaken for the pattern.
 SHORT_OPTIONS_WITH_VALUE = frozenset("dgGPstuUFjrqMN")
@@ -96,23 +99,115 @@ def _tokenize(command: str) -> list[str]:
     return list(lexer)
 
 
+@dataclass(frozen=True)
+class HeredocDelimiter:
+    word: str
+    strips_tabs: bool  # `<<-` strips leading tabs from body lines, the closing one included
+
+    def closes(self, line: str) -> bool:
+        return (line.lstrip("\t") if self.strips_tabs else line) == self.word
+
+
+def _heredoc_delimiter(line: str, index: int) -> tuple[HeredocDelimiter, int]:
+    """The delimiter of the heredoc whose `<<` ends just before `index`, and the index past it.
+
+    The delimiter is the next shell word after quote removal: `<<'EOF'` and `<<"EOF"` both end
+    at a line reading `EOF`.
+    """
+    strips_tabs = line.startswith("-", index)
+    index += strips_tabs
+    while index < len(line) and line[index] in " \t":
+        index += 1
+    word = []
+    quote = None
+    while index < len(line):
+        char = line[index]
+        if quote:
+            if char == quote:
+                quote = None
+            else:
+                word.append(char)
+        elif char in QUOTES:
+            quote = char
+        elif char == "\\":
+            index += 1
+            word.append(line[index : index + 1])
+        elif char in METACHARACTERS:
+            break
+        else:
+            word.append(char)
+        index += 1
+    return HeredocDelimiter("".join(word), strips_tabs), index
+
+
+def _scan_quoting(line: str, contexts: list[str]) -> tuple[list[HeredocDelimiter], bool]:
+    """Advance the open quoting `contexts` across `line`; return the heredocs it opens.
+
+    Also returns whether `line` ends in a backslash that escapes its newline. `contexts` is a
+    stack of open quotes and command substitutions: `$(` starts a fresh unquoted context even
+    inside double quotes, which is how the `"$(cat <<'EOF' ...)"` idiom opens a real heredoc.
+    Backticks and arithmetic `$((...))` are not modeled.
+    """
+    delimiters: list[HeredocDelimiter] = []
+    index = 0
+    while index < len(line):
+        char = line[index]
+        top = contexts[-1] if contexts else SUBSHELL
+        if top == "'":
+            if char == "'":
+                contexts.pop()
+        elif char == "\\":
+            if index == len(line) - 1:
+                return delimiters, True
+            index += 1
+        elif line.startswith("$(", index):
+            contexts.append(SUBSHELL)
+            index += 1
+        elif top == '"':
+            if char == '"':
+                contexts.pop()
+        elif char in QUOTES or char == SUBSHELL:
+            contexts.append(char)
+        elif char == ")":
+            if contexts:
+                contexts.pop()
+        elif char == "#" and (index == 0 or line[index - 1] in METACHARACTERS):
+            break  # a comment: its apostrophes quote nothing
+        elif line.startswith("<<<", index):
+            index += 2  # a here-string, whose operand is an ordinary word
+        elif line.startswith("<<", index):
+            delimiter, index = _heredoc_delimiter(line, index + 2)
+            delimiters.append(delimiter)
+            continue
+        index += 1
+    return delimiters, False
+
+
 def _without_heredocs(command: str) -> str:
     """`command` with every heredoc body and its closing delimiter removed.
 
-    Stripping the bodies as text rather than as tokens keeps their contents away from the
-    lexer entirely, so an apostrophe in prose cannot make the whole command unparsable.
+    A heredoc body is data the command reads on stdin, never anything the shell runs -- writing
+    about this bug must not trip the check. Only an unquoted `<<` opens one, so the scan tracks
+    quoting. Stripping the bodies as text rather than as tokens keeps their contents away from
+    the lexer entirely, so an apostrophe in prose cannot make the whole command unparsable.
     """
     lines = command.split("\n")
     kept = []
+    contexts: list[str] = []
+    pending: list[HeredocDelimiter] = []
     index = 0
     while index < len(lines):
+        delimiters, newline_is_escaped = _scan_quoting(lines[index], contexts)
+        pending.extend(delimiters)
         kept.append(lines[index])
-        delimiters = [delimiter for _, delimiter in HEREDOC_START.findall(lines[index])]
         index += 1
-        for delimiter in delimiters:
-            while index < len(lines) and lines[index].strip() != delimiter:
+        if newline_is_escaped or (contexts and contexts[-1] in QUOTES):
+            continue  # the body starts only after a newline the shell reads as a separator
+        for delimiter in pending:
+            while index < len(lines) and not delimiter.closes(lines[index]):
                 index += 1
             index += 1
+        pending = []
     return "\n".join(kept)
 
 
