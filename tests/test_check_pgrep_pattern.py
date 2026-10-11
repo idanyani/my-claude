@@ -5,6 +5,7 @@ contains the pattern always finds itself. A wait loop built on one can never exi
 failure that motivated this hook left ten shells spinning for eleven hours.
 """
 
+import time
 from pathlib import Path
 
 from check_pgrep_pattern import SelfMatch, bracket_escape, find_self_matches, format_denial
@@ -105,6 +106,19 @@ class TestFindSelfMatches:
     def test_an_invocation_quoted_inside_a_multiline_argument_is_data(self):
         # A commit message that mentions the bug is text, not a command the shell runs.
         assert find_self_matches('git commit -m "Harden\npgrep -f pytest\nloops"') == []
+
+    def test_quoting_shlex_cannot_close_hides_no_later_line(self):
+        # Bash accepts ANSI-C quoting that shlex reads as an unclosed quote.
+        (match,) = find_self_matches("echo $'it\\'s'\npgrep -f pytest")
+        assert match.pattern == "pytest"
+
+    def test_a_long_multiline_quoted_argument_is_scanned_quickly(self):
+        # The hook runs before every Bash call, so a long `python3 -c "..."` must not stall it.
+        script = "\n".join(f"x{index} = {index}" for index in range(5000))
+        started = time.perf_counter()
+        (match,) = find_self_matches(f'python3 -c "{script}"\npgrep -f pytest')
+        assert match.pattern == "pytest"
+        assert time.perf_counter() - started < 2
 
     def test_a_double_dash_operand_list_stops_at_the_separator(self):
         assert find_self_matches('pgrep -f -- "[p]ytest" ; echo ok') == []

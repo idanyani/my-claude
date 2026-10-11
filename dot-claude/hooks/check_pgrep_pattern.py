@@ -66,7 +66,8 @@ LONG_OPTIONS_WITH_VALUE = frozenset(
 BRACKET_EXPRESSION = re.compile(r"\[[^]]+]")
 
 # What `shlex` raises when the text ends right after a backslash: outside single quotes, that
-# backslash escapes the newline that follows it in the command -- a line continuation.
+# backslash escapes the newline that follows it in the command -- a line continuation. The
+# message is the only signal the public API gives; the lexer's state is undocumented.
 DANGLING_ESCAPE = "No escaped character"
 
 # Shell expansions make the pattern differ from the literal text in the caller's argv, so a
@@ -115,25 +116,52 @@ def _without_heredocs(command: str) -> str:
     return "\n".join(kept)
 
 
+def _open_quote(text: str) -> str:
+    """The quote character left open at the end of `text`, which lexes only with a quote open."""
+    try:
+        _tokenize(text + '"')
+    except ValueError:
+        return "'"
+    return '"'
+
+
 def _command_lines(command: str) -> Iterator[list[str]]:
     """Tokens of each line of `command` as the shell reads it, joining physical lines.
 
     A newline ends a command only when it is unquoted and unescaped. A backslash-newline outside
     single quotes is a line continuation, which the shell removes before splitting words; a
-    newline inside open quotes belongs to the quoted word. `shlex` tells the two apart by the
-    error it raises on the incomplete text. Text still incomplete at the end of `command` is
-    unbalanced quoting the shell rejects before matching anything, so it yields no tokens.
+    newline inside open quotes belongs to the quoted word.
     """
+    lines = command.split("\n")
     pending = ""
-    for line in command.split("\n"):
+    open_quote = None
+    first_pending_line = 0
+    for index, line in enumerate(lines):
+        if not pending:
+            first_pending_line = index
         text = pending + line
+        if open_quote and open_quote not in line and not line.endswith("\\"):
+            # Nothing on this line can close the quote, so lexing again would only repeat the
+            # failure -- and cost time quadratic in the length of a long quoted argument.
+            pending = text + "\n"
+            continue
         try:
             tokens = _tokenize(text)
         except ValueError as error:
-            pending = text[:-1] if str(error) == DANGLING_ESCAPE else text + "\n"
+            if str(error) == DANGLING_ESCAPE:
+                pending, open_quote = text[:-1], None
+            else:
+                pending, open_quote = text + "\n", _open_quote(text)
             continue
-        pending = ""
+        pending, open_quote = "", None
         yield tokens
+    # A quote shlex never saw closed may still be valid bash, such as ANSI-C `$'it\\'s'`; scan
+    # those lines one by one so it hides no later command.
+    for line in lines[first_pending_line:] if pending else []:
+        try:
+            yield _tokenize(line)
+        except ValueError:
+            continue
 
 
 def _pattern_of_invocation(tokens: list[str], start: int) -> tuple[str | None, int]:
