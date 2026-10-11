@@ -41,9 +41,10 @@
   equivalents, confirm Red, implement to Green.
 - Reproduce every bug with a failing test before fixing it.
 - Before calling a test done, verify it would fail if the code broke.
-- Never test a prompt (a skill, CLAUDE.md, an agent definition) by matching its words or
-  phrases: rewording breaks the test without changing behavior. Test its behavior, or
-  structural facts such as the script paths it calls.
+- Never test a prompt (a skill, CLAUDE.md, an agent definition) by matching its prose:
+  rewording breaks the test without changing behavior. Assert only on text a program
+  consumes (script paths, frontmatter keys, tool rules); a prose edit has no test-first
+  step and is verified by running the prompt.
 - Untestability is a code smell: refactor -- keep I/O at the boundary and logic pure.
 - Never relax a linter/compiler to silence a warning; fix the root cause. Treat warnings
   as errors.
