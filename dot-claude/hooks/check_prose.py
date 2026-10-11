@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """PostToolUse hook: flag the CLAUDE.md prose-convention violations a language linter misses.
 
-The global conventions require ASCII typography in code and text files (`--`/`---` not em/en-dashes,
-`->` not Unicode arrows) and reserve emojis for user-facing scripts. Language linters (ruff, mypy,
-eslint) never check this, and it is deterministic, so it belongs in a hook rather than the
-judgment-based `maintain` skill. This runs after every Edit/Write, reads the hook payload on stdin,
+The global conventions require ASCII typography in code and text files and reserve emojis for
+user-facing scripts; `GLYPH_REPLACEMENTS` maps each forbidden glyph to the ASCII form they name.
+Language linters (ruff, mypy, eslint) never check this, and it is deterministic, so it belongs in
+a hook rather than the judgment-based `maintain` skill. This runs after every Edit/Write, reads the hook payload on stdin,
 scans the edited file, and returns advisory (non-blocking) feedback naming each offending line and
 its ASCII replacement.
 
@@ -27,9 +27,9 @@ GLYPH_REPLACEMENTS = {
     0x201C: '"',  # left double quotation mark
     0x201D: '"',  # right double quotation mark
     0x2026: "...",  # horizontal ellipsis
-    0x2192: "->",  # rightwards arrow
-    0x2190: "<-",  # leftwards arrow
-    0x2194: "<->",  # left right arrow
+    0x2192: "-->",  # rightwards arrow
+    0x2190: "<--",  # leftwards arrow
+    0x2194: "<-->",  # left right arrow
     0x00A0: " ",  # no-break space
 }
 

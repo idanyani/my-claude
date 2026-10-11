@@ -16,7 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from links import extract_links, is_intra_repo, link_is_broken
+from links import extract_links, link_is_broken
 
 
 def _repo_root() -> Path:
@@ -31,7 +31,7 @@ def broken_links_in(md_path: Path, text: str, repo_root: Path) -> list[tuple[int
     return [
         (line_number, target)
         for line_number, target in extract_links(text)
-        if is_intra_repo(target) and link_is_broken(md_path, target, repo_root, text)
+        if link_is_broken(md_path, target, repo_root, text)
     ]
 
 
