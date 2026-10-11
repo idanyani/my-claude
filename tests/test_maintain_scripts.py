@@ -136,3 +136,23 @@ class TestChangedFilesAgainstTempRepo:
         paths = filter_paths(changed_files.changed_paths())
         assert "kept.py" in paths
         assert "uv.lock" not in paths
+
+
+class TestCheckLinksAgainstTempRepo:
+    @pytest.fixture
+    def repo(self, tmp_path, monkeypatch):
+        _git(tmp_path, "init", "-b", "main")
+        monkeypatch.chdir(tmp_path)
+        return tmp_path
+
+    def test_reports_other_files_past_an_unreadable_one(self, repo, capsys):
+        import check_links
+
+        (repo / "latin1.md").write_bytes("caf\xe9 [x](gone.md)\n".encode("latin-1"))
+        (repo / "good.md").write_text("[y](missing.md)\n")
+
+        assert check_links.main(["latin1.md", "good.md"]) == 0
+
+        captured = capsys.readouterr()
+        assert "[HIGH] broken link 'missing.md' -- good.md:1" in captured.out
+        assert "latin1.md" in captured.err
