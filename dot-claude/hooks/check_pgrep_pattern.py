@@ -41,6 +41,15 @@ ANSI_C_QUOTE = "$'"
 SUBSHELL = "$("  # a command substitution or a plain `(` subshell
 ARITHMETIC = "(("  # `$((...))` or `((...))`, where `<<` is a shift
 BACKTICK = "`"
+CASE = "case"  # a `case` command, whose pattern lists end in an unquoted `)`
+
+# The reserved words that open and close a `case` command, as whole unquoted words. Bash
+# reserves them only where a command starts, which `_at_command_start` decides.
+CASE_KEYWORD = re.compile(r"(?<![^ \t;&|()<>`])(case|esac)(?=[ \t;&|()<>`]|$)")
+
+# Reserved words after which the next word still starts a command, as in `then case ...`.
+COMMAND_PREFIX_WORDS = frozenset({"!", "{", "if", "then", "else", "elif", "while", "until", "do"})
+LAST_WORD = re.compile(r"[^ \t;&|()<>`]+$")
 
 # Contexts in which a newline is part of a word rather than a command separator.
 QUOTING_CONTEXTS = QUOTES | {ANSI_C_QUOTE}
@@ -146,13 +155,27 @@ def _heredoc_delimiter(line: str, index: int) -> tuple[HeredocDelimiter, int]:
     return HeredocDelimiter("".join(word), strips_tabs), index
 
 
+def _at_command_start(line: str, index: int) -> bool:
+    """Whether a word at `index` of `line` is the first word of a command.
+
+    It is when only blanks separate it from the start of the line, a control operator, a
+    parenthesis, a backtick, or a reserved word that leaves the command unstarted. A physical
+    line start counts, even after a backslash-newline that continues the command before it.
+    """
+    before = line[:index].rstrip(" \t")
+    if not before or before[-1] in ";&|()`":
+        return True
+    last_word = LAST_WORD.search(before)
+    return last_word is not None and last_word.group() in COMMAND_PREFIX_WORDS
+
+
 def _scan_quoting(line: str, contexts: list[str]) -> tuple[list[HeredocDelimiter], bool]:
     """Advance the open quoting `contexts` across `line`; return the heredocs it opens.
 
     Also returns whether `line` ends in a backslash that escapes its newline. `contexts` is a
     stack of open quotes and substitutions: `$(` and a backtick start a fresh unquoted context
     even inside double quotes, which is how the `"$(cat <<'EOF' ...)"` idiom opens a real
-    heredoc. Not modeled: the `)` ending a `case` pattern, which closes a subshell early here.
+    heredoc.
     """
     delimiters: list[HeredocDelimiter] = []
     # Bash reads a backtick substitution to its closing backtick before parsing it, so a
@@ -209,6 +232,13 @@ def _scan_quoting(line: str, contexts: list[str]) -> tuple[list[HeredocDelimiter
                 contexts.pop()
         elif char == "#" and (index == 0 or line[index - 1] in METACHARACTERS):
             break  # a comment: its apostrophes quote nothing
+        elif (keyword := CASE_KEYWORD.match(line, index)) and _at_command_start(line, index):
+            if keyword.group() == "case":
+                contexts.append(CASE)
+            elif top == CASE:
+                contexts.pop()
+            index = keyword.end()
+            continue
         elif ARITHMETIC in contexts:
             pass  # `<<` is a shift
         elif line.startswith("<<<", index):
