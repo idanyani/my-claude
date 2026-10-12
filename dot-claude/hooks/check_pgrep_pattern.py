@@ -166,7 +166,7 @@ def _at_command_start(line: str, index: int) -> bool:
     if not before or before[-1] in ";&|()`":
         return True
     last_word = LAST_WORD.search(before)
-    return bool(last_word) and last_word.group() in COMMAND_PREFIX_WORDS
+    return last_word is not None and last_word.group() in COMMAND_PREFIX_WORDS
 
 
 def _scan_quoting(line: str, contexts: list[str]) -> tuple[list[HeredocDelimiter], bool]:
