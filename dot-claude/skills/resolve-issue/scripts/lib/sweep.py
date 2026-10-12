@@ -4,8 +4,8 @@ Auto-merge's `--delete-branch` removes the remote branch, and `git fetch --prune
 local branch's upstream `[gone]`. `[gone]` alone does not prove a merge: a PR closed unmerged, or a
 remote branch deleted by hand, looks the same. And a squash merge leaves the branch "not fully
 merged" to git, so deleting it takes a forced `git branch -D`. So a `[gone]` branch is deleted only
-when GitHub lists a merged PR from it whose head contains the local tip -- the sibling worktree
-holding it goes first -- and any other `[gone]` branch is kept, with the reason reported.
+when GitHub lists a merged PR from it whose head contains the local tip -- the worktree holding
+it goes first -- and any other `[gone]` branch is kept, with the reason reported.
 """
 
 import subprocess
@@ -32,8 +32,7 @@ def parse_gone_branches(for_each_ref: str) -> list[str]:
 def parse_main_worktree(porcelain: str) -> str:
     """The main checkout's path from `git worktree list --porcelain`.
 
-    Its first entry is always the main worktree. Cleanup runs from there so it survives removing
-    the worktree it was invoked in.
+    Its first entry is always the main worktree.
     """
     first = porcelain.split("\n")[0]
     if not first.startswith("worktree "):

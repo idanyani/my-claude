@@ -33,3 +33,11 @@ def run_gh_text(args: list[str]) -> str:
 def run_git(args: list[str]) -> str:
     """Run `git <args>` and return stdout."""
     return _run("git", args)
+
+
+def in_linked_worktree() -> bool:
+    """Whether the current directory is in a linked worktree rather than the main checkout."""
+    git_dir, common_dir = run_git(
+        ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"]
+    ).split()
+    return git_dir != common_dir

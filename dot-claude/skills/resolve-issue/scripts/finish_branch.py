@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Finish a resolved issue: arm its PR's auto-merge, confirm GitHub will merge it, return to `main`.
 
-Usage: python3 <skill-dir>/scripts/finish_branch.py <pr> [--worktree]
+Usage: python3 <skill-dir>/scripts/finish_branch.py <pr>
 
 It arms auto-merge (squash, deleting the remote branch), retrying while GitHub refuses, and checks
 only what GitHub knows within seconds -- the PR merged, or auto-merge is armed and the PR has no
@@ -10,8 +10,8 @@ surfaces later (a failed check, a conflict with a PR merged after this one, CI t
 leaves the PR open, where `gh pr ls` lists it (see references/git-workflow.md). The next
 start_branch.py deletes the merged branch.
 
-In place, it checks out an up-to-date `main`. With `--worktree`, it names the main checkout to `cd`
-to, so the next start_branch.py runs from there and its sweep can remove the sibling worktree.
+In the main checkout, it checks out an up-to-date `main`. In a linked worktree it leaves the
+checkout alone; the next start_branch.py's sweep removes the worktree once the PR has merged.
 
 Exit 0: the PR merged, or will merge once its checks pass; the message says which, or that GitHub
     was still checking it for conflicts.
@@ -23,9 +23,8 @@ Exit 3: the PR needs a person -- it conflicts with main, or GitHub kept refusing
 import sys
 import time
 
-from lib.gh import run_gh, run_gh_text, run_git
+from lib.gh import in_linked_worktree, run_gh, run_gh_text, run_git
 from lib.merge import SETTLING, arm_verdict, parse_args
-from lib.sweep import parse_main_worktree
 
 POLL_INTERVAL_SECONDS = 5
 POLL_LIMIT = 6
@@ -43,10 +42,10 @@ def arm_auto_merge(pr: str) -> str:
 
 
 def main(argv: list[str]) -> int:
-    args = parse_args(argv)
+    pr = parse_args(argv)
     # What the last arm attempt reported, success or refusal, for an exit-3 message.
     arm_outcome = "not attempted"
-    verdict = pr_verdict(args.pr)
+    verdict = pr_verdict(pr)
     for _ in range(POLL_LIMIT - 1):
         if verdict not in SETTLING:
             break
@@ -55,25 +54,25 @@ def main(argv: list[str]) -> int:
             # can still describe the previous head, and GitHub then refuses; a refused attempt
             # changes nothing, so the next poll retries it (idanyani/my-claude#71).
             try:
-                arm_outcome = arm_auto_merge(args.pr) or "gh reported nothing"
+                arm_outcome = arm_auto_merge(pr) or "gh reported nothing"
             except RuntimeError as error:
                 arm_outcome = str(error)
         time.sleep(POLL_INTERVAL_SECONDS)
-        verdict = pr_verdict(args.pr)
+        verdict = pr_verdict(pr)
 
     if verdict == "closed":
-        print(f"PR #{args.pr} is CLOSED without merging.", file=sys.stderr)
+        print(f"PR #{pr} is CLOSED without merging.", file=sys.stderr)
         return 1
     if verdict == "conflict":
         print(
-            f"PR #{args.pr} conflicts with main -- merge main into the branch, resolve, push a new "
+            f"PR #{pr} conflicts with main -- merge main into the branch, resolve, push a new "
             "commit, and re-run.",
             file=sys.stderr,
         )
         return EXIT_NEEDS_ATTENTION
     if verdict == "unarmed":
         print(
-            f"PR #{args.pr} is still not armed for auto-merge; the last attempt reported: "
+            f"PR #{pr} is still not armed for auto-merge; the last attempt reported: "
             f"{arm_outcome} -- if no check has run, see Troubleshooting in "
             "references/git-workflow.md; then re-run.",
             file=sys.stderr,
@@ -82,22 +81,19 @@ def main(argv: list[str]) -> int:
 
     # Report the verdict before touching the checkout, so a failed pull cannot hide it.
     if verdict == "merged":
-        print(f"PR #{args.pr} merged.")
+        print(f"PR #{pr} merged.")
     elif verdict == "armed":
         print(
-            f"PR #{args.pr} has auto-merge armed and no conflict with main; it merges once its "
-            f"required checks pass (`gh pr checks {args.pr}`)."
+            f"PR #{pr} has auto-merge armed and no conflict with main; it merges once its "
+            f"required checks pass (`gh pr checks {pr}`)."
         )
     else:
         print(
-            f"PR #{args.pr} has auto-merge armed; GitHub was still checking it for conflicts. "
+            f"PR #{pr} has auto-merge armed; GitHub was still checking it for conflicts. "
             "`gh pr ls` lists it until it merges."
         )
-    if args.worktree:
-        main_checkout = parse_main_worktree(run_git(["worktree", "list", "--porcelain"]))
-        # Leaving the worktree lets the next start_branch.py's sweep remove it.
-        print(f"Left the worktree in place -- `cd {main_checkout}` to leave it.")
-    else:
+    # A linked worktree cannot check out `main` while the main checkout holds it.
+    if not in_linked_worktree():
         run_git(["checkout", "main"])
         run_git(["pull", "--ff-only"])
     return 0

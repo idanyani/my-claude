@@ -1,5 +1,5 @@
 import pytest
-from lib.branch import branch_name, worktree_path, worktree_setup_hint
+from lib.branch import branch_name, worktree_setup_hint
 
 
 def test_joins_the_issue_number_with_a_kebab_cased_summary():
@@ -13,12 +13,6 @@ def test_collapses_punctuation_and_trims_stray_separators():
 def test_rejects_a_summary_with_no_alphanumerics():
     with pytest.raises(ValueError):
         branch_name(7, "---")
-
-
-def test_worktree_path_is_a_sibling_named_for_the_repo_and_issue():
-    # The repo name is a parameter so the one shared script serves every consuming repo.
-    assert worktree_path("tiki", 3) == "../tiki-3"
-    assert worktree_path("website", 1016) == "../website-1016"
 
 
 class TestWorktreeSetupHint:

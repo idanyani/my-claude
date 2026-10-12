@@ -4,15 +4,9 @@ from lib.merge import arm_verdict, parse_args
 
 class TestParseArgs:
     def test_reads_the_pr(self):
-        args = parse_args(["123"])
-        assert (args.pr, args.worktree) == ("123", False)
+        assert parse_args(["123"]) == "123"
 
-    @pytest.mark.parametrize("argv", [["123", "--worktree"], ["--worktree", "123"]])
-    def test_reads_worktree_in_any_order(self, argv):
-        args = parse_args(argv)
-        assert (args.pr, args.worktree) == ("123", True)
-
-    @pytest.mark.parametrize("argv", [[], ["--worktree"], ["123", "456"]])
+    @pytest.mark.parametrize("argv", [[], ["123", "456"]])
     def test_rejects_anything_but_one_pr(self, argv):
         with pytest.raises(ValueError):
             parse_args(argv)

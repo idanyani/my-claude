@@ -5,12 +5,14 @@ allowed-tools:
   - Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/view_issue.py *)
   - Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/start_branch.py *)
   - Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py *)
+  - EnterWorktree
+  - ExitWorktree
 ---
 
 # Resolve a GitHub Issue
 
 Arguments: `$ARGUMENTS` -- an issue number (e.g. `42`) or full issue URL, optionally followed by
-`--worktree` to isolate work in a git worktree instead of a branch in place. If empty, run
+`--in-place` to branch in the main checkout instead of an isolated worktree. If empty, run
 `gh issue list --state open`, show the list, and ask the user which issue to work on.
 
 This skill is repo-agnostic. The repo's `CLAUDE.md` is the law (TDD rules, commit style, naming);
@@ -44,10 +46,14 @@ If a duplicate or in-flight PR exists, stop and surface it -- do not start paral
 
 ## Phase 4 -- Set up an isolated workspace
 
-`python3 ${CLAUDE_SKILL_DIR}/scripts/start_branch.py <number> <short-kebab-summary>` (add `--worktree` to
-isolate the work in a sibling worktree instead of branching in place; the script prints the
-dependency-install command the fresh worktree needs). If it refuses a dirty tree, surface that
-and ask the user -- never stash silently.
+Work in a worktree, so other sessions sharing the main checkout never run against this one's
+uncommitted work. Unless `--in-place` was given or the session is already in a worktree (a
+subagent spawned with `isolation: "worktree"`, or `claude --worktree`), call
+`EnterWorktree(name="<number>-<short-kebab-summary>")`. Then run
+`python3 ${CLAUDE_SKILL_DIR}/scripts/start_branch.py <number> <short-kebab-summary>`; it names
+any dependency-install command the fresh worktree needs. If it refuses a dirty tree, surface that
+and ask the user -- never stash silently. To resolve several issues in parallel, spawn one
+subagent per issue with `isolation: "worktree"`.
 
 ## Phase 5 -- Classify and implement
 
@@ -75,8 +81,9 @@ loop on further advisory findings.
 
 Once the review is addressed (arming authorizes the merge -- see step 4 of
 [references/git-workflow.md](references/git-workflow.md)), run
-`python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` (add `--worktree` if you used it in Phase 4):
-it arms auto-merge, confirms within seconds that GitHub will merge the PR without a person, then
-returns to `main` -- with `--worktree`, `cd` to the main checkout it names. It does not wait for
-CI. If it exits 3, fix what it names and re-run it. Then summarize the change, the test results,
+`python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>`: it arms auto-merge, confirms within
+seconds that GitHub will merge the PR without a person, then -- in the main checkout -- returns
+to `main`. It does not wait for CI. If it exits 3, fix what it names and re-run it. If Phase 4
+called `EnterWorktree`, call `ExitWorktree(action="keep")`; the next `start_branch.py` removes the
+worktree once the PR has merged. Then summarize the change, the test results,
 the triage, and the PR link for the user.

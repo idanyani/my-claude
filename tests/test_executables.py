@@ -1,9 +1,8 @@
 """Contract checks on the entry scripts as shipped files.
 
 The scripts run as plain files from the symlinked skill directory, so beyond the pure-logic
-suites this verifies the file-level contract: a runnable `main(argv)`, a python3 shebang with the
-executable bit, and the source-level guard ported from the website suite (worktrees base on
-`origin/main`).
+suites this verifies the file-level contract: a runnable `main(argv)` and a python3 shebang with
+the executable bit.
 """
 
 import importlib
@@ -49,12 +48,3 @@ class TestExecutables:
     @pytest.mark.parametrize("script", EXECUTABLES, ids=lambda p: p.stem)
     def test_is_executable(self, script):
         assert script.stat().st_mode & 0o111
-
-
-class TestStartBranchWorktreeBase:
-    def test_bases_the_worktree_on_origin_main(self):
-        # A worktree must branch from the freshly fetched origin/main, not the never-updated local
-        # `main` ref, to honor the "fresh main" promise without switching the current checkout.
-        source = (SCRIPTS_DIR / "start_branch.py").read_text()
-        assert '"origin/main"' in source
-        assert '"worktree", "add", path, "-b", branch, "main"' not in source

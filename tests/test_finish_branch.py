@@ -34,9 +34,11 @@ def run(monkeypatch: pytest.MonkeyPatch, git_calls: list[list[str]], arm_calls: 
 
     def run_git(args: list[str]) -> str:
         git_calls.append(args)
-        return "worktree /home/dev/repo\n" if args[:2] == ["worktree", "list"] else ""
+        return ""
 
-    def start(views: list[dict], *flags: str, refusals: int = 0) -> int:
+    monkeypatch.setattr(finish_branch, "in_linked_worktree", lambda: False)
+
+    def start(views: list[dict], refusals: int = 0) -> int:
         script: Iterator[dict] = iter(views)
 
         def arm_auto_merge(pr: str) -> str:
@@ -49,7 +51,7 @@ def run(monkeypatch: pytest.MonkeyPatch, git_calls: list[list[str]], arm_calls: 
         monkeypatch.setattr(finish_branch, "arm_auto_merge", arm_auto_merge)
         monkeypatch.setattr(finish_branch, "run_git", run_git)
         monkeypatch.setattr(finish_branch.time, "sleep", lambda _seconds: None)
-        return finish_branch.main([PR, *flags])
+        return finish_branch.main([PR])
 
     return start
 
@@ -124,7 +126,7 @@ def test_fails_on_a_pr_closed_without_merging(run, git_calls):
     assert not returned_to_main(git_calls)
 
 
-def test_names_the_main_checkout_to_leave_a_worktree_for(run, git_calls, capsys):
-    assert run([ARMED], "--worktree") == 0
-    assert not returned_to_main(git_calls)
-    assert "cd /home/dev/repo" in capsys.readouterr().out
+def test_stays_in_a_linked_worktree_whose_main_checkout_owns_main(run, git_calls, monkeypatch):
+    monkeypatch.setattr(finish_branch, "in_linked_worktree", lambda: True)
+    assert run([ARMED]) == 0
+    assert git_calls == []
