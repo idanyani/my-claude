@@ -12,16 +12,17 @@ branches whose PR merged (`lib/sweep.py`), so they do not accumulate.
 """
 
 import os
-import subprocess
 import sys
 
 from lib.branch import branch_name, worktree_setup_hint
-from lib.gh import in_linked_worktree, run_git
+from lib.gh import git_succeeds, in_linked_worktree, run_git
 from lib.sweep import DELETED, sweep_merged_branches
 
 USAGE = "usage: start_branch.py <number> <kebab-summary>"
 # Where Claude Code creates worktrees; untracked there, they would dirty the main checkout.
 CLAUDE_WORKTREES_DIR = ".claude/worktrees/"
+# Claude Code names a new worktree's branch `worktree-<name>`; only such a branch is ours to drop.
+CLAUDE_PLACEHOLDER_PREFIX = "worktree-"
 
 
 def parse_args(argv: list[str]) -> tuple[int, str]:
@@ -50,33 +51,32 @@ def report_sweep(outcomes: dict[str, str]) -> None:
             print(f"Kept branch {branch}: {outcome}")
 
 
-def is_ignored(path: str) -> bool:
-    result = subprocess.run(
-        ["git", "check-ignore", "--quiet", path], capture_output=True, text=True
-    )
-    # Exit 1 is a definite "not ignored"; any other nonzero status is a real failure.
-    if result.returncode in (0, 1):
-        return result.returncode == 0
-    raise RuntimeError(f"git check-ignore exited {result.returncode}: {result.stderr.strip()}")
+def ignore_claude_worktrees(toplevel: str) -> None:
+    """Keep Claude Code's worktrees out of every checkout's status, repo `.gitignore` or not.
+
+    `info/exclude` is local to the clone and shared by all its worktrees, so this needs no commit
+    in the consuming repo.
+    """
+    if git_succeeds(["check-ignore", "--quiet", os.path.join(toplevel, CLAUDE_WORKTREES_DIR)]):
+        return
+    exclude = run_git(["rev-parse", "--path-format=absolute", "--git-path", "info/exclude"])
+    os.makedirs(os.path.dirname(exclude.strip()), exist_ok=True)
+    with open(exclude.strip(), "a") as exclude_file:
+        exclude_file.write(f"{CLAUDE_WORKTREES_DIR}\n")
 
 
-def branch_linked_worktree(branch: str) -> None:
+def branch_linked_worktree(branch: str, toplevel: str) -> None:
     placeholder = run_git(["branch", "--show-current"]).strip()
     # Base on origin/main (fresh after the sweep's fetch): the main checkout owns the local `main`,
     # which this worktree can neither check out nor pull. No upstream until the branch is pushed.
     run_git(["switch", "--no-track", "-c", branch, "origin/main"])
-    if placeholder:
+    if placeholder.startswith(CLAUDE_PLACEHOLDER_PREFIX):
         try:
             # `-d`, not `-D`: git refuses when the placeholder holds commits not on the new branch.
             run_git(["branch", "-d", placeholder])
         except RuntimeError as error:
             print(f"Kept branch {placeholder}: {error}")
-    if not is_ignored(CLAUDE_WORKTREES_DIR):
-        print(
-            f"Add `{CLAUDE_WORKTREES_DIR}` to the repo's .gitignore -- untracked, Claude Code's "
-            "worktrees dirty the main checkout."
-        )
-    hint = worktree_setup_hint(os.listdir("."))
+    hint = worktree_setup_hint(os.listdir(toplevel))
     suffix = f" Run `{hint}` in it." if hint else ""
     print(f"Branch {branch} ready in this worktree.{suffix}")
 
@@ -85,6 +85,8 @@ def main(argv: list[str]) -> int:
     issue_number, summary = parse_args(argv)
     branch = branch_name(issue_number, summary)
 
+    toplevel = run_git(["rev-parse", "--show-toplevel"]).strip()
+    ignore_claude_worktrees(toplevel)
     require_clean_tree()
     linked = in_linked_worktree()
     if not linked:
@@ -94,7 +96,7 @@ def main(argv: list[str]) -> int:
     report_sweep(sweep_merged_branches())
 
     if linked:
-        branch_linked_worktree(branch)
+        branch_linked_worktree(branch, toplevel)
         return 0
 
     run_git(["pull"])

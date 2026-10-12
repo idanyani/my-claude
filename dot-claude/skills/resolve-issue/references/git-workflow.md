@@ -31,10 +31,8 @@ and `gh` on PATH; they run against the current working directory's repo.
    run `python3 ${CLAUDE_SKILL_DIR}/scripts/start_branch.py <number> <kebab-summary>`. It
    refuses a dirty tree (it never stashes silently -- surface that and ask), deletes the local
    branches whose PR merged (keeping and listing any it cannot confirm), then branches from a
-   freshly fetched `main`. Claude Code creates worktrees under `.claude/worktrees/`, so each
-   repo's `.gitignore` lists that directory; the script warns when it does not.
-   Never push to `main` directly -- branch protection rejects it for everyone, administrators
-   included.
+   freshly fetched `main`. Never push to `main` directly -- branch protection rejects it for
+   everyone, administrators included.
 2. **Open the PR.** `git push -u origin <branch>`, then `gh pr create --fill`.
 3. **Review the PR.** Run `/code-review <pr>` in this session. Apply the findings worth
    applying and push any fixes **as new commits -- the branch is already pushed and under
@@ -46,8 +44,8 @@ and `gh` on PATH; they run against the current working directory's repo.
    `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` arms a squash auto-merge and,
    in the main checkout, returns to `main`; from a worktree, leave it with `ExitWorktree`.
    Squash collapses the branch's commits into a single commit on `main`, so the branch itself
-   may carry several commits (initial work plus review fixes). Arming auto-merge is what authorizes the merge, so
-   do it only after addressing the review -- never before. GitHub then merges the moment
+   may carry several commits (initial work plus review fixes). Arming auto-merge is what
+   authorizes the merge, so do it only after addressing the review -- never before. GitHub then merges the moment
    `verify` is green; you do not watch the run, and the next `start_branch` deletes the branch
    and its worktree once the PR has merged. When the PR needs you, the script stops and says
    why (see Troubleshooting).

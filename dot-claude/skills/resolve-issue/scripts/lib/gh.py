@@ -39,5 +39,17 @@ def in_linked_worktree() -> bool:
     """Whether the current directory is in a linked worktree rather than the main checkout."""
     git_dir, common_dir = run_git(
         ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"]
-    ).split()
+    ).splitlines()
     return git_dir != common_dir
+
+
+def git_succeeds(args: list[str]) -> bool:
+    """Run a yes/no `git <args>` (exit 0 = yes, 1 = no), raising on any other exit status.
+
+    Exit 1 is a definite "no"; any other nonzero status is a real failure that must surface
+    rather than masquerade as a "no".
+    """
+    result = subprocess.run(["git", *args], capture_output=True, text=True)
+    if result.returncode in (0, 1):
+        return result.returncode == 0
+    raise RuntimeError(f"git {' '.join(args)} exited {result.returncode}: {result.stderr.strip()}")
