@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 import start_branch
-from lib import sweep
+from lib import gh, sweep
 from lib.sweep import (
     DELETED,
     is_ancestor,
@@ -35,6 +35,10 @@ def git(cwd: Path, *args: str) -> str:
 def commit(cwd: Path, message: str) -> str:
     git(cwd, "commit", "--allow-empty", "-q", "-m", message)
     return git(cwd, "rev-parse", "HEAD")
+
+
+def exclude_file(clone: Path) -> Path:
+    return clone / ".git" / "info" / "exclude"
 
 
 def branches(clone: Path) -> set[str]:
@@ -170,14 +174,82 @@ class TestStartBranch:
         assert start_branch.main(["8", "next"]) == 0
         assert branches(clone) == {"main", "8-next"}
 
-    def test_places_a_worktree_beside_the_main_checkout_from_a_sibling(
-        self, clone, merged, tmp_path, monkeypatch
+    def test_refuses_a_dirty_main_checkout_when_branching_in_place(self, clone, merged):
+        (clone / "stray.txt").write_text("uncommitted\n")
+        with pytest.raises(RuntimeError, match="dirty"):
+            start_branch.main(["8", "next"])
+
+    def test_is_not_blocked_by_claude_code_worktrees_in_the_main_checkout(self, clone, merged):
+        git(clone, "worktree", "add", "-q", "-b", "worktree-9", ".claude/worktrees/9", "main")
+        assert start_branch.main(["8", "next"]) == 0
+
+
+class TestStartBranchInLinkedWorktree:
+    """A worktree Claude Code created (EnterWorktree, subagent isolation) on its placeholder branch."""
+
+    @pytest.fixture
+    def linked(self, clone, merged, tmp_path, monkeypatch) -> Path:
+        # Leave local `main` behind origin/main, so a branch based on the local ref is detectable.
+        commit(clone, "ahead")
+        git(clone, "push", "-q", "origin", "main")
+        git(clone, "reset", "-q", "--hard", "HEAD~1")
+        worktree = clone / ".claude" / "worktrees" / "8"
+        git(clone, "worktree", "add", "-q", "-b", "worktree-8", str(worktree), "main")
+        monkeypatch.chdir(worktree)
+        return worktree
+
+    def test_branches_from_origin_main(self, clone, linked):
+        assert start_branch.main(["8", "next"]) == 0
+        assert git(linked, "branch", "--show-current") == "8-next"
+        assert git(linked, "rev-parse", "HEAD") == git(clone, "rev-parse", "origin/main")
+
+    def test_leaves_the_branch_without_an_upstream_until_it_is_pushed(self, linked):
+        assert start_branch.main(["8", "next"]) == 0
+        assert git(linked, "for-each-ref", "--format=%(upstream)", "refs/heads/8-next") == ""
+
+    def test_drops_the_empty_placeholder_branch(self, clone, linked):
+        assert start_branch.main(["8", "next"]) == 0
+        assert "worktree-8" not in branches(clone)
+
+    def test_keeps_a_placeholder_branch_holding_commits(self, clone, linked, capsys):
+        commit(linked, "work on the placeholder")
+        assert start_branch.main(["8", "next"]) == 0
+        assert "worktree-8" in branches(clone)
+        assert "Kept branch worktree-8" in capsys.readouterr().out
+
+    def test_ignores_a_dirty_main_checkout(self, clone, linked):
+        (clone / "unrelated.txt").write_text("another session's work in progress\n")
+        assert start_branch.main(["8", "next"]) == 0
+
+    def test_refuses_a_dirty_worktree(self, linked):
+        (linked / "stray.txt").write_text("uncommitted\n")
+        with pytest.raises(RuntimeError, match="dirty"):
+            start_branch.main(["8", "next"])
+
+    def test_keeps_the_worktrees_out_of_the_main_checkouts_status(self, clone, linked):
+        assert start_branch.main(["8", "next"]) == 0
+        assert git(clone, "status", "--porcelain") == ""
+
+    def test_leaves_the_exclude_file_alone_when_the_repo_ignores_worktrees(
+        self, clone, linked, monkeypatch
     ):
-        sibling = tmp_path / "work-7"
-        git(clone, "worktree", "add", "-q", "-b", "7-x", str(sibling), "main")
-        monkeypatch.chdir(sibling)
-        assert start_branch.main(["8", "next", "--worktree"]) == 0
-        assert (tmp_path / "work-8").is_dir()
+        git(linked, "reset", "-q", "--hard", "origin/main")
+        (linked / ".gitignore").write_text(".claude/worktrees/\n")
+        git(linked, "add", ".gitignore")
+        commit(linked, "ignore worktrees")
+        git(linked, "push", "-q", "origin", "HEAD:main")
+        (linked / "sub").mkdir()
+        monkeypatch.chdir(linked / "sub")
+        assert start_branch.main(["8", "next"]) == 0
+        assert ".claude/worktrees/" not in exclude_file(clone).read_text()
+
+    def test_keeps_a_branch_claude_code_did_not_create(self, clone, merged, monkeypatch):
+        # Every commit of `7-real` is on origin/main, so `git branch -d` alone would delete it.
+        worktree = clone / ".claude" / "worktrees" / "7"
+        git(clone, "worktree", "add", "-q", "-b", "7-real", str(worktree), "main")
+        monkeypatch.chdir(worktree)
+        assert start_branch.main(["8", "next"]) == 0
+        assert "7-real" in branches(clone)
 
 
 PORCELAIN = "\n".join(
@@ -235,3 +307,16 @@ class TestIsAncestor:
         publish_pr_head(clone, shipped)
         unpushed = commit(clone, "unpushed")
         assert not is_ancestor(PR, unpushed, shipped)
+
+
+class TestInLinkedWorktree:
+    @pytest.mark.parametrize(
+        ("rev_parse", "linked"),
+        [
+            ("/home/my repos/p/.git/worktrees/8\n/home/my repos/p/.git\n", True),
+            ("/home/my repos/p/.git\n/home/my repos/p/.git\n", False),
+        ],
+    )
+    def test_compares_the_git_dirs_of_a_path_with_spaces(self, monkeypatch, rev_parse, linked):
+        monkeypatch.setattr(gh, "run_git", lambda _args: rev_parse)
+        assert gh.in_linked_worktree() is linked

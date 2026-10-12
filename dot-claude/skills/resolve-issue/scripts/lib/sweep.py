@@ -4,13 +4,11 @@ Auto-merge's `--delete-branch` removes the remote branch, and `git fetch --prune
 local branch's upstream `[gone]`. `[gone]` alone does not prove a merge: a PR closed unmerged, or a
 remote branch deleted by hand, looks the same. And a squash merge leaves the branch "not fully
 merged" to git, so deleting it takes a forced `git branch -D`. So a `[gone]` branch is deleted only
-when GitHub lists a merged PR from it whose head contains the local tip -- the sibling worktree
-holding it goes first -- and any other `[gone]` branch is kept, with the reason reported.
+when GitHub lists a merged PR from it whose head contains the local tip -- the worktree holding
+it goes first -- and any other `[gone]` branch is kept, with the reason reported.
 """
 
-import subprocess
-
-from lib.gh import run_gh, run_git
+from lib.gh import git_succeeds, run_gh, run_git
 
 DELETED = "deleted"
 
@@ -32,8 +30,7 @@ def parse_gone_branches(for_each_ref: str) -> list[str]:
 def parse_main_worktree(porcelain: str) -> str:
     """The main checkout's path from `git worktree list --porcelain`.
 
-    Its first entry is always the main worktree. Cleanup runs from there so it survives removing
-    the worktree it was invoked in.
+    Its first entry is always the main worktree.
     """
     first = porcelain.split("\n")[0]
     if not first.startswith("worktree "):
@@ -61,18 +58,7 @@ def is_ancestor(pr: str, local_oid: str, pr_head_oid: str) -> bool:
     if local_oid == pr_head_oid:
         return True
     run_git(["fetch", "origin", f"pull/{pr}/head"])
-    result = subprocess.run(
-        ["git", "merge-base", "--is-ancestor", local_oid, pr_head_oid],
-        capture_output=True,
-        text=True,
-    )
-    # Exit 1 is a definite "no"; any other nonzero status is a real failure that must surface
-    # rather than masquerade as a diverged branch.
-    if result.returncode in (0, 1):
-        return result.returncode == 0
-    raise RuntimeError(
-        f"git merge-base --is-ancestor exited {result.returncode}: {result.stderr.strip()}"
-    )
+    return git_succeeds(["merge-base", "--is-ancestor", local_oid, pr_head_oid])
 
 
 def merged_pr_heads(branch: str) -> list[tuple[str, str]]:

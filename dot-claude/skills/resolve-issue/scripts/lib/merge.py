@@ -4,22 +4,12 @@ Kept separate from the executable so unit tests import the decision logic withou
 script's gh/git side effects.
 """
 
-from dataclasses import dataclass
 
-
-@dataclass(frozen=True)
-class FinishArgs:
-    """Parsed `finish_branch.py` arguments."""
-
-    pr: str
-    worktree: bool
-
-
-def parse_args(argv: list[str]) -> FinishArgs:
-    positional = [arg for arg in argv if arg != "--worktree"]
-    if len(positional) != 1:
-        raise ValueError("usage: finish_branch.py <pr> [--worktree]")
-    return FinishArgs(pr=positional[0], worktree="--worktree" in argv)
+def parse_args(argv: list[str]) -> str:
+    """The PR number from `finish_branch.py`'s arguments."""
+    if len(argv) != 1:
+        raise ValueError("usage: finish_branch.py <pr>")
+    return argv[0]
 
 
 # Verdicts that may change within seconds, so finish_branch.py polls through them: GitHub computes

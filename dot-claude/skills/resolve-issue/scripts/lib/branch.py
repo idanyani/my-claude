@@ -16,15 +16,6 @@ def branch_name(issue_number: int, summary: str) -> str:
     return f"{issue_number}-{kebab}"
 
 
-def worktree_path(repo_name: str, issue_number: int) -> str:
-    """Sibling worktree path for an issue, e.g. `../tiki-3`.
-
-    The repo name is a parameter (the caller derives it from the checkout's top-level directory)
-    so this one script serves every repo instead of hardcoding a project name.
-    """
-    return f"../{repo_name}-{issue_number}"
-
-
 # Dependency-install hints keyed by the project file that calls for them, in preference order:
 # a repo with both a pyproject.toml and a package.json is Python-first here.
 WORKTREE_SETUP_HINTS = (
