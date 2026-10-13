@@ -34,6 +34,9 @@
 - Automate everything: manual inspection sessions are a code smell.
 - Never leave loose ends: no speculation -- investigate until known or explicitly mark
   unknown.
+- Answer what you can before asking: search the code, the repo's docs and the web first.
+  Ask the user only what that leaves open -- a decision that is theirs, or a fact no source
+  settles -- and say what you searched.
 
 ## TDD and testing
 
@@ -104,8 +107,10 @@
 
 - A misspelled name of a person, school, or organization we work with costs trust and deals.
   Treat its spelling as a fact: write it only as a written source has it -- the project's
-  names registry, a document or URL, or text the user typed. When unsure, stop and ask;
-  until answered, write a visible `[verify]` marker, never a guess.
+  names registry, a document or URL, or text the user typed. When unsure, search the web
+  for a written source about the same person or body -- or, for a common given name, about
+  the name itself (any well-known bearer's spelling settles it); ask only when none settles
+  it, and until answered, write a visible `[verify]` marker, never a guess.
 - A name that appears only in archived third-party material (an article's byline, people
   it mentions) is copied as the source writes it -- not worth a question to the user.
 - A speech transcript is unverified for every proper noun: speech recognition mishears
