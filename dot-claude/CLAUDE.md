@@ -38,6 +38,10 @@
   Ask the user only what that leaves open -- a decision that is theirs, a fact no source
   settles, or a search you have no tool for -- and say what you searched. Never put private
   data in a search query (a private person's details, a confidential deal); ask instead.
+- An empty result is a reason to try another route, not evidence of absence. Call a fact
+  unsettled only after the routes a diligent person in that field would take.
+- Apply rules with judgment: their wording does not override what context makes obvious,
+  and only a difference that matters for the purpose at hand is worth raising.
 
 ## TDD and testing
 
