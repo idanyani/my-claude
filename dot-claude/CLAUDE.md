@@ -34,6 +34,10 @@
 - Automate everything: manual inspection sessions are a code smell.
 - Never leave loose ends: no speculation -- investigate until known or explicitly mark
   unknown.
+- Answer what you can before asking: search the code, the repo's docs and the web first.
+  Ask the user only what that leaves open -- a decision that is theirs, a fact no source
+  settles, or a search you have no tool for -- and say what you searched. Never put private
+  data in a search query (a private person's details, a confidential deal); ask instead.
 
 ## TDD and testing
 
@@ -104,15 +108,18 @@
 
 - A misspelled name of a person, school, or organization we work with costs trust and deals.
   Treat its spelling as a fact: write it only as a written source has it -- the project's
-  names registry, a document or URL, or text the user typed. When unsure, stop and ask;
-  until answered, write a visible `[verify]` marker, never a guess.
+  names registry, a document or URL, or text the user typed. To settle a spelling, search
+  first (Problem-solving): a source counts only when it is clearly about the same person or
+  body and no other source disagrees. A common given name alone is settled by its usual
+  spelling in the other script, as well-known bearers write it; a surname never is. Until
+  settled, write a visible `[verify]` marker, never a guess.
 - A name that appears only in archived third-party material (an article's byline, people
   it mentions) is copied as the source writes it -- not worth a question to the user.
 - A speech transcript is unverified for every proper noun: speech recognition mishears
   names and invents plausible ones.
-- Never transliterate between scripts to derive a spelling: "Hermoni" does not settle
-  whether the Hebrew starts with ה or ח. Likewise a correction given in one script does
-  not settle the other -- ask.
+- Never transliterate between scripts yourself: "Hermoni" does not settle whether the
+  Hebrew starts with ה or ח. Each script needs its own source, and a correction given in
+  one script does not settle the other.
 - Never add a surname, title, or role the source did not state, and never "correct" a
   name to a form the user did not type.
 - A commit that changes a name quotes the old and new forms exactly.
