@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 import start_branch
 from lib import stall
-from lib.stall import REARMED, STALL_AFTER_SECONDS, green_since, stalled_prs
+from lib.stall import MERGED, REARMED, STALL_AFTER_SECONDS, green_since, stalled_prs
 
 ARMED_AT = "2026-10-15T20:53:31Z"
 CHECK_DONE_AT = "2026-10-15T20:58:50Z"
@@ -80,6 +80,12 @@ class TestStalledPrs:
         running = {**CHECK_RUN, "status": "IN_PROGRESS", "completedAt": None}
         assert stalled_prs([{**STALLED, "statusCheckRollup": [running]}], SNAPSHOT_AT) == []
 
+    @pytest.mark.parametrize("merge_method", ["MERGE", "REBASE"])
+    def test_leaves_a_pr_armed_with_another_merge_method(self, merge_method):
+        # Re-arming arms a squash, so it would override a method the user picked by hand.
+        armed = {"enabledAt": ARMED_AT, "mergeMethod": merge_method}
+        assert stalled_prs([{**STALLED, "autoMergeRequest": armed}], SNAPSHOT_AT) == []
+
     def test_leaves_a_pr_that_is_no_longer_open(self):
         assert stalled_prs([{**STALLED, "state": "MERGED"}], SNAPSHOT_AT) == []
 
@@ -106,8 +112,33 @@ class TestRearmStalledPrs:
         monkeypatch.setattr(stall, "arm_auto_merge", arm_auto_merge)
         return calls
 
-    def listing(self, monkeypatch: pytest.MonkeyPatch, prs: list[dict]) -> None:
-        monkeypatch.setattr(stall, "run_gh", lambda _args: prs)
+    def listing(
+        self, monkeypatch: pytest.MonkeyPatch, prs: list[dict], state_after: str = "OPEN"
+    ) -> None:
+        """`gh pr list` returns `prs`; `gh pr view` then reads each PR as `state_after`."""
+
+        def run_gh(args: list[str]) -> object:
+            return prs if args[1] == "list" else {"state": state_after}
+
+        monkeypatch.setattr(stall, "run_gh", run_gh)
+
+    def test_reports_a_merge_when_gh_fails_after_merging(self, monkeypatch, gh_calls):
+        # On a CLEAN PR gh merges at once, then can fail deleting a branch a worktree holds.
+        def merge_then_fail(_pr: str) -> str:
+            raise RuntimeError("gh pr merge exited 1: cannot delete branch used by worktree")
+
+        self.listing(monkeypatch, [STALLED], state_after="MERGED")
+        monkeypatch.setattr(stall, "arm_auto_merge", merge_then_fail)
+        assert stall.rearm_stalled_prs() == {"235": MERGED}
+
+    def test_reports_a_merge_that_landed_before_the_disable(self, monkeypatch, gh_calls):
+        def already_merged(_args: list[str]) -> str:
+            raise RuntimeError("gh pr merge exited 1: Pull request #235 was already merged")
+
+        self.listing(monkeypatch, [STALLED], state_after="MERGED")
+        monkeypatch.setattr(stall, "run_gh_text", already_merged)
+        assert stall.rearm_stalled_prs() == {"235": MERGED}
+        assert gh_calls == []
 
     def test_disables_then_rearms_a_stalled_pr(self, monkeypatch, gh_calls):
         self.listing(monkeypatch, [STALLED])
@@ -141,12 +172,13 @@ class TestRearmStalledPrs:
 
 
 class TestStartBranchReport:
-    def test_names_each_rearmed_and_failed_pr(self, monkeypatch, capsys):
-        outcomes = {"235": REARMED, "182": "gh pr merge exited 1: not allowed"}
+    def test_names_each_rearmed_merged_and_failed_pr(self, monkeypatch, capsys):
+        outcomes = {"235": REARMED, "236": MERGED, "182": "gh pr merge exited 1: not allowed"}
         monkeypatch.setattr(start_branch, "rearm_stalled_prs", lambda: outcomes)
         start_branch.report_stalled_prs()
         out = capsys.readouterr().out
         assert "Re-armed auto-merge on PR #235" in out
+        assert "PR #236 merged" in out
         assert "PR #182" in out and "not allowed" in out
 
     def test_reports_rather_than_raises_when_github_cannot_be_asked(self, monkeypatch, capsys):

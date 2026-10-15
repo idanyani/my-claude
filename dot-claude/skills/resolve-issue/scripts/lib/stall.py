@@ -1,8 +1,10 @@
-"""Re-arm the session's own PRs whose armed auto-merge GitHub never fired.
+"""Re-arm the user's own PRs whose armed squash auto-merge GitHub never fired.
 
 GitHub sometimes leaves an armed PR open after its checks pass, with the PR reading CLEAN; turning
-auto-merge off and on again makes GitHub merge it (idanyani/my-claude#93). Re-arming rather than
-merging directly keeps the merge gated on CI. Only the user's own PRs are touched.
+auto-merge off and on again makes GitHub merge it (idanyani/my-claude#93). Re-arming goes through
+the same `arm_auto_merge` call finish_branch.py makes, so on a PR gh reads as ready it merges at
+once. Only PRs armed as a squash -- the method that call re-arms with -- are touched, so a method
+picked by hand is never overridden.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -14,6 +16,7 @@ from lib.gh import arm_auto_merge, run_gh, run_gh_text
 # lasted more than 7 minutes.
 STALL_AFTER_SECONDS = 300
 REARMED = "re-armed"
+MERGED = "merged"
 PR_FIELDS = "number,state,mergeStateStatus,autoMergeRequest,statusCheckRollup"
 # A commit status (StatusContext) in these states has not finished.
 UNFINISHED_STATUS_STATES = ("PENDING", "EXPECTED")
@@ -50,6 +53,8 @@ def stalled_prs(prs: list[dict[str, Any]], now: datetime) -> list[str]:
     for pr in prs:
         if pr["state"] != "OPEN" or pr["autoMergeRequest"] is None:
             continue
+        if pr["autoMergeRequest"]["mergeMethod"] != "SQUASH":
+            continue
         if pr["mergeStateStatus"] != "CLEAN":
             continue
         since = green_since(pr)
@@ -61,23 +66,32 @@ def stalled_prs(prs: list[dict[str, Any]], now: datetime) -> list[str]:
 def rearm_stalled_prs() -> dict[str, str]:
     """Turn auto-merge off and on for each of the user's stalled PRs.
 
-    Returns each stalled PR mapped to `REARMED` or to what went wrong.
+    Returns each stalled PR mapped to `REARMED`, `MERGED`, or what went wrong.
     """
     prs = run_gh(["pr", "list", "--author", "@me", "--state", "open", "--json", PR_FIELDS])
-    outcomes = {}
-    for pr in stalled_prs(prs, datetime.now(UTC)):
-        try:
-            run_gh_text(["pr", "merge", pr, "--disable-auto"])
-        except RuntimeError as error:
-            outcomes[pr] = str(error)
-            continue
-        try:
-            arm_auto_merge(pr)
-        except RuntimeError as error:
-            outcomes[pr] = (
-                f"auto-merge is now unarmed -- re-arming failed: {error} -- "
-                f"run finish_branch.py {pr}"
-            )
-            continue
-        outcomes[pr] = REARMED
-    return outcomes
+    return {pr: _rearm(pr) for pr in stalled_prs(prs, datetime.now(UTC))}
+
+
+def _rearm(pr: str) -> str:
+    """Turn one PR's auto-merge off and on; return `REARMED`, `MERGED`, or what went wrong.
+
+    A failed step is no proof the PR is still open: GitHub may have merged it since the listing,
+    and gh merges a ready PR at once and can then fail deleting a branch a worktree holds.
+    """
+    try:
+        run_gh_text(["pr", "merge", pr, "--disable-auto"])
+    except RuntimeError as error:
+        return MERGED if _merged(pr) else str(error)
+    try:
+        arm_auto_merge(pr)
+    except RuntimeError as error:
+        if _merged(pr):
+            return MERGED
+        return (
+            f"auto-merge is now unarmed -- re-arming failed: {error} -- run finish_branch.py {pr}"
+        )
+    return REARMED
+
+
+def _merged(pr: str) -> bool:
+    return run_gh(["pr", "view", pr, "--json", "state"])["state"] == "MERGED"

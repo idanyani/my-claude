@@ -17,7 +17,7 @@ import sys
 
 from lib.branch import branch_name, worktree_setup_hint
 from lib.gh import git_succeeds, in_linked_worktree, run_git
-from lib.stall import REARMED, rearm_stalled_prs
+from lib.stall import MERGED, REARMED, rearm_stalled_prs
 from lib.sweep import DELETED, sweep_merged_branches
 
 USAGE = "usage: start_branch.py <number> <kebab-summary>"
@@ -63,6 +63,8 @@ def report_stalled_prs() -> None:
     for pr, outcome in outcomes.items():
         if outcome == REARMED:
             print(f"Re-armed auto-merge on PR #{pr}: it was ready but GitHub had not merged it.")
+        elif outcome == MERGED:
+            print(f"PR #{pr} merged after it sat ready with auto-merge armed.")
         else:
             print(f"PR #{pr} is ready but GitHub has not merged it: {outcome}")
 
