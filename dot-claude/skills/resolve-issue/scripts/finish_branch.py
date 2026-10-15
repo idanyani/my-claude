@@ -8,7 +8,7 @@ only what GitHub knows within seconds -- the PR merged, or auto-merge is armed a
 conflict with `main` -- polling briefly while GitHub settles. It never waits for CI. Whatever
 surfaces later (a failed check, a conflict with a PR merged after this one, CI that never starts)
 leaves the PR open, where `gh pr ls` lists it (see references/git-workflow.md). The next
-start_branch.py deletes the merged branch.
+start_branch.py deletes the merged branch, and re-arms the PR if GitHub never fired its merge.
 
 In the main checkout, it checks out an up-to-date `main`. In a linked worktree it leaves the
 checkout alone; the next start_branch.py's sweep removes the worktree once the PR has merged.
@@ -23,7 +23,7 @@ Exit 3: the PR needs a person -- it conflicts with main, or GitHub kept refusing
 import sys
 import time
 
-from lib.gh import in_linked_worktree, run_gh, run_gh_text, run_git
+from lib.gh import arm_auto_merge, in_linked_worktree, run_gh, run_git
 from lib.merge import SETTLING, arm_verdict, parse_args
 
 POLL_INTERVAL_SECONDS = 5
@@ -34,11 +34,6 @@ EXIT_NEEDS_ATTENTION = 3
 def pr_verdict(pr: str) -> str:
     view = run_gh(["pr", "view", pr, "--json", "state,mergeable,autoMergeRequest"])
     return arm_verdict(view["state"], view["mergeable"], view["autoMergeRequest"] is not None)
-
-
-def arm_auto_merge(pr: str) -> str:
-    """Arm auto-merge, or merge at once if gh reads the PR as ready; returns what gh reported."""
-    return run_gh_text(["pr", "merge", pr, "--auto", "--squash", "--delete-branch"]).strip()
 
 
 def main(argv: list[str]) -> int:

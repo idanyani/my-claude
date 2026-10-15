@@ -72,6 +72,12 @@ def gone_branch(clone: Path, branch: str) -> str:
     return tip
 
 
+@pytest.fixture(autouse=True)
+def no_stalled_prs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep `start_branch.main` off GitHub; `test_stall.py` covers the re-arm."""
+    monkeypatch.setattr(start_branch, "rearm_stalled_prs", dict)
+
+
 @pytest.fixture
 def merged(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[tuple[str, str]]]:
     """GitHub's merged PRs, by head branch; a branch absent here has none."""

@@ -30,6 +30,11 @@ def run_gh_text(args: list[str]) -> str:
     return _run("gh", args)
 
 
+def arm_auto_merge(pr: str) -> str:
+    """Arm a squash auto-merge, or merge at once if gh reads the PR as ready; returns gh's report."""
+    return run_gh_text(["pr", "merge", pr, "--auto", "--squash", "--delete-branch"]).strip()
+
+
 def run_git(args: list[str]) -> str:
     """Run `git <args>` and return stdout."""
     return _run("git", args)
