@@ -30,7 +30,8 @@ and `gh` on PATH; they run against the current working directory's repo.
    `isolation: "worktree"`, or `claude --worktree`) unless branching in place on purpose, then
    run `python3 ${CLAUDE_SKILL_DIR}/scripts/start_branch.py <number> <kebab-summary>`. It
    refuses a dirty tree (it never stashes silently -- surface that and ask), deletes the local
-   branches whose PR merged (keeping and listing any it cannot confirm), then branches from a
+   branches whose PR merged (keeping and listing any it cannot confirm), re-arms your PRs whose
+   auto-merge GitHub never fired (see Troubleshooting), then branches from a
    freshly fetched `main`. Never push to `main` directly -- branch protection rejects it for
    everyone, administrators included.
 2. **Open the PR.** `git push -u origin <branch>`, then `gh pr create --fill`.
@@ -72,5 +73,8 @@ stuck cases.
     a conflict it sees.
   - *A required check failed:* push a fix as a new commit, or re-run the check if it was flaky.
   - *Auto-merge not armed:* re-run `finish_branch.py` (step 4), which arms it.
+  - *Armed, CLEAN, and green, yet open:* GitHub sometimes never fires an armed merge. The next
+    `start_branch.py` re-arms such a PR once it has sat ready for a few minutes; to nudge it
+    sooner, run `gh pr merge <pr> --disable-auto`, then re-run `finish_branch.py` (step 4).
   - *Behind `main`:* the repo requires branches to be up to date (see Background). Run
     `gh pr update-branch <pr>` (it merges `main` in, never rebases), and turn that requirement off.
