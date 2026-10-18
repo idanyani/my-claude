@@ -2,7 +2,7 @@
 
 It decides whether `git branch -D` may drop a local branch, so it runs against an actual commit
 graph: a bare `origin` publishing merged heads on `refs/pull/<n>/head` as GitHub does, and a clone
-holding the local branches. Only GitHub's list of merged PRs is faked.
+holding the local branches. Only GitHub's lists of PRs are faked.
 """
 
 from pathlib import Path
@@ -14,6 +14,7 @@ from git_repo import commit, git
 from lib import gh, sweep
 from lib.sweep import (
     DELETED,
+    adds_nothing_to_main,
     is_ancestor,
     parse_gone_branches,
     parse_main_worktree,
@@ -43,6 +44,47 @@ def gone_branch(clone: Path, branch: str) -> str:
     git(clone, "checkout", "-q", "main")
     git(clone, "push", "-q", "origin", "--delete", branch)
     return tip
+
+
+def commit_file(clone: Path, name: str, content: str) -> str:
+    (clone / name).write_text(content)
+    git(clone, "add", name)
+    return commit(clone, f"write {name}")
+
+
+def remote_branches(clone: Path) -> set[str]:
+    return set(git(clone, "ls-remote", "--heads", "origin").split()[1::2])
+
+
+def recreated_branch(clone: Path, branch: str) -> str:
+    """A PR branch squash-merged while `main` moved, then recreated by pushing a merge of `main`.
+
+    Reproduces idanyani/my-claude#97: the merge of the pre-squash `main` is pushed after GitHub
+    deleted the branch. Returns the PR head GitHub merged.
+    """
+    git(clone, "checkout", "-q", "-b", branch, "main")
+    head = commit_file(clone, "feature.txt", "feature\n")
+    git(clone, "push", "-q", "-u", "origin", branch)
+    git(clone, "checkout", "-q", "main")
+    other_pr = commit_file(clone, "other.txt", "another PR\n")
+    git(clone, "checkout", "-q", head, "--", "feature.txt")
+    commit(clone, "squash of the PR")
+    git(clone, "push", "-q", "origin", "main")
+    git(clone, "push", "-q", "origin", "--delete", branch)
+    git(clone, "checkout", "-q", branch)
+    git(clone, "merge", "-q", "--no-edit", other_pr)
+    git(clone, "push", "-q", "origin", branch)
+    git(clone, "checkout", "-q", "main")
+    publish_pr_head(clone, head)
+    return head
+
+
+@pytest.fixture(autouse=True)
+def my_prs(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[tuple[str, str]]]:
+    """The number and state of each of the user's PRs, by head branch; absent means none."""
+    states: dict[str, list[tuple[str, str]]] = {}
+    monkeypatch.setattr(sweep, "my_pr_states", lambda branch: states.get(branch, []))
+    return states
 
 
 @pytest.fixture(autouse=True)
@@ -84,10 +126,18 @@ class TestSweepMergedBranches:
         publish_pr_head(clone, shipped)
         merged["7-x"] = [(PR, shipped)]
         git(clone, "checkout", "-q", "7-x")
-        commit(clone, "unpushed")
+        commit_file(clone, "unpushed.txt", "unpushed\n")
         git(clone, "checkout", "-q", "main")
         assert "not in any merged PR" in sweep.sweep_merged_branches()["7-x"]
         assert "7-x" in branches(clone)
+
+    def test_deletes_a_branch_whose_tip_adds_nothing_to_main(self, clone, merged):
+        # A local merge of `main` after the squash-merge is in no PR head, yet holds no work.
+        head = recreated_branch(clone, "7-x")
+        git(clone, "push", "-q", "origin", "--delete", "7-x")
+        merged["7-x"] = [(PR, head)]
+        assert sweep.sweep_merged_branches() == {"7-x": DELETED}
+        assert branches(clone) == {"main"}
 
     def test_leaves_branches_whose_upstream_exists_or_never_existed(self, clone, merged):
         git(clone, "branch", "scratch")
@@ -144,7 +194,73 @@ class TestSweepMergedBranches:
         assert "7-x" in branches(clone)
 
 
+class TestSweepRecreatedRemoteBranches:
+    def test_deletes_a_remote_branch_recreated_after_the_merge_and_its_local_twin(
+        self, clone, merged, my_prs
+    ):
+        head = recreated_branch(clone, "7-x")
+        merged["7-x"] = [(PR, head)]
+        my_prs["7-x"] = [(PR, "MERGED")]
+        assert sweep.sweep_merged_branches() == {"origin/7-x": DELETED, "7-x": DELETED}
+        assert remote_branches(clone) == {"refs/heads/main"}
+        assert branches(clone) == {"main"}
+
+    def test_keeps_a_recreated_remote_branch_holding_work(self, clone, merged, my_prs):
+        head = recreated_branch(clone, "7-x")
+        git(clone, "checkout", "-q", "7-x")
+        commit_file(clone, "late.txt", "pushed after the merge\n")
+        git(clone, "push", "-q", "origin", "7-x")
+        git(clone, "checkout", "-q", "main")
+        merged["7-x"] = [(PR, head)]
+        my_prs["7-x"] = [(PR, "MERGED")]
+        assert f"PR #{PR}" in sweep.sweep_merged_branches()["origin/7-x"]
+        assert "refs/heads/7-x" in remote_branches(clone)
+
+    @pytest.mark.parametrize("states", [[], [(PR, "MERGED"), ("9", "OPEN")], [(PR, "CLOSED")]])
+    def test_leaves_a_remote_branch_without_a_settled_merged_pr(self, clone, my_prs, states):
+        recreated_branch(clone, "7-x")
+        my_prs["7-x"] = states
+        assert "origin/7-x" not in sweep.sweep_merged_branches()
+        assert "refs/heads/7-x" in remote_branches(clone)
+
+    def test_reports_a_remote_branch_github_cannot_be_asked_about(self, clone, monkeypatch):
+        def unreachable(_branch: str) -> list[tuple[str, str]]:
+            raise RuntimeError("gh pr list exited 1: connection timed out")
+
+        recreated_branch(clone, "7-x")
+        monkeypatch.setattr(sweep, "my_pr_states", unreachable)
+        assert "connection timed out" in sweep.sweep_merged_branches()["origin/7-x"]
+        assert "refs/heads/7-x" in remote_branches(clone)
+
+
+class TestAddsNothingToMain:
+    def test_accepts_a_tip_main_already_holds(self, clone):
+        assert adds_nothing_to_main(git(clone, "rev-parse", "HEAD"))
+
+    def test_refuses_a_tip_with_changes(self, clone):
+        git(clone, "checkout", "-q", "-b", "7-x")
+        assert not adds_nothing_to_main(commit_file(clone, "new.txt", "new\n"))
+
+    def test_refuses_a_tip_that_conflicts_with_main(self, clone):
+        commit_file(clone, "shared.txt", "base\n")
+        git(clone, "push", "-q", "origin", "main")
+        git(clone, "checkout", "-q", "-b", "7-x")
+        tip = commit_file(clone, "shared.txt", "branch\n")
+        git(clone, "checkout", "-q", "main")
+        commit_file(clone, "shared.txt", "main\n")
+        git(clone, "push", "-q", "origin", "main")
+        assert not adds_nothing_to_main(tip)
+
+
 class TestStartBranch:
+    def test_reports_a_deleted_recreated_remote_branch(self, clone, merged, my_prs, capsys):
+        head = recreated_branch(clone, "7-x")
+        merged["7-x"] = [(PR, head)]
+        my_prs["7-x"] = [(PR, "MERGED")]
+        assert start_branch.main(["8", "next"]) == 0
+        assert "Deleted merged branch origin/7-x" in capsys.readouterr().out
+        assert remote_branches(clone) == {"refs/heads/main"}
+
     def test_deletes_a_merged_branch_before_branching(self, clone, merged):
         tip = gone_branch(clone, "7-x")
         publish_pr_head(clone, tip)

@@ -1,16 +1,23 @@
-"""Delete the local branches whose pull request merged.
+"""Delete the branches, local and remote, whose pull request merged.
 
 Auto-merge's `--delete-branch` removes the remote branch, and `git fetch --prune` then marks the
 local branch's upstream `[gone]`. `[gone]` alone does not prove a merge: a PR closed unmerged, or a
 remote branch deleted by hand, looks the same. And a squash merge leaves the branch "not fully
 merged" to git, so deleting it takes a forced `git branch -D`. So a `[gone]` branch is deleted only
-when GitHub lists a merged PR from it whose head contains the local tip -- the worktree holding
-it goes first -- and any other `[gone]` branch is kept, with the reason reported.
+when GitHub lists a merged PR from it and the local tip holds nothing more: the merged head
+contains it, or merging it into `origin/main` changes nothing -- the worktree holding it goes
+first -- and any other `[gone]` branch is kept, with the reason reported.
+
+A push made after the merge recreates the deleted remote branch (idanyani/my-claude#97). So a
+remote branch whose PRs from the user all settled, at least one merged, is deleted first when
+merging it into `origin/main` changes nothing, which leaves its local twin `[gone]` for the same
+sweep; one that would change `main` is kept and reported, since its work never reached `main`.
 """
 
-from lib.gh import git_succeeds, run_gh, run_git
+from lib.gh import git_if_succeeds, git_succeeds, run_gh, run_git
 
 DELETED = "deleted"
+MAIN = "main"
 
 
 def parse_gone_branches(for_each_ref: str) -> list[str]:
@@ -61,6 +68,41 @@ def is_ancestor(pr: str, local_oid: str, pr_head_oid: str) -> bool:
     return git_succeeds(["merge-base", "--is-ancestor", local_oid, pr_head_oid])
 
 
+def adds_nothing_to_main(tip: str) -> bool:
+    """Whether merging `tip` into `origin/main` leaves its tree unchanged.
+
+    A tree-level test, so it holds however the work reached `main`: squashed, or merged with an
+    update-branch or local merge commit. A conflicting merge exits 1, which counts as a change.
+    """
+    merged = git_if_succeeds(["merge-tree", "--write-tree", f"origin/{MAIN}", tip])
+    if merged is None:
+        return False
+    main_tree = run_git(["rev-parse", f"origin/{MAIN}^{{tree}}"]).strip()
+    return merged.splitlines()[0] == main_tree
+
+
+def my_pr_states(branch: str) -> list[tuple[str, str]]:
+    """The number and state of each of the user's PRs from `branch`.
+
+    Only the user's own PRs, so the sweep never touches a collaborator's branch.
+    """
+    prs = run_gh(
+        [
+            "pr",
+            "list",
+            "--head",
+            branch,
+            "--state",
+            "all",
+            "--author",
+            "@me",
+            "--json",
+            "number,state",
+        ]
+    )
+    return [(str(pr["number"]), pr["state"]) for pr in prs]
+
+
 def merged_pr_heads(branch: str) -> list[tuple[str, str]]:
     """The number and head OID of each merged PR from `branch`."""
     prs = run_gh(
@@ -70,23 +112,58 @@ def merged_pr_heads(branch: str) -> list[tuple[str, str]]:
 
 
 def sweep_merged_branches() -> dict[str, str]:
-    """Fetch with `--prune`, then delete each `[gone]` branch whose PR merged.
+    """Fetch with `--prune`, then delete each remote and `[gone]` local branch whose PR merged.
 
-    Returns each `[gone]` branch mapped to `DELETED` or to the reason it was kept.
+    Returns each remote branch with a merged PR (as `origin/<branch>`), then each `[gone]` local
+    branch, mapped to `DELETED` or to the reason it was kept.
     """
     run_git(["fetch", "--prune"])
+    outcomes = _sweep_remote_branches()
     for_each_ref = run_git(
         ["for-each-ref", "--format=%(refname:lstrip=2) %(upstream:track)", "refs/heads"]
     )
     porcelain = run_git(["worktree", "list", "--porcelain"])
     here = run_git(["rev-parse", "--show-toplevel"]).strip()
-    outcomes = {}
     for branch in parse_gone_branches(for_each_ref):
         try:
             outcomes[branch] = _sweep_branch(branch, porcelain, here)
         except RuntimeError as error:
             outcomes[branch] = str(error)
     return outcomes
+
+
+def _sweep_remote_branches() -> dict[str, str]:
+    outcomes = {}
+    remote_refs = run_git(["for-each-ref", "--format=%(refname:lstrip=3)", "refs/remotes/origin"])
+    for branch in remote_refs.splitlines():
+        if branch in ("HEAD", MAIN):
+            continue
+        try:
+            outcome = _sweep_remote_branch(branch)
+        except RuntimeError as error:
+            outcome = str(error)
+        if outcome is not None:
+            outcomes[f"origin/{branch}"] = outcome
+    return outcomes
+
+
+def _sweep_remote_branch(branch: str) -> str | None:
+    """Delete one remote branch if its PR merged and it adds nothing to `main`.
+
+    Returns `DELETED`, why it was kept, or None when it has no merged PR or still has an open one.
+    """
+    states = my_pr_states(branch)
+    merged = [pr for pr, state in states if state == "MERGED"]
+    if not merged or any(state == "OPEN" for _, state in states):
+        return None
+    if not adds_nothing_to_main(f"refs/remotes/origin/{branch}"):
+        return (
+            f"holds changes not on {MAIN}, pushed after PR #{merged[0]} merged -- open a PR for "
+            "them or delete the branch"
+        )
+    # Also drops the remote-tracking ref, so the local twin reads `[gone]` without a refetch.
+    run_git(["push", "origin", "--delete", branch])
+    return DELETED
 
 
 def _sweep_branch(branch: str, porcelain: str, here: str) -> str:
@@ -100,7 +177,8 @@ def _sweep_branch(branch: str, porcelain: str, here: str) -> str:
     if not heads:
         return "no merged PR from it -- its remote branch was deleted without a merge"
     tip = run_git(["rev-parse", f"refs/heads/{branch}"]).strip()
-    if not any(is_ancestor(pr, tip, head) for pr, head in heads):
+    in_merged_head = any(is_ancestor(pr, tip, head) for pr, head in heads)
+    if not in_merged_head and not adds_nothing_to_main(tip):
         return f"its tip {tip[:7]} is not in any merged PR -- it may hold unpushed commits"
     if worktree:
         run_git(["worktree", "remove", worktree])
