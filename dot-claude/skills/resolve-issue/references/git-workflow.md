@@ -83,5 +83,5 @@ stuck cases.
 - **A merged PR's branch is back on the remote.** A push made after GitHub merged the PR
   recreates the branch, with no PR behind it. An armed PR needs a push only to fix a conflict or
   a failed check -- a conflicting PR cannot merge in the meantime -- so do not push it otherwise.
-  The next `start_branch.py` deletes such a branch when it adds nothing to `main`, and keeps and
-  lists one that does: open a PR for what it holds.
+  The next `start_branch.py` deletes such a branch if it holds nothing new, and otherwise keeps
+  and lists it: open a PR for what it holds.

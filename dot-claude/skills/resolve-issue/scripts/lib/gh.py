@@ -63,5 +63,5 @@ def git_if_succeeds(args: list[str]) -> str | None:
 
 
 def git_succeeds(args: list[str]) -> bool:
-    """Run a yes/no `git <args>` (exit 0 = yes, 1 = no), raising on any other exit status."""
+    """`git_if_succeeds` as a bool."""
     return git_if_succeeds(args) is not None

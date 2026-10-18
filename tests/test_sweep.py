@@ -80,11 +80,11 @@ def recreated_branch(clone: Path, branch: str) -> str:
 
 
 @pytest.fixture(autouse=True)
-def my_prs(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[tuple[str, str]]]:
-    """The number and state of each of the user's PRs, by head branch; absent means none."""
-    states: dict[str, list[tuple[str, str]]] = {}
-    monkeypatch.setattr(sweep, "my_pr_states", lambda branch: states.get(branch, []))
-    return states
+def open_prs(monkeypatch: pytest.MonkeyPatch) -> set[str]:
+    """The head branches GitHub lists an open PR from."""
+    branches_with_open_prs: set[str] = set()
+    monkeypatch.setattr(sweep, "has_open_pr", lambda branch: branch in branches_with_open_prs)
+    return branches_with_open_prs
 
 
 @pytest.fixture(autouse=True)
@@ -196,30 +196,44 @@ class TestSweepMergedBranches:
 
 class TestSweepRecreatedRemoteBranches:
     def test_deletes_a_remote_branch_recreated_after_the_merge_and_its_local_twin(
-        self, clone, merged, my_prs
+        self, clone, merged
     ):
-        head = recreated_branch(clone, "7-x")
-        merged["7-x"] = [(PR, head)]
-        my_prs["7-x"] = [(PR, "MERGED")]
+        merged["7-x"] = [(PR, recreated_branch(clone, "7-x"))]
         assert sweep.sweep_merged_branches() == {"origin/7-x": DELETED, "7-x": DELETED}
         assert remote_branches(clone) == {"refs/heads/main"}
         assert branches(clone) == {"main"}
 
-    def test_keeps_a_recreated_remote_branch_holding_work(self, clone, merged, my_prs):
+    def test_deletes_a_remote_branch_at_its_merged_head_after_main_rewrote_its_lines(
+        self, clone, merged
+    ):
+        git(clone, "checkout", "-q", "-b", "7-x", "main")
+        head = commit_file(clone, "feature.txt", "feature\n")
+        git(clone, "push", "-q", "-u", "origin", "7-x")
+        publish_pr_head(clone, head)
+        git(clone, "checkout", "-q", "main")
+        commit_file(clone, "feature.txt", "rewritten on main\n")
+        git(clone, "push", "-q", "origin", "main")
+        merged["7-x"] = [(PR, head)]
+        assert sweep.sweep_merged_branches()["origin/7-x"] == DELETED
+
+    def test_keeps_a_recreated_remote_branch_holding_work(self, clone, merged):
         head = recreated_branch(clone, "7-x")
         git(clone, "checkout", "-q", "7-x")
         commit_file(clone, "late.txt", "pushed after the merge\n")
         git(clone, "push", "-q", "origin", "7-x")
         git(clone, "checkout", "-q", "main")
         merged["7-x"] = [(PR, head)]
-        my_prs["7-x"] = [(PR, "MERGED")]
-        assert f"PR #{PR}" in sweep.sweep_merged_branches()["origin/7-x"]
+        assert f"#{PR} merged" in sweep.sweep_merged_branches()["origin/7-x"]
         assert "refs/heads/7-x" in remote_branches(clone)
 
-    @pytest.mark.parametrize("states", [[], [(PR, "MERGED"), ("9", "OPEN")], [(PR, "CLOSED")]])
-    def test_leaves_a_remote_branch_without_a_settled_merged_pr(self, clone, my_prs, states):
+    def test_leaves_a_remote_branch_with_no_merged_pr(self, clone, merged):
         recreated_branch(clone, "7-x")
-        my_prs["7-x"] = states
+        assert "origin/7-x" not in sweep.sweep_merged_branches()
+        assert "refs/heads/7-x" in remote_branches(clone)
+
+    def test_leaves_a_remote_branch_an_open_pr_comes_from(self, clone, merged, open_prs):
+        merged["7-x"] = [(PR, recreated_branch(clone, "7-x"))]
+        open_prs.add("7-x")
         assert "origin/7-x" not in sweep.sweep_merged_branches()
         assert "refs/heads/7-x" in remote_branches(clone)
 
@@ -228,7 +242,7 @@ class TestSweepRecreatedRemoteBranches:
             raise RuntimeError("gh pr list exited 1: connection timed out")
 
         recreated_branch(clone, "7-x")
-        monkeypatch.setattr(sweep, "my_pr_states", unreachable)
+        monkeypatch.setattr(sweep, "merged_pr_heads", unreachable)
         assert "connection timed out" in sweep.sweep_merged_branches()["origin/7-x"]
         assert "refs/heads/7-x" in remote_branches(clone)
 
@@ -253,10 +267,8 @@ class TestAddsNothingToMain:
 
 
 class TestStartBranch:
-    def test_reports_a_deleted_recreated_remote_branch(self, clone, merged, my_prs, capsys):
-        head = recreated_branch(clone, "7-x")
-        merged["7-x"] = [(PR, head)]
-        my_prs["7-x"] = [(PR, "MERGED")]
+    def test_reports_a_deleted_recreated_remote_branch(self, clone, merged, capsys):
+        merged["7-x"] = [(PR, recreated_branch(clone, "7-x"))]
         assert start_branch.main(["8", "next"]) == 0
         assert "Deleted merged branch origin/7-x" in capsys.readouterr().out
         assert remote_branches(clone) == {"refs/heads/main"}

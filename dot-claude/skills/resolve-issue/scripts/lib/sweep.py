@@ -9,15 +9,14 @@ contains it, or merging it into `origin/main` changes nothing -- the worktree ho
 first -- and any other `[gone]` branch is kept, with the reason reported.
 
 A push made after the merge recreates the deleted remote branch (idanyani/my-claude#97). So a
-remote branch whose PRs from the user all settled, at least one merged, is deleted first when
-merging it into `origin/main` changes nothing, which leaves its local twin `[gone]` for the same
-sweep; one that would change `main` is kept and reported, since its work never reached `main`.
+remote branch with a merged PR and no open one is deleted first when its tip holds nothing more,
+by the same test, which leaves its local twin `[gone]` for the same sweep; one that holds more is
+kept and reported, since that work never reached `main`.
 """
 
 from lib.gh import git_if_succeeds, git_succeeds, run_gh, run_git
 
 DELETED = "deleted"
-MAIN = "main"
 
 
 def parse_gone_branches(for_each_ref: str) -> list[str]:
@@ -74,33 +73,20 @@ def adds_nothing_to_main(tip: str) -> bool:
     A tree-level test, so it holds however the work reached `main`: squashed, or merged with an
     update-branch or local merge commit. A conflicting merge exits 1, which counts as a change.
     """
-    merged = git_if_succeeds(["merge-tree", "--write-tree", f"origin/{MAIN}", tip])
+    merged = git_if_succeeds(["merge-tree", "--write-tree", "origin/main", tip])
     if merged is None:
         return False
-    main_tree = run_git(["rev-parse", f"origin/{MAIN}^{{tree}}"]).strip()
+    main_tree = run_git(["rev-parse", "origin/main^{tree}"]).strip()
     return merged.splitlines()[0] == main_tree
 
 
-def my_pr_states(branch: str) -> list[tuple[str, str]]:
-    """The number and state of each of the user's PRs from `branch`.
+def holds_nothing_new(tip: str, heads: list[tuple[str, str]]) -> bool:
+    """Whether a merged PR head (number, OID) contains `tip`, or `tip` adds nothing to `main`.
 
-    Only the user's own PRs, so the sweep never touches a collaborator's branch.
+    The ancestry test comes first: `main` may since have changed or reverted the PR's lines, which
+    makes a tip still at its merged head read as a change to `main`.
     """
-    prs = run_gh(
-        [
-            "pr",
-            "list",
-            "--head",
-            branch,
-            "--state",
-            "all",
-            "--author",
-            "@me",
-            "--json",
-            "number,state",
-        ]
-    )
-    return [(str(pr["number"]), pr["state"]) for pr in prs]
+    return any(is_ancestor(pr, tip, head) for pr, head in heads) or adds_nothing_to_main(tip)
 
 
 def merged_pr_heads(branch: str) -> list[tuple[str, str]]:
@@ -109,6 +95,11 @@ def merged_pr_heads(branch: str) -> list[tuple[str, str]]:
         ["pr", "list", "--head", branch, "--state", "merged", "--json", "number,headRefOid"]
     )
     return [(str(pr["number"]), pr["headRefOid"]) for pr in prs]
+
+
+def has_open_pr(branch: str) -> bool:
+    """Whether any open PR, by anyone, comes from `branch`; deleting the branch would close it."""
+    return bool(run_gh(["pr", "list", "--head", branch, "--state", "open", "--json", "number"]))
 
 
 def sweep_merged_branches() -> dict[str, str]:
@@ -136,7 +127,7 @@ def _sweep_remote_branches() -> dict[str, str]:
     outcomes = {}
     remote_refs = run_git(["for-each-ref", "--format=%(refname:lstrip=3)", "refs/remotes/origin"])
     for branch in remote_refs.splitlines():
-        if branch in ("HEAD", MAIN):
+        if branch in ("HEAD", "main"):
             continue
         try:
             outcome = _sweep_remote_branch(branch)
@@ -148,18 +139,18 @@ def _sweep_remote_branches() -> dict[str, str]:
 
 
 def _sweep_remote_branch(branch: str) -> str | None:
-    """Delete one remote branch if its PR merged and it adds nothing to `main`.
+    """Delete one remote branch if its PR merged and it holds nothing new.
 
     Returns `DELETED`, why it was kept, or None when it has no merged PR or still has an open one.
     """
-    states = my_pr_states(branch)
-    merged = [pr for pr, state in states if state == "MERGED"]
-    if not merged or any(state == "OPEN" for _, state in states):
+    heads = merged_pr_heads(branch)
+    if not heads or has_open_pr(branch):
         return None
-    if not adds_nothing_to_main(f"refs/remotes/origin/{branch}"):
+    tip = run_git(["rev-parse", f"refs/remotes/origin/{branch}"]).strip()
+    if not holds_nothing_new(tip, heads):
         return (
-            f"holds changes not on {MAIN}, pushed after PR #{merged[0]} merged -- open a PR for "
-            "them or delete the branch"
+            f"its tip {tip[:7]} is in no merged PR (#{heads[0][0]} merged) and would change main "
+            "-- open a PR for its changes or delete the branch"
         )
     # Also drops the remote-tracking ref, so the local twin reads `[gone]` without a refetch.
     run_git(["push", "origin", "--delete", branch])
@@ -177,8 +168,7 @@ def _sweep_branch(branch: str, porcelain: str, here: str) -> str:
     if not heads:
         return "no merged PR from it -- its remote branch was deleted without a merge"
     tip = run_git(["rev-parse", f"refs/heads/{branch}"]).strip()
-    in_merged_head = any(is_ancestor(pr, tip, head) for pr, head in heads)
-    if not in_merged_head and not adds_nothing_to_main(tip):
+    if not holds_nothing_new(tip, heads):
         return f"its tip {tip[:7]} is not in any merged PR -- it may hold unpushed commits"
     if worktree:
         run_git(["worktree", "remove", worktree])
