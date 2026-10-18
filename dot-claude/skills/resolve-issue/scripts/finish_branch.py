@@ -3,7 +3,9 @@
 
 Usage: python3 <skill-dir>/scripts/finish_branch.py <pr>
 
-It arms auto-merge (squash, deleting the remote branch), retrying while GitHub refuses, and checks
+Unless the PR already merged or closed, it first refuses while a local branch or worktree HEAD of
+this repo holds commits that build on the PR but are not in it (lib/unpushed.py), so a merge cannot
+leave them behind. Then it arms auto-merge (squash, deleting the remote branch), retrying while GitHub refuses, and checks
 only what GitHub knows within seconds -- the PR merged, or auto-merge is armed and the PR has no
 conflict with `main` -- polling briefly while GitHub settles. It never waits for CI. Whatever
 surfaces later (a failed check, a conflict with a PR merged after this one, CI that never starts)
@@ -16,8 +18,8 @@ checkout alone; the next start_branch.py's sweep removes the worktree once the P
 Exit 0: the PR merged, or will merge once its checks pass; the message says which, or that GitHub
     was still checking it for conflicts.
 Exit 1: the PR closed without merging, or a git/gh call failed.
-Exit 3: the PR needs a person -- it conflicts with main, or GitHub kept refusing to arm
-    auto-merge; the message names which. Fix that and re-run.
+Exit 3: the PR needs a person -- local commits build on it without being in it, it conflicts with
+    main, or GitHub kept refusing to arm auto-merge; the message names which. Fix that and re-run.
 """
 
 import sys
@@ -25,6 +27,7 @@ import time
 
 from lib.gh import arm_auto_merge, in_linked_worktree, run_gh, run_git
 from lib.merge import SETTLING, arm_verdict, parse_args
+from lib.unpushed import commits_missing_from_pr
 
 POLL_INTERVAL_SECONDS = 5
 POLL_LIMIT = 6
@@ -36,11 +39,31 @@ def pr_verdict(pr: str) -> str:
     return arm_verdict(view["state"], view["mergeable"], view["autoMergeRequest"] is not None)
 
 
+def report_missing_commits(pr: str, missing: dict[str, list[str]]) -> None:
+    print(f"Local commits build on PR #{pr} but are not in it:", file=sys.stderr)
+    for tip, commits in missing.items():
+        print(f"  {tip}:", file=sys.stderr)
+        for line in commits:
+            print(f"    {line}", file=sys.stderr)
+    print(
+        "Push the ones the PR needs to its branch as new commits (cherry-pick them onto it if they "
+        "were made elsewhere), delete the rest, and re-run.",
+        file=sys.stderr,
+    )
+
+
 def main(argv: list[str]) -> int:
     pr = parse_args(argv)
+    verdict = pr_verdict(pr)
+    # Arming authorizes the merge, so first make sure no local work on the PR is left behind
+    # (idanyani/my-claude#95); a merged or closed PR has nothing left to authorize.
+    if verdict not in ("merged", "closed"):
+        missing = commits_missing_from_pr(pr)
+        if missing:
+            report_missing_commits(pr, missing)
+            return EXIT_NEEDS_ATTENTION
     # What the last arm attempt reported, success or refusal, for an exit-3 message.
     arm_outcome = "not attempted"
-    verdict = pr_verdict(pr)
     for _ in range(POLL_LIMIT - 1):
         if verdict not in SETTLING:
             break

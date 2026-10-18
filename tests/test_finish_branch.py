@@ -29,7 +29,8 @@ def arm_calls() -> list[str]:
 def run(monkeypatch: pytest.MonkeyPatch, git_calls: list[list[str]], arm_calls: list[str]):
     """Run `main` against scripted `gh pr view` results; returns its exit code.
 
-    `refusals` is how many arm attempts GitHub refuses before one succeeds.
+    `refusals` is how many arm attempts GitHub refuses before one succeeds; `missing` is what
+    `commits_missing_from_pr` finds.
     """
 
     def run_git(args: list[str]) -> str:
@@ -38,8 +39,11 @@ def run(monkeypatch: pytest.MonkeyPatch, git_calls: list[list[str]], arm_calls: 
 
     monkeypatch.setattr(finish_branch, "in_linked_worktree", lambda: False)
 
-    def start(views: list[dict], refusals: int = 0) -> int:
+    def start(
+        views: list[dict], refusals: int = 0, missing: dict[str, list[str]] | None = None
+    ) -> int:
         script: Iterator[dict] = iter(views)
+        monkeypatch.setattr(finish_branch, "commits_missing_from_pr", lambda _pr: missing or {})
 
         def arm_auto_merge(pr: str) -> str:
             arm_calls.append(pr)
@@ -130,3 +134,21 @@ def test_stays_in_a_linked_worktree_whose_main_checkout_owns_main(run, git_calls
     monkeypatch.setattr(finish_branch, "in_linked_worktree", lambda: True)
     assert run([ARMED]) == 0
     assert git_calls == []
+
+
+def test_stops_for_a_person_while_local_commits_build_on_the_pr_without_being_in_it(
+    run, arm_calls, git_calls, capsys
+):
+    missing = {"/repo-review": ["1425da7 Fix review finding"]}
+    assert run([UNARMED, ARMED], missing=missing) == finish_branch.EXIT_NEEDS_ATTENTION
+    assert arm_calls == []
+    assert not returned_to_main(git_calls)
+    err = capsys.readouterr().err
+    assert "/repo-review" in err
+    assert "1425da7 Fix review finding" in err
+
+
+@pytest.mark.parametrize(("view", "code"), [(MERGED, 0), (CLOSED, 1)])
+def test_skips_the_missing_commit_check_once_the_pr_is_settled(run, view, code):
+    # Re-running after the merge, with follow-up work on the old branch, still reports the merge.
+    assert run([view], missing={"7-x": ["abc1234 follow-up"]}) == code
