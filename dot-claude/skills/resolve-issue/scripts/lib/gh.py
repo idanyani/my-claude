@@ -48,13 +48,20 @@ def in_linked_worktree() -> bool:
     return git_dir != common_dir
 
 
-def git_succeeds(args: list[str]) -> bool:
-    """Run a yes/no `git <args>` (exit 0 = yes, 1 = no), raising on any other exit status.
+def git_if_succeeds(args: list[str]) -> str | None:
+    """Run a yes/no `git <args>`: stdout on exit 0 (yes), None on exit 1 (no).
 
     Exit 1 is a definite "no"; any other nonzero status is a real failure that must surface
     rather than masquerade as a "no".
     """
     result = subprocess.run(["git", *args], capture_output=True, text=True)
-    if result.returncode in (0, 1):
-        return result.returncode == 0
+    if result.returncode == 0:
+        return result.stdout
+    if result.returncode == 1:
+        return None
     raise RuntimeError(f"git {' '.join(args)} exited {result.returncode}: {result.stderr.strip()}")
+
+
+def git_succeeds(args: list[str]) -> bool:
+    """`git_if_succeeds` as a bool."""
+    return git_if_succeeds(args) is not None

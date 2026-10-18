@@ -8,8 +8,8 @@ In a linked worktree -- one Claude Code created with EnterWorktree, subagent iso
 `origin/main`, and drops the placeholder branch Claude Code named the worktree after. In the main
 checkout it branches in place from a freshly pulled `main`. Either way it refuses a dirty tree
 rather than stashing -- the caller surfaces that and asks the user -- and first deletes the local
-branches whose PR merged (`lib/sweep.py`), so they do not accumulate, and re-arms the user's PRs
-whose armed auto-merge GitHub never fired (`lib/stall.py`).
+and remote branches whose PR merged (`lib/sweep.py`), so they do not accumulate, and re-arms the
+user's PRs whose armed auto-merge GitHub never fired (`lib/stall.py`).
 """
 
 import os
