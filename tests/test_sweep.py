@@ -5,11 +5,12 @@ graph: a bare `origin` publishing merged heads on `refs/pull/<n>/head` as GitHub
 holding the local branches. Only GitHub's list of merged PRs is faked.
 """
 
-import subprocess
 from pathlib import Path
 
+import git_repo
 import pytest
 import start_branch
+from git_repo import commit, git
 from lib import gh, sweep
 from lib.sweep import (
     DELETED,
@@ -22,21 +23,6 @@ from lib.sweep import (
 PR = "7"
 
 
-def git(cwd: Path, *args: str) -> str:
-    return subprocess.run(
-        ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
-        cwd=cwd,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-
-
-def commit(cwd: Path, message: str) -> str:
-    git(cwd, "commit", "--allow-empty", "-q", "-m", message)
-    return git(cwd, "rev-parse", "HEAD")
-
-
 def exclude_file(clone: Path) -> Path:
     return clone / ".git" / "info" / "exclude"
 
@@ -45,21 +31,8 @@ def branches(clone: Path) -> set[str]:
     return set(git(clone, "branch", "--format=%(refname:short)").split())
 
 
-@pytest.fixture
-def clone(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    origin = tmp_path / "origin.git"
-    git(tmp_path, "init", "-q", "--bare", "-b", "main", str(origin))
-    work = tmp_path / "work"
-    git(tmp_path, "clone", "-q", str(origin), str(work))
-    git(work, "checkout", "-q", "-b", "main")
-    commit(work, "base")
-    git(work, "push", "-q", "-u", "origin", "main")
-    monkeypatch.chdir(work)
-    return work
-
-
 def publish_pr_head(clone: Path, oid: str, pr: str = PR) -> None:
-    git(clone, "push", "-q", "origin", f"{oid}:refs/pull/{pr}/head")
+    git_repo.publish_pr_head(clone, oid, pr)
 
 
 def gone_branch(clone: Path, branch: str) -> str:

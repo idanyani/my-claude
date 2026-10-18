@@ -36,7 +36,9 @@ and `gh` on PATH; they run against the current working directory's repo.
    everyone, administrators included.
 2. **Open the PR.** `git push -u origin <branch>`, then `gh pr create --fill`.
 3. **Review the PR.** Run `/code-review <pr>` in this session. Apply the findings worth
-   applying and push any fixes **as new commits -- the branch is already pushed and under
+   applying on the PR's branch, in the checkout step 1 made -- a commit made in any other
+   checkout is not in the PR, and `finish_branch.py` refuses to arm while one exists -- and push
+   any fixes **as new commits -- the branch is already pushed and under
    review, so never amend, rebase, or force-push it; the squash-merge in step 4 collapses every
    commit into one on `main`, so branch commit count does not matter.** Dismiss the rest with a
    one-line reason. Review once -- do not loop on further advisory findings; record any

@@ -72,7 +72,8 @@ One commit for the implementation, message in the repo's commit style, ending wi
 `Resolves #<number>`. `gh pr create --fill` turns the commit body into the PR description, so
 the body states the chosen solution and the rejected alternatives with why -- the problem
 stays in the issue. Then: `git push -u origin <branch>`, `gh pr create --fill`, and review it
-in this session with `/code-review <pr>`. Apply the findings worth applying and push fixes **as
+in this session with `/code-review <pr>`. Apply the findings worth applying on the branch in the
+checkout Phase 4 made (not one the review created) and push fixes **as
 additional commits -- never amend or force-push the pushed branch; the squash-merge collapses
 them into one commit on `main`**; dismiss the rest with a one-line reason. Review once -- do not
 loop on further advisory findings.
