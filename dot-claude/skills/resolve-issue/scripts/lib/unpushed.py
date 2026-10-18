@@ -10,21 +10,20 @@ from lib.gh import git_succeeds, run_gh, run_git
 
 
 def parse_local_tips(for_each_ref: str, worktree_porcelain: str) -> dict[str, str]:
-    """Each local tip's OID mapped to a label: its branch name, else the worktree holding it.
+    """Each local tip's label mapped to its OID: every branch, then every detached worktree HEAD.
 
     Parses `git for-each-ref --format='%(objectname) %(refname:lstrip=2)' refs/heads` and
-    `git worktree list --porcelain`; the latter adds the detached HEADs no branch names.
+    `git worktree list --porcelain`. A worktree on a branch is already covered by the branch (and
+    one on an unborn branch has no commit), so only detached entries add a tip, labeled by path.
     """
     tips: dict[str, str] = {}
     for line in for_each_ref.splitlines():
         oid, _, branch = line.partition(" ")
-        tips[oid] = branch
-    worktree = ""
-    for line in worktree_porcelain.splitlines():
-        if line.startswith("worktree "):
-            worktree = line[len("worktree ") :]
-        elif line.startswith("HEAD "):
-            tips.setdefault(line[len("HEAD ") :], worktree)
+        tips[branch] = oid
+    for entry in worktree_porcelain.split("\n\n"):
+        fields = dict(line.partition(" ")[::2] for line in entry.splitlines())
+        if "detached" in fields:
+            tips[fields["worktree"]] = fields["HEAD"]
     return tips
 
 
@@ -42,7 +41,7 @@ def commits_missing_from_pr(pr: str) -> dict[str, list[str]]:
         run_git(["worktree", "list", "--porcelain"]),
     )
     missing = {}
-    for tip, label in tips.items():
+    for label, tip in tips.items():
         builds_on_pr = any(
             git_succeeds(["merge-base", "--is-ancestor", pr_commit["oid"], tip])
             for pr_commit in view["commits"]

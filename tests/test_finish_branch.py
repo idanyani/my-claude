@@ -146,3 +146,9 @@ def test_stops_for_a_person_while_local_commits_build_on_the_pr_without_being_in
     err = capsys.readouterr().err
     assert "/repo-review" in err
     assert "1425da7 Fix review finding" in err
+
+
+@pytest.mark.parametrize(("view", "code"), [(MERGED, 0), (CLOSED, 1)])
+def test_skips_the_missing_commit_check_once_the_pr_is_settled(run, view, code):
+    # Re-running after the merge, with follow-up work on the old branch, still reports the merge.
+    assert run([view], missing={"7-x": ["abc1234 follow-up"]}) == code

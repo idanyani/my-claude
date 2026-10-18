@@ -48,10 +48,23 @@ class TestParseLocalTips:
             ]
         )
         assert parse_local_tips(for_each_ref, porcelain) == {
-            "aaa": "main",
-            "bbb": "7-x",
-            "ccc": "/repo-review",
+            "main": "aaa",
+            "7-x": "bbb",
+            "/repo-review": "ccc",
         }
+
+    def test_keeps_every_label_sharing_a_tip(self):
+        porcelain = "worktree /repo-review\nHEAD bbb\ndetached\n"
+        assert parse_local_tips("bbb 7-x\nbbb pr7\n", porcelain) == {
+            "7-x": "bbb",
+            "pr7": "bbb",
+            "/repo-review": "bbb",
+        }
+
+    def test_skips_a_worktree_on_an_unborn_branch(self):
+        # `git worktree add --orphan` lists an all-zero HEAD until its first commit.
+        porcelain = "worktree /repo-new\nHEAD " + "0" * 40 + "\nbranch refs/heads/new\n"
+        assert parse_local_tips("", porcelain) == {}
 
 
 class TestCommitsMissingFromPr:
