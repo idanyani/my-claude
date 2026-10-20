@@ -13,6 +13,7 @@ import pytest
 from git_repo import commit, git
 
 BRANCH = "7-x"
+CLOSING_MESSAGE = "Implement x\n\nResolves #7"
 HISTORY_COMMITS = 20
 BLOB_BYTES = 10_000
 PR_URL = "https://github.com/o/r/pull/7"
@@ -36,19 +37,46 @@ def stale_branch(clone: Path, tmp_path: Path) -> Path:
     git(other, "push", "-q", "origin", "main")
     git(tmp_path / "origin.git", "config", "receive.maxInputSize", str(BLOB_BYTES))
     git(clone, "checkout", "-q", "-b", BRANCH)
-    commit(clone, "implement")
+    commit(clone, CLOSING_MESSAGE)
     return clone
 
 
 class TestRefusal:
-    def test_allows_an_issue_branch_with_commits(self):
-        assert open_pr.refusal(BRANCH, commits_ahead=1) is None
+    def test_allows_an_issue_branch_whose_commit_closes_the_issue(self):
+        assert open_pr.refusal(BRANCH, [CLOSING_MESSAGE]) is None
 
     @pytest.mark.parametrize(
-        ("branch", "commits_ahead"), [("", 1), ("main", 1), (BRANCH, 0)], ids=str
+        ("branch", "messages"),
+        [
+            ("", [CLOSING_MESSAGE]),
+            ("main", [CLOSING_MESSAGE]),
+            (BRANCH, []),
+            ("feature-x", [CLOSING_MESSAGE]),
+            (BRANCH, ["Implement x"]),
+            (BRANCH, [""]),
+            ("8-y", [CLOSING_MESSAGE]),
+            # `gh pr create --fill` puts only the subjects of several commits in the PR body.
+            (BRANCH, ["Fix lint", CLOSING_MESSAGE]),
+        ],
+        ids=[
+            "detached",
+            "main",
+            "no-commits",
+            "not-named-for-an-issue",
+            "no-closing-line",
+            "empty-message",
+            "closes-another-issue",
+            "several-commits",
+        ],
     )
-    def test_refuses_a_detached_head_main_or_an_empty_branch(self, branch, commits_ahead):
-        assert open_pr.refusal(branch, commits_ahead)
+    def test_refuses(self, branch, messages):
+        assert open_pr.refusal(branch, messages)
+
+    def test_names_the_rename_for_a_branch_not_named_for_an_issue(self):
+        assert "git branch -m" in open_pr.refusal("feature-x", [CLOSING_MESSAGE])
+
+    def test_counts_an_empty_message_as_a_commit(self):
+        assert "no commits" not in open_pr.refusal(BRANCH, [""])
 
 
 class TestPushBranch:
@@ -93,3 +121,12 @@ class TestMain:
         with pytest.raises(RuntimeError):
             open_pr.main([])
         assert git(tmp_path / "origin.git", "rev-parse", "main") != git(clone, "rev-parse", "HEAD")
+
+    def test_refuses_commits_that_do_not_close_the_issue_without_pushing(
+        self, stale_branch, tmp_path
+    ):
+        git(stale_branch, "commit", "-q", "--amend", "--allow-empty", "-m", "Implement x")
+        with pytest.raises(RuntimeError, match="#7"):
+            open_pr.main([])
+        branches = git(tmp_path / "origin.git", "branch", "--list", BRANCH)
+        assert branches == ""
