@@ -12,6 +12,7 @@ from lib.stall import (
     REFIRED,
     STALL_AFTER_SECONDS,
     green_since,
+    reopened_since_head,
     stalled_prs,
     unchecked_prs,
 )
@@ -103,18 +104,45 @@ class TestStalledPrs:
         assert stalled_prs([fresh, STALLED], SNAPSHOT_AT) == ["235"]
 
 
-# Probe PR #103 (idanyani/my-claude#104): its push fired no CI, so its required check never
-# reported and GitHub reads it BLOCKED.
+# Probe PR #103 (idanyani/my-claude#104), armed as finish_branch.py arms: its push fired no CI, so
+# its required check never reported and GitHub reads it BLOCKED.
 UNCHECKED = {
     "number": 103,
     "state": "OPEN",
     "mergeStateStatus": "BLOCKED",
-    "autoMergeRequest": None,
+    "autoMergeRequest": {"enabledAt": "2026-10-20T07:49:55Z", "mergeMethod": "SQUASH"},
     "statusCheckRollup": [],
     "updatedAt": "2026-10-20T07:49:55Z",
 }
 UNCHECKED_SINCE = datetime(2026, 10, 20, 7, 49, 55, tzinfo=UTC)
 CI_START_GRACE = timedelta(seconds=CI_START_GRACE_SECONDS)
+HEAD_COMMITTED_AT = "2026-10-20T07:49:44Z"
+
+
+def reopen_history(reopened_at: str | None) -> dict:
+    """The GraphQL payload `lib.stall` reads a PR's last reopen and head commit from."""
+    reopens = [{"createdAt": reopened_at}] if reopened_at else []
+    return {
+        "data": {
+            "repository": {
+                "pullRequest": {
+                    "reopened": {"nodes": reopens},
+                    "commits": {"nodes": [{"commit": {"committedDate": HEAD_COMMITTED_AT}}]},
+                }
+            }
+        }
+    }
+
+
+class TestReopenedSinceHead:
+    def test_is_false_for_a_pr_never_reopened(self):
+        assert not reopened_since_head(reopen_history(None))
+
+    def test_is_false_when_the_reopen_predates_the_head_commit(self):
+        assert not reopened_since_head(reopen_history("2026-10-20T07:00:00Z"))
+
+    def test_is_true_when_reopened_after_the_head_commit(self):
+        assert reopened_since_head(reopen_history("2026-10-20T07:56:00Z"))
 
 
 def numbers(prs: list[dict]) -> list[int]:
@@ -124,6 +152,15 @@ def numbers(prs: list[dict]) -> list[int]:
 class TestUncheckedPrs:
     def test_finds_a_blocked_pr_with_no_checks_past_the_grace(self):
         assert numbers(unchecked_prs([UNCHECKED], UNCHECKED_SINCE + CI_START_GRACE)) == [103]
+
+    def test_leaves_an_unarmed_pr(self):
+        # Also BLOCKED with no checks: a PR waiting on a required review in a repo without CI.
+        pr = {**UNCHECKED, "autoMergeRequest": None}
+        assert unchecked_prs([pr], UNCHECKED_SINCE + CI_START_GRACE) == []
+
+    def test_leaves_a_pr_armed_with_another_merge_method(self):
+        pr = {**UNCHECKED, "autoMergeRequest": {"enabledAt": ARMED_AT, "mergeMethod": "REBASE"}}
+        assert unchecked_prs([pr], UNCHECKED_SINCE + CI_START_GRACE) == []
 
     def test_leaves_a_pr_whose_ci_may_still_start(self):
         just_pushed = UNCHECKED_SINCE + CI_START_GRACE - timedelta(seconds=1)
@@ -163,11 +200,20 @@ class TestUnstickPrs:
         return calls
 
     def listing(
-        self, monkeypatch: pytest.MonkeyPatch, prs: list[dict], state_after: str = "OPEN"
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        prs: list[dict],
+        state_after: str = "OPEN",
+        reopened_at: str | None = None,
     ) -> None:
-        """`gh pr list` returns `prs`; `gh pr view` then reads each PR as `state_after`."""
+        """`gh pr list` returns `prs`; `gh pr view` then reads each PR as `state_after`.
+
+        The reopen-history query reports a last reopen at `reopened_at`.
+        """
 
         def run_gh(args: list[str]) -> object:
+            if args[0] == "api":
+                return reopen_history(reopened_at)
             return prs if args[1] == "list" else {"state": state_after}
 
         monkeypatch.setattr(stall, "run_gh", run_gh)
@@ -220,17 +266,50 @@ class TestUnstickPrs:
         assert "not allowed" in stall.unstick_prs()["235"]
         assert gh_calls == []
 
-    def test_reopens_an_unchecked_pr_to_refire_ci(self, monkeypatch, gh_calls):
+    def test_reopens_then_rearms_an_unchecked_pr(self, monkeypatch, gh_calls):
+        # Closing a PR turns its auto-merge off.
         self.listing(monkeypatch, [UNCHECKED])
         assert stall.unstick_prs() == {"103": REFIRED}
-        assert gh_calls == [["pr", "close", "103"], ["pr", "reopen", "103"]]
-
-    def test_rearms_an_armed_unchecked_pr_after_reopening(self, monkeypatch, gh_calls):
-        # Closing a PR turns its auto-merge off.
-        armed = {**UNCHECKED, "autoMergeRequest": {"enabledAt": ARMED_AT, "mergeMethod": "SQUASH"}}
-        self.listing(monkeypatch, [armed])
-        assert stall.unstick_prs() == {"103": REFIRED}
         assert gh_calls == [["pr", "close", "103"], ["pr", "reopen", "103"], ["arm", "103"]]
+
+    def test_reports_rather_than_reopens_again_for_the_same_head(self, monkeypatch, gh_calls):
+        # A reopen fires nothing when CI skips the head commit (`[skip ci]`); reopening on every
+        # sweep would never end.
+        self.listing(monkeypatch, [UNCHECKED], reopened_at="2026-10-20T07:56:00Z")
+        outcome = stall.unstick_prs()["103"]
+        assert outcome != REFIRED
+        assert "reopened" in outcome
+        assert gh_calls == []
+
+    def test_reports_a_merge_that_landed_before_the_close(self, monkeypatch, gh_calls):
+        def already_merged(_args: list[str]) -> str:
+            raise RuntimeError("gh pr close exited 1: Pull request #103 is already merged")
+
+        self.listing(monkeypatch, [UNCHECKED], state_after="MERGED")
+        monkeypatch.setattr(stall, "run_gh_text", already_merged)
+        assert stall.unstick_prs() == {"103": MERGED}
+
+    def test_reports_a_failed_close_and_skips_the_reopen(self, monkeypatch, gh_calls):
+        def refuse(_args: list[str]) -> str:
+            raise RuntimeError("gh pr close exited 1: not allowed")
+
+        self.listing(monkeypatch, [UNCHECKED])
+        monkeypatch.setattr(stall, "run_gh_text", refuse)
+        assert "not allowed" in stall.unstick_prs()["103"]
+        assert gh_calls == []
+
+    def test_reports_a_pr_left_unarmed_when_rearming_after_the_reopen_fails(
+        self, monkeypatch, gh_calls
+    ):
+        def refuse(_pr: str) -> str:
+            raise RuntimeError("gh pr merge exited 1: GraphQL: something broke")
+
+        self.listing(monkeypatch, [UNCHECKED])
+        monkeypatch.setattr(stall, "arm_auto_merge", refuse)
+        outcome = stall.unstick_prs()["103"]
+        assert "unarmed" in outcome
+        assert "something broke" in outcome
+        assert "finish_branch.py 103" in outcome
 
     def test_reports_a_pr_left_closed_when_reopening_fails(self, monkeypatch, gh_calls):
         def refuse_reopen(args: list[str]) -> str:
@@ -256,7 +335,7 @@ class TestStartBranchReport:
             "182": "gh pr merge exited 1: not allowed",
         }
         monkeypatch.setattr(start_branch, "unstick_prs", lambda: outcomes)
-        start_branch.report_stalled_prs()
+        start_branch.report_unstick_outcomes()
         out = capsys.readouterr().out
         assert "Re-armed auto-merge on PR #235" in out
         assert "PR #103" in out and "CI" in out
@@ -268,5 +347,5 @@ class TestStartBranchReport:
             raise RuntimeError("gh pr list exited 1: connection timed out")
 
         monkeypatch.setattr(start_branch, "unstick_prs", unreachable)
-        start_branch.report_stalled_prs()
+        start_branch.report_unstick_outcomes()
         assert "connection timed out" in capsys.readouterr().out

@@ -1,4 +1,4 @@
-"""Move the user's own open PRs that GitHub left stuck.
+"""Re-arm or reopen the user's own armed PRs that GitHub left open.
 
 Stalled: GitHub sometimes leaves an armed PR open after its checks pass, with the PR reading CLEAN;
 turning auto-merge off and on again makes GitHub merge it (idanyani/my-claude#93). Re-arming goes
@@ -24,6 +24,28 @@ REARMED = "re-armed"
 REFIRED = "re-fired"
 MERGED = "merged"
 PR_FIELDS = "number,state,mergeStateStatus,autoMergeRequest,statusCheckRollup,updatedAt"
+# A PR's last reopen and its head commit; `gh pr list` exposes neither. gh fills in {owner} and
+# {repo} from the current repo.
+REOPEN_HISTORY_QUERY = """
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reopened: timelineItems(last: 1, itemTypes: [REOPENED_EVENT]) {
+        nodes { ... on ReopenedEvent { createdAt } }
+      }
+      commits(last: 1) { nodes { commit { committedDate } } }
+    }
+  }
+}
+"""
+REOPEN_HISTORY_FIELDS = [
+    "-F",
+    "owner={owner}",
+    "-F",
+    "repo={repo}",
+    "-f",
+    f"query={REOPEN_HISTORY_QUERY}",
+]
 # A commit status (StatusContext) in these states has not finished.
 UNFINISHED_STATUS_STATES = ("PENDING", "EXPECTED")
 
@@ -53,15 +75,19 @@ def green_since(pr: dict[str, Any]) -> datetime | None:
     return max(moments)
 
 
+def _open_and_armed_as_squash(pr: dict[str, Any]) -> bool:
+    return (
+        pr["state"] == "OPEN"
+        and pr["autoMergeRequest"] is not None
+        and pr["autoMergeRequest"]["mergeMethod"] == "SQUASH"
+    )
+
+
 def stalled_prs(prs: list[dict[str, Any]], now: datetime) -> list[str]:
     """The numbers of the open, armed, CLEAN PRs that have been green for the stall threshold."""
     stalled = []
     for pr in prs:
-        if pr["state"] != "OPEN" or pr["autoMergeRequest"] is None:
-            continue
-        if pr["autoMergeRequest"]["mergeMethod"] != "SQUASH":
-            continue
-        if pr["mergeStateStatus"] != "CLEAN":
+        if not _open_and_armed_as_squash(pr) or pr["mergeStateStatus"] != "CLEAN":
             continue
         since = green_since(pr)
         if since is not None and now - since >= timedelta(seconds=STALL_AFTER_SECONDS):
@@ -70,14 +96,15 @@ def stalled_prs(prs: list[dict[str, Any]], now: datetime) -> list[str]:
 
 
 def unchecked_prs(prs: list[dict[str, Any]], now: datetime) -> list[dict[str, Any]]:
-    """The open PRs blocked on checks none of which ever reported, untouched past the grace.
+    """The open, armed PRs blocked with no check of any kind, untouched past the grace.
 
-    BLOCKED with no checks at all means a required check is missing; a repo with no required check
-    reads such a PR CLEAN instead, so it is never picked.
+    A repo with no required check reads such a PR CLEAN, so it is never picked. Only PRs armed as a
+    squash count: arming means the merge waits on nothing but checks, where an unarmed PR may be
+    BLOCKED on a review instead, and finish_branch.py already flags a PR it could not arm.
     """
     unchecked = []
     for pr in prs:
-        if pr["state"] != "OPEN" or pr["mergeStateStatus"] != "BLOCKED":
+        if not _open_and_armed_as_squash(pr) or pr["mergeStateStatus"] != "BLOCKED":
             continue
         if pr["statusCheckRollup"]:
             continue
@@ -85,6 +112,18 @@ def unchecked_prs(prs: list[dict[str, Any]], now: datetime) -> list[dict[str, An
         if untouched >= timedelta(seconds=CI_START_GRACE_SECONDS):
             unchecked.append(pr)
     return unchecked
+
+
+def reopened_since_head(history: dict[str, Any]) -> bool:
+    """Whether the PR was reopened after its head commit, from `REOPEN_HISTORY_QUERY`'s payload."""
+    pull_request = history["data"]["repository"]["pullRequest"]
+    reopens = pull_request["reopened"]["nodes"]
+    if not reopens:
+        return False
+    head = pull_request["commits"]["nodes"][0]["commit"]
+    return datetime.fromisoformat(reopens[0]["createdAt"]) >= datetime.fromisoformat(
+        head["committedDate"]
+    )
 
 
 def unstick_prs() -> dict[str, str]:
@@ -100,27 +139,34 @@ def unstick_prs() -> dict[str, str]:
 
 
 def _refire(pr: dict[str, Any]) -> str:
-    """Close and reopen a PR, which fires its CI anew; return `REFIRED` or what went wrong.
+    """Close and reopen a PR, which fires its CI anew; return `REFIRED`, `MERGED`, or what went wrong.
 
-    Closing turns auto-merge off, so an armed PR is armed again after the reopen.
+    A reopen fires nothing when CI skips the head commit (`[skip ci]`), and the PR would then be
+    picked again on every sweep, so each head commit gets one reopen; after that it is reported.
+    Closing turns auto-merge off, so the PR is armed again after the reopen.
     """
     number = str(pr["number"])
+    history = run_gh(["api", "graphql", *REOPEN_HISTORY_FIELDS, "-F", f"number={number}"])
+    if reopened_since_head(history):
+        return (
+            "it was already reopened for its head commit and still has no check -- CI may skip "
+            "that commit; see Troubleshooting in references/git-workflow.md"
+        )
     try:
         run_gh_text(["pr", "close", number])
     except RuntimeError as error:
-        return str(error)
+        return MERGED if _merged(number) else str(error)
     try:
         run_gh_text(["pr", "reopen", number])
     except RuntimeError as error:
         return f"the PR is now closed -- reopening failed: {error} -- run gh pr reopen {number}"
-    if pr["autoMergeRequest"] is not None:
-        try:
-            arm_auto_merge(number)
-        except RuntimeError as error:
-            return (
-                f"CI re-fired but auto-merge is now unarmed -- re-arming failed: {error} -- "
-                f"run finish_branch.py {number}"
-            )
+    try:
+        arm_auto_merge(number)
+    except RuntimeError as error:
+        return (
+            f"CI re-fired but auto-merge is now unarmed -- re-arming failed: {error} -- "
+            f"run finish_branch.py {number}"
+        )
     return REFIRED
 
 

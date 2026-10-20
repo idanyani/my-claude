@@ -8,8 +8,9 @@ In a linked worktree -- one Claude Code created with EnterWorktree, subagent iso
 `origin/main`, and drops the placeholder branch Claude Code named the worktree after. In the main
 checkout it branches in place from a freshly pulled `main`. Either way it refuses a dirty tree
 rather than stashing -- the caller surfaces that and asks the user -- and first deletes the local
-and remote branches whose PR merged (`lib/sweep.py`), so they do not accumulate, and moves the
-user's PRs that GitHub left stuck (`lib/stall.py`).
+and remote branches whose PR merged (`lib/sweep.py`), so they do not accumulate, and re-arms the
+user's PRs whose armed auto-merge GitHub never fired and reopens those whose CI never started
+(`lib/stall.py`).
 """
 
 import os
@@ -53,12 +54,12 @@ def report_sweep(outcomes: dict[str, str]) -> None:
             print(f"Kept branch {branch}: {outcome}")
 
 
-def report_stalled_prs() -> None:
-    # A stall check that cannot reach GitHub must not keep the next issue from starting.
+def report_unstick_outcomes() -> None:
+    # A check that cannot reach GitHub must not keep the next issue from starting.
     try:
         outcomes = unstick_prs()
     except RuntimeError as error:
-        print(f"Could not check for stalled PRs: {error}")
+        print(f"Could not check your open PRs: {error}")
         return
     for pr, outcome in outcomes.items():
         if outcome == REARMED:
@@ -114,7 +115,7 @@ def main(argv: list[str]) -> int:
         run_git(["checkout", "main"])
     # The sweep's fetch also freshens origin/main, the base of a worktree's branch.
     report_sweep(sweep_merged_branches())
-    report_stalled_prs()
+    report_unstick_outcomes()
 
     if linked:
         branch_linked_worktree(branch, toplevel)

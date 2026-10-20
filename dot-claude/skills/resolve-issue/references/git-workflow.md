@@ -30,8 +30,9 @@ and `gh` on PATH; they run against the current working directory's repo.
    `isolation: "worktree"`, or `claude --worktree`) unless branching in place on purpose, then
    run `python3 ${CLAUDE_SKILL_DIR}/scripts/start_branch.py <number> <kebab-summary>`. It
    refuses a dirty tree (it never stashes silently -- surface that and ask), deletes the local
-   and remote branches whose PR merged (keeping and listing any it cannot confirm), moves your
-   PRs that GitHub left stuck (see Troubleshooting), then branches from a
+   and remote branches whose PR merged (keeping and listing any it cannot confirm), re-arms your
+   PRs whose auto-merge GitHub never fired and reopens those whose CI never started (see
+   Troubleshooting), then branches from a
    freshly fetched `main`. Never push to `main` directly -- branch protection rejects it for
    everyone, administrators included.
 2. **Open the PR.** `python3 ${CLAUDE_SKILL_DIR}/scripts/open_pr.py` pushes the branch and runs
@@ -69,8 +70,10 @@ stuck cases.
 
 - **PR will not merge -- "no checks reported."** A push can land without firing CI, so no
   `verify` run attaches and the PR stays blocked. The next `start_branch.py` closes and reopens
-  such a PR once it has sat a few minutes with no check, which re-fires CI; to nudge it sooner,
-  close and reopen it by hand, then re-run `finish_branch.py` (step 4).
+  an armed PR once it has sat a few minutes with no check, which re-fires CI; to nudge it sooner,
+  close and reopen it by hand, then re-run `finish_branch.py` (step 4). It reopens a PR once per
+  head commit: if CI still does not start, the workflow skips that commit (`[skip ci]` in its
+  message, or a `paths` filter it does not match) -- push a commit the workflow runs on.
 - **An open PR does not merge.** Auto-merge stays armed through each fix below, so pushing it
   is enough:
   - *Conflict with `main`:* another PR changed the same lines. Merge `main` into the branch,
