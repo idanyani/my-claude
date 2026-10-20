@@ -34,7 +34,11 @@ and `gh` on PATH; they run against the current working directory's repo.
    PRs whose auto-merge GitHub never fired (see Troubleshooting), then branches from a
    freshly fetched `main`. Never push to `main` directly -- branch protection rejects it for
    everyone, administrators included.
-2. **Open the PR.** `git push -u origin <branch>`, then `gh pr create --fill`.
+2. **Open the PR.** `git -c push.negotiate=true push -u origin <branch>`, then
+   `gh pr create --fill`. By default a push learns which commits the remote has only from the
+   branch tips it advertises, and skips just the history behind the tips the clone already
+   holds. Once another PR merges, `main`'s new tip is one the clone has never fetched, so
+   without negotiation the push uploads the repository's whole history for a one-commit branch.
 3. **Review the PR.** Run `/code-review <pr>` in this session. Apply the findings worth
    applying on the PR's branch, in the checkout step 1 made -- a commit made in any other
    checkout is not in the PR -- and push
