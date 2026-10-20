@@ -90,7 +90,7 @@ def open_prs(monkeypatch: pytest.MonkeyPatch) -> set[str]:
 @pytest.fixture(autouse=True)
 def no_stalled_prs(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep `start_branch.main` off GitHub; `test_stall.py` covers the re-arm."""
-    monkeypatch.setattr(start_branch, "rearm_stalled_prs", dict)
+    monkeypatch.setattr(start_branch, "unstick_prs", dict)
 
 
 @pytest.fixture

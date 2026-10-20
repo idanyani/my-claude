@@ -10,7 +10,7 @@ only what GitHub knows within seconds -- the PR merged, or auto-merge is armed a
 conflict with `main` -- polling briefly while GitHub settles. It never waits for CI. Whatever
 surfaces later (a failed check, a conflict with a PR merged after this one, CI that never starts)
 leaves the PR open, where `gh pr ls` lists it (see references/git-workflow.md). The next
-start_branch.py deletes the merged branch, and re-arms the PR if GitHub never fired its merge.
+start_branch.py deletes the merged branch, and moves the PR if GitHub left it stuck.
 
 In the main checkout, it checks out an up-to-date `main`. In a linked worktree it leaves the
 checkout alone; the next start_branch.py's sweep removes the worktree once the PR has merged.

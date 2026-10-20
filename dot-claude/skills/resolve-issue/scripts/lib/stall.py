@@ -1,10 +1,13 @@
-"""Re-arm the user's own PRs whose armed squash auto-merge GitHub never fired.
+"""Move the user's own open PRs that GitHub left stuck.
 
-GitHub sometimes leaves an armed PR open after its checks pass, with the PR reading CLEAN; turning
-auto-merge off and on again makes GitHub merge it (idanyani/my-claude#93). Re-arming goes through
-the same `arm_auto_merge` call finish_branch.py makes, so on a PR gh reads as ready it merges at
-once. Only PRs armed as a squash -- the method that call re-arms with -- are touched, so a method
-picked by hand is never overridden.
+Stalled: GitHub sometimes leaves an armed PR open after its checks pass, with the PR reading CLEAN;
+turning auto-merge off and on again makes GitHub merge it (idanyani/my-claude#93). Re-arming goes
+through the same `arm_auto_merge` call finish_branch.py makes, so on a PR gh reads as ready it
+merges at once. Only PRs armed as a squash -- the method that call re-arms with -- are touched, so
+a method picked by hand is never overridden.
+
+Unchecked: a push can land without firing CI, leaving the PR BLOCKED on a required check that
+never reports (idanyani/my-claude#104). Closing and reopening the PR fires CI anew.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -15,9 +18,12 @@ from lib.gh import arm_auto_merge, run_gh, run_gh_text
 # GitHub merges an armed PR within seconds of its last check passing; both observed stalls
 # lasted more than 7 minutes.
 STALL_AFTER_SECONDS = 300
+# CI attaches a check to a PR within seconds of a push; past this, none is coming.
+CI_START_GRACE_SECONDS = 300
 REARMED = "re-armed"
+REFIRED = "re-fired"
 MERGED = "merged"
-PR_FIELDS = "number,state,mergeStateStatus,autoMergeRequest,statusCheckRollup"
+PR_FIELDS = "number,state,mergeStateStatus,autoMergeRequest,statusCheckRollup,updatedAt"
 # A commit status (StatusContext) in these states has not finished.
 UNFINISHED_STATUS_STATES = ("PENDING", "EXPECTED")
 
@@ -63,13 +69,59 @@ def stalled_prs(prs: list[dict[str, Any]], now: datetime) -> list[str]:
     return stalled
 
 
-def rearm_stalled_prs() -> dict[str, str]:
-    """Turn auto-merge off and on for each of the user's stalled PRs.
+def unchecked_prs(prs: list[dict[str, Any]], now: datetime) -> list[dict[str, Any]]:
+    """The open PRs blocked on checks none of which ever reported, untouched past the grace.
 
-    Returns each stalled PR mapped to `REARMED`, `MERGED`, or what went wrong.
+    BLOCKED with no checks at all means a required check is missing; a repo with no required check
+    reads such a PR CLEAN instead, so it is never picked.
+    """
+    unchecked = []
+    for pr in prs:
+        if pr["state"] != "OPEN" or pr["mergeStateStatus"] != "BLOCKED":
+            continue
+        if pr["statusCheckRollup"]:
+            continue
+        untouched = now - datetime.fromisoformat(pr["updatedAt"])
+        if untouched >= timedelta(seconds=CI_START_GRACE_SECONDS):
+            unchecked.append(pr)
+    return unchecked
+
+
+def unstick_prs() -> dict[str, str]:
+    """Re-arm each of the user's stalled PRs, and reopen each unchecked one to re-fire its CI.
+
+    Returns each PR acted on mapped to `REARMED`, `REFIRED`, `MERGED`, or what went wrong.
     """
     prs = run_gh(["pr", "list", "--author", "@me", "--state", "open", "--json", PR_FIELDS])
-    return {pr: _rearm(pr) for pr in stalled_prs(prs, datetime.now(UTC))}
+    now = datetime.now(UTC)
+    outcomes = {pr: _rearm(pr) for pr in stalled_prs(prs, now)}
+    outcomes |= {str(pr["number"]): _refire(pr) for pr in unchecked_prs(prs, now)}
+    return outcomes
+
+
+def _refire(pr: dict[str, Any]) -> str:
+    """Close and reopen a PR, which fires its CI anew; return `REFIRED` or what went wrong.
+
+    Closing turns auto-merge off, so an armed PR is armed again after the reopen.
+    """
+    number = str(pr["number"])
+    try:
+        run_gh_text(["pr", "close", number])
+    except RuntimeError as error:
+        return str(error)
+    try:
+        run_gh_text(["pr", "reopen", number])
+    except RuntimeError as error:
+        return f"the PR is now closed -- reopening failed: {error} -- run gh pr reopen {number}"
+    if pr["autoMergeRequest"] is not None:
+        try:
+            arm_auto_merge(number)
+        except RuntimeError as error:
+            return (
+                f"CI re-fired but auto-merge is now unarmed -- re-arming failed: {error} -- "
+                f"run finish_branch.py {number}"
+            )
+    return REFIRED
 
 
 def _rearm(pr: str) -> str:
