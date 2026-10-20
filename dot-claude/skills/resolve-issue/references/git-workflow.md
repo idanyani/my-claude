@@ -38,7 +38,8 @@ and `gh` on PATH; they run against the current working directory's repo.
    `gh pr create --fill`. By default a push learns which commits the remote has only from the
    branch tips it advertises, and skips just the history behind the tips the clone already
    holds. Once another PR merges, `main`'s new tip is one the clone has never fetched, so
-   without negotiation the push uploads the repository's whole history for a one-commit branch.
+   without negotiation the push uploads all history no other held tip covers -- often the
+   repository's whole history, for a one-commit branch.
 3. **Review the PR.** Run `/code-review <pr>` in this session. Apply the findings worth
    applying on the PR's branch, in the checkout step 1 made -- a commit made in any other
    checkout is not in the PR -- and push
