@@ -5,6 +5,7 @@ cut, and the clone never fetched the new tip.
 """
 
 import os
+import subprocess
 from pathlib import Path
 
 import open_pr
@@ -39,7 +40,23 @@ def stale_branch(clone: Path, tmp_path: Path) -> Path:
     return clone
 
 
+class TestRefusal:
+    def test_allows_an_issue_branch_with_commits(self):
+        assert open_pr.refusal(BRANCH, commits_ahead=1) is None
+
+    @pytest.mark.parametrize(
+        ("branch", "commits_ahead"), [("", 1), ("main", 1), (BRANCH, 0)], ids=str
+    )
+    def test_refuses_a_detached_head_main_or_an_empty_branch(self, branch, commits_ahead):
+        assert open_pr.refusal(branch, commits_ahead)
+
+
 class TestPushBranch:
+    def test_fixture_rejects_a_plain_push(self, stale_branch):
+        # Keeps the fixture honest: if a plain push lands, the tests below prove nothing.
+        with pytest.raises(subprocess.CalledProcessError):
+            git(stale_branch, "-c", "push.negotiate=false", "push", "-q", "origin", BRANCH)
+
     def test_sends_only_what_the_remote_lacks_after_main_moved(self, stale_branch, tmp_path):
         open_pr.push_branch(BRANCH)
         head = git(stale_branch, "rev-parse", "HEAD")
@@ -67,6 +84,12 @@ class TestMain:
         assert gh_calls == [["pr", "create", "--fill"]]
         assert capsys.readouterr().out.strip() == PR_URL
 
-    def test_rejects_arguments(self, stale_branch):
+    def test_rejects_arguments(self):
         with pytest.raises(ValueError):
             open_pr.main(["7"])
+
+    def test_refuses_on_main_without_pushing(self, clone, tmp_path):
+        commit(clone, "unpublished")
+        with pytest.raises(RuntimeError):
+            open_pr.main([])
+        assert git(tmp_path / "origin.git", "rev-parse", "main") != git(clone, "rev-parse", "HEAD")
