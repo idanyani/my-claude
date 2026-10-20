@@ -27,10 +27,11 @@ def push_branch(branch: str) -> None:
     run_git(["-c", "push.negotiate=true", "push", "-u", "origin", branch])
 
 
-def refusal(branch: str, messages: str) -> str | None:
+def refusal(branch: str, messages: list[str]) -> str | None:
     """Why the branch must not be pushed for a PR, or None when it may.
 
-    `messages` holds the messages of the branch's commits beyond `origin/main`.
+    `messages` holds one message per commit of the branch beyond `origin/main`. Nothing is pushed
+    yet when this runs, so rewriting those commits is still safe.
     """
     if not branch:
         return "HEAD is detached -- check out the issue's branch and re-run."
@@ -40,11 +41,17 @@ def refusal(branch: str, messages: str) -> str | None:
         return f"{branch} has no commits beyond origin/main -- commit the work, then re-run."
     number = issue_number(branch)
     if number is None:
-        return f"{branch} is not named for an issue -- run start_branch.py, then re-run."
-    if not closes_issue(messages, number):
-        # Nothing is pushed yet, so rewriting the commit is still safe.
         return (
-            f"no commit on {branch} closes #{number} -- amend the commit message to end with "
+            f"{branch} is not named for an issue -- rename it with "
+            "`git branch -m <number>-<summary>`, then re-run."
+        )
+    if len(messages) > 1:
+        # `gh pr create --fill` turns one commit's body into the PR description, but only the
+        # subjects of several, so a closing line in any body would not reach the PR.
+        return f"{branch} has {len(messages)} commits -- squash them into one, then re-run."
+    if not closes_issue(messages[0], number):
+        return (
+            f"the commit on {branch} does not close #{number} -- amend its message to end with "
             f"`Resolves #{number}`, then re-run."
         )
     return None
@@ -56,7 +63,8 @@ def main(argv: list[str]) -> int:
     branch = current_branch()
     # Checked before pushing: a branch pushed for a PR that cannot open lingers on the remote, and
     # start_branch.py's sweep keeps it because no merged PR holds it.
-    messages = run_git(["log", "--format=%B", "origin/main..HEAD"]).strip()
+    log = run_git(["log", "-z", "--format=%B", "origin/main..HEAD"])
+    messages = log.split("\0")[:-1] if log else []
     reason = refusal(branch, messages)
     if reason:
         raise RuntimeError(reason)

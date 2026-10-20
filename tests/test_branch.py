@@ -33,6 +33,9 @@ class TestIssueNumber:
     def test_reads_the_number_branch_name_puts_first(self):
         assert issue_number(branch_name(105, "require resolves")) == 105
 
+    def test_reads_a_hand_made_issue_branch(self):
+        assert issue_number("105-Require-Resolves") == 105
+
     @pytest.mark.parametrize("branch", ["main", "feature-7", "7x-typo", ""])
     def test_is_none_for_a_branch_not_named_for_an_issue(self, branch):
         assert issue_number(branch) is None
@@ -47,7 +50,7 @@ class TestClosesIssue:
             "Implement x\n\nCloses: #7",
             # Cross-repo epics close their sub-issues from another repo.
             "Implement x\n\nResolves idanyani/my-claude#7",
-            "Fix review finding\n\nImplement x\n\nResolved #7",
+            "Implement x\n\nResolved #7",
         ],
     )
     def test_accepts_a_github_closing_keyword_for_the_issue(self, messages):
@@ -61,6 +64,8 @@ class TestClosesIssue:
             "Implement x\n\nResolves #70",
             "Implement x\n\nResolves #17",
             "Implement x\n\nUnresolves #7",
+            "Revert prefixes-fixes #7 handling",
+            "Implement x\n\nfixes\n#7",
         ],
     )
     def test_rejects_messages_that_do_not_close_the_issue(self, messages):

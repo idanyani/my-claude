@@ -42,18 +42,21 @@ def stale_branch(clone: Path, tmp_path: Path) -> Path:
 
 
 class TestRefusal:
-    def test_allows_an_issue_branch_whose_commits_close_the_issue(self):
-        assert open_pr.refusal(BRANCH, CLOSING_MESSAGE) is None
+    def test_allows_an_issue_branch_whose_commit_closes_the_issue(self):
+        assert open_pr.refusal(BRANCH, [CLOSING_MESSAGE]) is None
 
     @pytest.mark.parametrize(
         ("branch", "messages"),
         [
-            ("", CLOSING_MESSAGE),
-            ("main", CLOSING_MESSAGE),
-            (BRANCH, ""),
-            ("feature-x", CLOSING_MESSAGE),
-            (BRANCH, "Implement x\n"),
-            ("8-y", CLOSING_MESSAGE),
+            ("", [CLOSING_MESSAGE]),
+            ("main", [CLOSING_MESSAGE]),
+            (BRANCH, []),
+            ("feature-x", [CLOSING_MESSAGE]),
+            (BRANCH, ["Implement x"]),
+            (BRANCH, [""]),
+            ("8-y", [CLOSING_MESSAGE]),
+            # `gh pr create --fill` puts only the subjects of several commits in the PR body.
+            (BRANCH, ["Fix lint", CLOSING_MESSAGE]),
         ],
         ids=[
             "detached",
@@ -61,11 +64,19 @@ class TestRefusal:
             "no-commits",
             "not-named-for-an-issue",
             "no-closing-line",
+            "empty-message",
             "closes-another-issue",
+            "several-commits",
         ],
     )
     def test_refuses(self, branch, messages):
         assert open_pr.refusal(branch, messages)
+
+    def test_names_the_rename_for_a_branch_not_named_for_an_issue(self):
+        assert "git branch -m" in open_pr.refusal("feature-x", [CLOSING_MESSAGE])
+
+    def test_counts_an_empty_message_as_a_commit(self):
+        assert "no commits" not in open_pr.refusal(BRANCH, [""])
 
 
 class TestPushBranch:
