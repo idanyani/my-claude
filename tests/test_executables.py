@@ -17,6 +17,7 @@ SCRIPTS_DIR = REPO_ROOT / "dot-claude" / "skills" / "resolve-issue" / "scripts"
 EXECUTABLES = [
     SCRIPTS_DIR / "view_issue.py",
     SCRIPTS_DIR / "start_branch.py",
+    SCRIPTS_DIR / "open_pr.py",
     SCRIPTS_DIR / "finish_branch.py",
     REPO_ROOT / "scripts" / "merge_settings.py",
     REPO_ROOT / "scripts" / "install_links.py",

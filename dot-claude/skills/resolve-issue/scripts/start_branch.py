@@ -16,7 +16,7 @@ import os
 import sys
 
 from lib.branch import branch_name, worktree_setup_hint
-from lib.gh import git_succeeds, in_linked_worktree, run_git
+from lib.gh import current_branch, git_succeeds, in_linked_worktree, run_git
 from lib.stall import MERGED, REARMED, rearm_stalled_prs
 from lib.sweep import DELETED, sweep_merged_branches
 
@@ -84,7 +84,7 @@ def ignore_claude_worktrees(toplevel: str) -> None:
 
 
 def branch_linked_worktree(branch: str, toplevel: str) -> None:
-    placeholder = run_git(["branch", "--show-current"]).strip()
+    placeholder = current_branch()
     # Base on origin/main (fresh after the sweep's fetch): the main checkout owns the local `main`,
     # which this worktree can neither check out nor pull. No upstream until the branch is pushed.
     run_git(["switch", "--no-track", "-c", branch, "origin/main"])

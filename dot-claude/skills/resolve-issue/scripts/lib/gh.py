@@ -40,6 +40,11 @@ def run_git(args: list[str]) -> str:
     return _run("git", args)
 
 
+def current_branch() -> str:
+    """The checked-out branch's name; empty on a detached HEAD."""
+    return run_git(["branch", "--show-current"]).strip()
+
+
 def in_linked_worktree() -> bool:
     """Whether the current directory is in a linked worktree rather than the main checkout."""
     git_dir, common_dir = run_git(
