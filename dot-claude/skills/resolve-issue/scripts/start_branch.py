@@ -9,7 +9,8 @@ In a linked worktree -- one Claude Code created with EnterWorktree, subagent iso
 checkout it branches in place from a freshly pulled `main`. Either way it refuses a dirty tree
 rather than stashing -- the caller surfaces that and asks the user -- and first deletes the local
 and remote branches whose PR merged (`lib/sweep.py`), so they do not accumulate, and re-arms the
-user's PRs whose armed auto-merge GitHub never fired (`lib/stall.py`).
+user's PRs whose armed auto-merge GitHub never fired and reopens those whose CI never started
+(`lib/stall.py`).
 """
 
 import os
@@ -17,7 +18,7 @@ import sys
 
 from lib.branch import branch_name, worktree_setup_hint
 from lib.gh import current_branch, git_succeeds, in_linked_worktree, run_git
-from lib.stall import MERGED, REARMED, rearm_stalled_prs
+from lib.stall import MERGED, REARMED, REFIRED, unstick_prs
 from lib.sweep import DELETED, sweep_merged_branches
 
 USAGE = "usage: start_branch.py <number> <kebab-summary>"
@@ -53,20 +54,22 @@ def report_sweep(outcomes: dict[str, str]) -> None:
             print(f"Kept branch {branch}: {outcome}")
 
 
-def report_stalled_prs() -> None:
-    # A stall check that cannot reach GitHub must not keep the next issue from starting.
+def report_unstick_outcomes() -> None:
+    # A check that cannot reach GitHub must not keep the next issue from starting.
     try:
-        outcomes = rearm_stalled_prs()
+        outcomes = unstick_prs()
     except RuntimeError as error:
-        print(f"Could not check for stalled PRs: {error}")
+        print(f"Could not check your open PRs: {error}")
         return
     for pr, outcome in outcomes.items():
         if outcome == REARMED:
             print(f"Re-armed auto-merge on PR #{pr}: it was ready but GitHub had not merged it.")
         elif outcome == MERGED:
             print(f"PR #{pr} merged after it sat ready with auto-merge armed.")
+        elif outcome == REFIRED:
+            print(f"Reopened PR #{pr} to re-fire CI: none of its checks had ever reported.")
         else:
-            print(f"PR #{pr} is ready but GitHub has not merged it: {outcome}")
+            print(f"PR #{pr} is stuck and could not be moved: {outcome}")
 
 
 def ignore_claude_worktrees(toplevel: str) -> None:
@@ -112,7 +115,7 @@ def main(argv: list[str]) -> int:
         run_git(["checkout", "main"])
     # The sweep's fetch also freshens origin/main, the base of a worktree's branch.
     report_sweep(sweep_merged_branches())
-    report_stalled_prs()
+    report_unstick_outcomes()
 
     if linked:
         branch_linked_worktree(branch, toplevel)
