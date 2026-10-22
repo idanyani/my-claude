@@ -66,9 +66,8 @@ anchor to a file or directory), no prose, no preamble. Severity is HIGH / MEDIUM
    exists. Git remembers; it should be deleted.
 5. **Convention adherence (judgment)** -- journal comments, docs prose defined against a design the
    reader never saw, comments restating code, bare "see also" noise links, rotting hardcoded
-   counts, AI-tic filler, and gendered Hebrew copy. The mechanical subset (non-ASCII glyphs, emojis
-   in code/docs) is caught deterministically by the `check_prose` PostToolUse hook, so do not
-   re-scan for it here.
+   counts, and AI-tic filler. The mechanical subset (non-ASCII glyphs, emojis in code/docs) is
+   caught deterministically by the `check_prose` PostToolUse hook, so do not re-scan for it here.
 6. **Docs shape (whole set)** -- dispatched only when the file set includes a markdown doc, but
    then hand it every authored markdown doc in the repo (plus the module docstrings they
    describe), not just the changed files: facts stated in many places, pages restating module

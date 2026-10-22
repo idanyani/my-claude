@@ -66,9 +66,10 @@
 - Name things for what they represent, not how they are used; units in numeric names
   (`delayMs`, `maxSizeBytes`).
 - Dependencies point one way: a shared component (a library, a config repo, a skill) never
-  names its consumers -- not in code, docs, tests, or fixtures. State the contract any
-  consumer relies on instead. Test: if adding or retiring a consumer would force an edit to
-  the shared component, the coupling is backwards.
+  names its consumers -- not in code, docs, tests, or fixtures -- and holds only what is true
+  for every consumer; a rule or fact one consumer needs lives in that consumer. State the
+  contract any consumer relies on instead. Test: if adding or retiring a consumer would force
+  an edit to the shared component, the coupling is backwards.
 - Don't follow conventions that no longer serve a purpose (e.g. the `X-` header prefix,
   deprecated by RFC 6648).
 
@@ -115,26 +116,6 @@
   does not embed them in (a bundle, a rendered site) and confirm it is byte-identical,
   so "no behavior change" is evidence rather than a claim.
 
-## Proper names
-
-- A misspelled name of a person, school, or organization we work with costs trust and deals.
-  Treat its spelling as a fact: write it only as a written source has it -- the project's
-  names registry, a document or URL, or text the user typed. To settle a spelling, search
-  first (Problem-solving): a source counts only when it is clearly about the same person or
-  body and no other source disagrees. A common given name alone is settled by its usual
-  spelling in the other script, as well-known bearers write it; a surname never is. Until
-  settled, write a visible `[verify]` marker, never a guess.
-- A name that appears only in archived third-party material (an article's byline, people
-  it mentions) is copied as the source writes it -- not worth a question to the user.
-- A speech transcript is unverified for every proper noun: speech recognition mishears
-  names and invents plausible ones.
-- Never transliterate between scripts yourself: "Hermoni" does not settle whether the
-  Hebrew starts with ה or ח. Each script needs its own source, and a correction given in
-  one script does not settle the other.
-- Never add a surname, title, or role the source did not state, and never "correct" a
-  name to a form the user did not type.
-- A commit that changes a name quotes the old and new forms exactly.
-
 ## Background work
 
 - Never poll for work the harness already tracks: a backgrounded command reports its own
@@ -149,8 +130,3 @@
 - An assistant's auto-memory is machine-local and invisible to teammates. Use it only for
   transient or machine-local facts; any durable convention, decision, or preference
   belongs in a committed file.
-
-## Hebrew
-
-- User-facing Hebrew copy is gender-neutral: prefer nouns, infinitives, and passive
-  constructions over gendered conjugations; the slash form (מסכים/ה) is a last resort.
