@@ -56,8 +56,8 @@ def report_missing_commits(pr: str, missing: dict[str, list[str]]) -> None:
 def main(argv: list[str]) -> int:
     pr = parse_args(argv)
     verdict = pr_verdict(pr)
-    # Arming authorizes the merge, so first make sure no local work on the PR is left behind
-    # (idanyani/my-claude#95); a merged or closed PR has nothing left to authorize.
+    # Arming authorizes the merge, so first make sure no local work on the PR is left behind;
+    # a merged or closed PR has nothing left to authorize.
     if verdict not in ("merged", "closed"):
         missing = commits_missing_from_pr(pr)
         if missing:
@@ -71,7 +71,7 @@ def main(argv: list[str]) -> int:
         if verdict == "unarmed":
             # gh picks "merge now" over "enable auto-merge" from a status that, right after a push,
             # can still describe the previous head, and GitHub then refuses; a refused attempt
-            # changes nothing, so the next poll retries it (idanyani/my-claude#71).
+            # changes nothing, so the next poll retries it.
             try:
                 arm_outcome = arm_auto_merge(pr) or "gh reported nothing"
             except RuntimeError as error:

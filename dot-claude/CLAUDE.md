@@ -75,6 +75,9 @@
   Never restate code.
 - No journal comments -- write for a clean-slate reader who never saw the change; change
   history belongs in commit messages.
+- Never cite the project's own issues or PRs in comments, docstrings, or docs: state the
+  reason itself. `git blame` reaches the commit, and its `Resolves #N` reaches the issue. An
+  upstream bug a workaround depends on is a reference, not history, so cite it.
 
 ## Prose and docs
 

@@ -1,7 +1,7 @@
 """`lib.unpushed` against real git repos; only `gh pr view` is faked.
 
-The worktree scenarios reproduce gefen-chat/guide#272 (review fixes on a second worktree's branch
-with no upstream) and gefen-chat/guide#259 (on a second worktree's detached HEAD).
+The worktree scenarios cover review fixes made on a second worktree's branch with no upstream and
+on a second worktree's detached HEAD.
 """
 
 from pathlib import Path

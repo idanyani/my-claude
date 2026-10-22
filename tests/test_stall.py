@@ -1,4 +1,4 @@
-"""`lib.stall` against `gh pr list` JSON shaped like gefen-chat/guide#235's real payload."""
+"""`lib.stall` against `gh pr list` JSON shaped like real payloads."""
 
 from datetime import UTC, datetime, timedelta
 
@@ -29,7 +29,7 @@ CHECK_RUN = {
     "status": "COMPLETED",
     "workflowName": "CI",
 }
-# gefen-chat/guide#235 at 21:12Z: armed, CLEAN, its only check green for 13 minutes, still open.
+# A real stalled PR at 21:12Z: armed, CLEAN, its only check green for 13 minutes, still open.
 STALLED = {
     "number": 235,
     "state": "OPEN",
@@ -104,7 +104,7 @@ class TestStalledPrs:
         assert stalled_prs([fresh, STALLED], SNAPSHOT_AT) == ["235"]
 
 
-# Probe PR #103 (idanyani/my-claude#104), armed as finish_branch.py arms: its push fired no CI, so
+# A real probe PR, armed as finish_branch.py arms: its push fired no CI, so
 # its required check never reported and GitHub reads it BLOCKED.
 UNCHECKED = {
     "number": 103,

@@ -59,8 +59,8 @@ def remote_branches(clone: Path) -> set[str]:
 def recreated_branch(clone: Path, branch: str) -> str:
     """A PR branch squash-merged while `main` moved, then recreated by pushing a merge of `main`.
 
-    Reproduces idanyani/my-claude#97: the merge of the pre-squash `main` is pushed after GitHub
-    deleted the branch. Returns the PR head GitHub merged.
+    The merge of the pre-squash `main` is pushed after GitHub deleted the branch. Returns the PR
+    head GitHub merged.
     """
     git(clone, "checkout", "-q", "-b", branch, "main")
     head = commit_file(clone, "feature.txt", "feature\n")
