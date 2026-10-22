@@ -23,7 +23,7 @@ def push_branch(branch: str) -> None:
     # Without negotiation a push learns what the remote holds only from the tips it advertises
     # that the clone already has. Once another PR merges, `main`'s new tip is one the clone never
     # fetched, so the push would upload all history no held tip covers -- often all of it, for a
-    # one-commit branch (idanyani/my-claude#99).
+    # one-commit branch.
     run_git(["-c", "push.negotiate=true", "push", "-u", "origin", branch])
 
 

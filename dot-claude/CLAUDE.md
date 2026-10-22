@@ -73,8 +73,9 @@
 - Self-documenting code over comments: expressive names and structure say what and how.
 - Comment only why: trade-offs, workarounds with references, non-obvious constraints.
   Never restate code.
-- No journal comments -- write for a clean-slate reader who never saw the change; change
-  history belongs in commit messages.
+- No journal comments and no issue/PR numbers in code, tests, or docs -- write for a
+  clean-slate reader who never saw the change; change history and tracker links belong in
+  commit messages.
 
 ## Prose and docs
 

@@ -1,6 +1,6 @@
 """`open_pr` against real git repos; only `gh pr create` is faked.
 
-The push scenario reproduces idanyani/my-claude#99: `main` moved on the remote after the branch was
+The push scenario: `main` moved on the remote after the branch was
 cut, and the clone never fetched the new tip.
 """
 

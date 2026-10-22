@@ -1,13 +1,13 @@
 """Re-arm or reopen the user's own armed PRs that GitHub left open.
 
 Stalled: GitHub sometimes leaves an armed PR open after its checks pass, with the PR reading CLEAN;
-turning auto-merge off and on again makes GitHub merge it (idanyani/my-claude#93). Re-arming goes
+turning auto-merge off and on again makes GitHub merge it. Re-arming goes
 through the same `arm_auto_merge` call finish_branch.py makes, so on a PR gh reads as ready it
 merges at once. Only PRs armed as a squash -- the method that call re-arms with -- are touched, so
 a method picked by hand is never overridden.
 
 Unchecked: a push can land without firing CI, leaving the PR BLOCKED on a required check that
-never reports (idanyani/my-claude#104). Closing and reopening the PR fires CI anew.
+never reports. Closing and reopening the PR fires CI anew.
 """
 
 from datetime import UTC, datetime, timedelta
