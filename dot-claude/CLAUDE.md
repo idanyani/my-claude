@@ -66,10 +66,10 @@
 - Name things for what they represent, not how they are used; units in numeric names
   (`delayMs`, `maxSizeBytes`).
 - Dependencies point one way: a shared component (a library, a config repo, a skill) never
-  names its consumers -- not in code, docs, tests, or fixtures -- and holds only what is true
-  for every consumer; a rule or fact one consumer needs lives in that consumer. State the
-  contract any consumer relies on instead. Test: if adding or retiring a consumer would force
-  an edit to the shared component, the coupling is backwards.
+  names its consumers -- not in code, docs, tests, or fixtures; it states the contract any
+  consumer relies on instead. It also holds only what is true for every consumer: a rule or
+  fact one consumer needs lives in that consumer. Test: if adding or retiring a consumer would
+  force an edit to the shared component, the coupling is backwards.
 - Don't follow conventions that no longer serve a purpose (e.g. the `X-` header prefix,
   deprecated by RFC 6648).
 
