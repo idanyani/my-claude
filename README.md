@@ -15,12 +15,10 @@ dot-claude/
     resolve-issue/     symlinked; one `git pull` here updates every machine's live skill
 ```
 
-## Shared conventions
+## Working conventions
 
-[`dot-claude/CLAUDE.md`](dot-claude/CLAUDE.md) holds the global working conventions: rules
-true for any project, which a repo's own `CLAUDE.md` adds to. `install.sh` symlinks it to
-`~/.claude/CLAUDE.md`, so any machine or agent that installs my-claude loads it into every
-session.
+[`dot-claude/CLAUDE.md`](dot-claude/CLAUDE.md) holds the working conventions: rules true for
+any project, loaded into every Claude Code session on a machine that installs my-claude.
 
 ## Skills
 
