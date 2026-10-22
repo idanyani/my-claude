@@ -361,11 +361,11 @@ class TestStartBranchInLinkedWorktree:
 
 PORCELAIN = "\n".join(
     [
-        "worktree /home/dev/tiki",
+        "worktree /home/dev/repo",
         "HEAD 1111111111111111111111111111111111111111",
         "branch refs/heads/main",
         "",
-        "worktree /home/dev/tiki-116",
+        "worktree /home/dev/repo-116",
         "HEAD 2222222222222222222222222222222222222222",
         "branch refs/heads/116-port-worktree-isolation",
         "",
@@ -375,7 +375,7 @@ PORCELAIN = "\n".join(
 
 class TestParseMainWorktree:
     def test_returns_the_first_worktrees_path(self):
-        assert parse_main_worktree(PORCELAIN) == "/home/dev/tiki"
+        assert parse_main_worktree(PORCELAIN) == "/home/dev/repo"
 
     def test_raises_when_there_is_no_worktree_entry(self):
         with pytest.raises(ValueError):
@@ -386,7 +386,7 @@ class TestParseWorktreeForBranch:
     def test_finds_the_worktree_holding_a_branch(self):
         assert (
             parse_worktree_for_branch(PORCELAIN, "116-port-worktree-isolation")
-            == "/home/dev/tiki-116"
+            == "/home/dev/repo-116"
         )
 
     def test_returns_none_when_no_worktree_holds_the_branch(self):
