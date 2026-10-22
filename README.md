@@ -17,11 +17,10 @@ dot-claude/
 
 ## Shared conventions
 
-[`dot-claude/CLAUDE.md`](dot-claude/CLAUDE.md) is the canonical core of working
-conventions shared across the maintained repos; each repo's own `CLAUDE.md` keeps only its
-genuinely unique rules. `install.sh` symlinks it to `~/.claude/CLAUDE.md`, so any machine or
-agent that installs my-claude loads it into every session. No repo keeps a copy, so a change
-here needs no follow-up anywhere else.
+[`dot-claude/CLAUDE.md`](dot-claude/CLAUDE.md) holds the global working conventions: rules
+true for any project, which a repo's own `CLAUDE.md` adds to. `install.sh` symlinks it to
+`~/.claude/CLAUDE.md`, so any machine or agent that installs my-claude loads it into every
+session.
 
 ## Skills
 
