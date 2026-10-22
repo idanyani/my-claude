@@ -96,7 +96,8 @@ judgment:
 - A bare "see also" cross-reference that loses no fact if removed (noise, not a required link).
 - A hardcoded count that will rot, where a structural description would not.
 - AI-tic filler ("delve", "load-bearing", "testament") in prose.
-- Gendered Hebrew copy where a gender-neutral phrasing (noun, infinitive, passive) would serve.
+- A shared component (library, config repo, skill) that names one of its consumers, or carries a
+  rule or fact only one consumer needs.
 
 ## 6. Docs shape (whole set)
 
