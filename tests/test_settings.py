@@ -74,7 +74,7 @@ class TestDenyRules:
         assert not _missing("Edit", SECRET_PATHS + CODE_PATHS)
 
 
-# The same file installs on every machine and into Tiki's image, whose home directories differ,
+# The same file installs on machines and agents whose home directories differ,
 # so a rule naming one home directory never matches anywhere else.
 HOME_DIR_PATH = re.compile(r"(?<![\w./])/(home|Users)/\w|(?<![\w./])/root\b")
 

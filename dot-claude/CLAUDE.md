@@ -65,6 +65,10 @@
 - Match naming across layers (DB column = code field).
 - Name things for what they represent, not how they are used; units in numeric names
   (`delayMs`, `maxSizeBytes`).
+- Dependencies point one way: a shared component (a library, a config repo, a skill) never
+  names its consumers -- not in code, docs, tests, or fixtures. State the contract any
+  consumer relies on instead. Test: if adding or retiring a consumer would force an edit to
+  the shared component, the coupling is backwards.
 - Don't follow conventions that no longer serve a purpose (e.g. the `X-` header prefix,
   deprecated by RFC 6648).
 

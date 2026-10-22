@@ -19,13 +19,9 @@ dot-claude/
 
 [`dot-claude/CLAUDE.md`](dot-claude/CLAUDE.md) is the canonical core of working
 conventions shared across the maintained repos; each repo's own `CLAUDE.md` keeps only its
-genuinely unique rules. The core reaches every consumer through two layers:
-
-1. **Claude Code on the maintainer's machines** -- `install.sh` symlinks the file to
-   `~/.claude/CLAUDE.md`, so it loads into every session.
-2. **Tiki's bot container** -- the image bakes my-claude in.
-
-No repo keeps a copy, so a change here needs no follow-up anywhere else.
+genuinely unique rules. `install.sh` symlinks it to `~/.claude/CLAUDE.md`, so any machine or
+agent that installs my-claude loads it into every session. No repo keeps a copy, so a change
+here needs no follow-up anywhere else.
 
 ## Skills
 
@@ -42,9 +38,6 @@ No repo keeps a copy, so a change here needs no follow-up anywhere else.
   linters miss.
 
 ## Install
-
-Normally driven by [my-config](https://github.com/idanyani/my-config)'s `copyConfig.sh`,
-which clones this repo if missing and runs `install.sh`. Directly:
 
 ```sh
 git clone git@github.com:idanyani/my-claude.git   # any location works
