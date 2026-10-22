@@ -8,10 +8,10 @@ when GitHub lists a merged PR from it and the local tip holds nothing more: the 
 contains it, or merging it into `origin/main` changes nothing -- the worktree holding it goes
 first -- and any other `[gone]` branch is kept, with the reason reported.
 
-A push made after the merge recreates the deleted remote branch. So a
-remote branch with a merged PR and no open one is deleted first when its tip holds nothing more,
-by the same test, which leaves its local twin `[gone]` for the same sweep; one that holds more is
-kept and reported, since that work never reached `main`.
+A push made after the merge recreates the deleted remote branch. So a remote branch with a
+merged PR and no open one is deleted first when its tip holds nothing more, by the same test, which
+leaves its local twin `[gone]` for the same sweep; one that holds more is kept and reported, since
+that work never reached `main`.
 """
 
 from lib.gh import git_if_succeeds, git_succeeds, run_gh, run_git

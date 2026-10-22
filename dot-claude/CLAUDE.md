@@ -73,9 +73,11 @@
 - Self-documenting code over comments: expressive names and structure say what and how.
 - Comment only why: trade-offs, workarounds with references, non-obvious constraints.
   Never restate code.
-- No journal comments and no issue/PR numbers in code, tests, or docs -- write for a
-  clean-slate reader who never saw the change; change history and tracker links belong in
-  commit messages.
+- No journal comments -- write for a clean-slate reader who never saw the change; change
+  history belongs in commit messages.
+- Never cite the project's own issues or PRs in comments, docstrings, or docs: state the
+  reason itself. `git blame` reaches the commit, and its `Resolves #N` reaches the issue. An
+  upstream bug a workaround depends on is a reference, not history, so cite it.
 
 ## Prose and docs
 

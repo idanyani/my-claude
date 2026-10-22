@@ -1,7 +1,7 @@
 """`open_pr` against real git repos; only `gh pr create` is faked.
 
-The push scenario: `main` moved on the remote after the branch was
-cut, and the clone never fetched the new tip.
+The push scenario: `main` moved on the remote after the branch was cut, and the clone never
+fetched the new tip, so a push without negotiation would upload history the remote already has.
 """
 
 import os
