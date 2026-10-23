@@ -9,7 +9,7 @@ is idempotent and heals links that point elsewhere, such as into a moved clone.
 
 The links placed are kept in the install record (install_record.py) under the "links" kind, and
 a recorded link the repo no longer ships is removed -- but only while it is still a symlink into
-dot-claude/, so a machine-local file or link at that path is never touched. With no "links" kind
+dot-claude/, so a machine-local file, or a link pointing elsewhere, at that path is never touched. With no "links" kind
 in the record, the links into dot-claude/ already in ~/.claude stand in for it.
 
 Usage: install_links.py <dot-claude-dir> <claude-dir> <record-file> [--merged NAME ...]
@@ -46,19 +46,19 @@ def links_into(dest: Path, src: Path) -> set[str]:
     found: set[str] = set()
     for entry in dest.iterdir():
         if entry.is_symlink():
-            if is_retirable(entry, src):
+            if is_link_into(entry, src):
                 found.add(entry.name)
         elif entry.is_dir():
             found |= {
                 f"{entry.name}/{child.name}"
                 for child in entry.iterdir()
-                if is_retirable(child, src)
+                if is_link_into(child, src)
             }
     return found
 
 
-def is_retirable(link: Path, src: Path) -> bool:
-    """Whether `link` is a symlink into `src`, so an install placed it rather than the machine."""
+def is_link_into(link: Path, src: Path) -> bool:
+    """Whether `link` is a symlink into `src`, live or dangling."""
     return link.is_symlink() and _points_into(link, src)
 
 
@@ -73,7 +73,7 @@ def install(src: Path, dest: Path, record: Path, merged: Collection[str]) -> Non
 
     for name in retired(recorded, set(planned)):
         link = dest / name
-        if is_retirable(link, src):
+        if is_link_into(link, src):
             link.unlink()
             print(f"removed {link}: {src} no longer ships its target", file=sys.stderr)
         elif link.exists() or link.is_symlink():
@@ -89,10 +89,10 @@ def _shipped_files(src: Path) -> list[PurePosixPath]:
         cwd=src,
         check=True,
         capture_output=True,
-        text=True,
     ).stdout
     # --cached also lists committed files deleted from the working tree.
-    return [PurePosixPath(name) for name in listed.split("\0") if name and (src / name).exists()]
+    names = (os.fsdecode(name) for name in listed.split(b"\0") if name)
+    return [PurePosixPath(name) for name in names if os.path.lexists(src / name)]
 
 
 def _points_into(link: Path, src: Path) -> bool:

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from git_repo import git
-from install_links import install, is_retirable, links_into, main, planned_links
+from install_links import install, is_link_into, links_into, main, planned_links
 from install_record import read_record
 
 
@@ -56,6 +56,7 @@ class TestPlannedLinks:
     def test_skips_hidden_entries(self, src):
         (src / ".hidden").write_text("")
         (src / "skills" / ".hidden").mkdir()
+        (src / "skills" / ".hidden" / "SKILL.md").write_text("")
         assert ".hidden" not in planned_links(src, MERGED)
         assert "skills/.hidden" not in planned_links(src, MERGED)
 
@@ -70,6 +71,10 @@ class TestPlannedLinks:
         (src / "skills" / "new").mkdir()
         (src / "skills" / "new" / "SKILL.md").write_text("new")
         assert planned_links(src, MERGED)["skills/new"] == src / "skills" / "new"
+
+    def test_links_a_shipped_symlink_whose_target_is_absent(self, src, tmp_path):
+        (src / "skills" / "external").symlink_to(tmp_path / "not-here-yet")
+        assert "skills/external" in planned_links(src, MERGED)
 
     def test_skips_a_committed_entry_deleted_from_the_working_tree(self, src):
         (src / "CLAUDE.md").unlink()
@@ -177,34 +182,34 @@ class TestLinksInto:
         assert links_into(dest, src) == set()
 
 
-class TestIsRetirable:
-    def test_a_dangling_link_into_the_repo_is_retirable(self, src, dest):
+class TestIsLinkInto:
+    def test_a_dangling_link_into_the_repo_counts(self, src, dest):
         dest.mkdir(parents=True)
         (dest / "gone").symlink_to(src / "gone")
-        assert is_retirable(dest / "gone", src)
+        assert is_link_into(dest / "gone", src)
 
-    def test_a_relative_dangling_link_into_the_repo_is_retirable(self, src, dest):
+    def test_a_relative_dangling_link_into_the_repo_counts(self, src, dest):
         dest.mkdir(parents=True)
         (dest / "gone").symlink_to(Path("..") / ".." / "repo" / "dot-claude" / "gone")
-        assert is_retirable(dest / "gone", src)
+        assert is_link_into(dest / "gone", src)
 
-    def test_a_live_link_into_the_repo_is_retirable(self, src, dest):
+    def test_a_live_link_into_the_repo_counts(self, src, dest):
         dest.mkdir(parents=True)
         (dest / "CLAUDE.md").symlink_to(src / "CLAUDE.md")
-        assert is_retirable(dest / "CLAUDE.md", src)
+        assert is_link_into(dest / "CLAUDE.md", src)
 
     def test_a_dangling_link_outside_the_repo_is_not(self, src, dest, tmp_path):
         dest.mkdir(parents=True)
         (dest / "gone").symlink_to(tmp_path / "repo" / "dot-claude-old" / "gone")
-        assert not is_retirable(dest / "gone", src)
+        assert not is_link_into(dest / "gone", src)
 
     def test_a_regular_file_is_not(self, src, dest):
         dest.mkdir(parents=True)
         (dest / "file").write_text("")
-        assert not is_retirable(dest / "file", src)
+        assert not is_link_into(dest / "file", src)
 
     def test_a_missing_path_is_not(self, src, dest):
-        assert not is_retirable(dest / "missing", src)
+        assert not is_link_into(dest / "missing", src)
 
 
 class TestMain:
