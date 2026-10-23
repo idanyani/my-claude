@@ -23,8 +23,8 @@ any project, loaded into every Claude Code session on a machine that installs my
 ## Skills
 
 - **[resolve-issue](dot-claude/skills/resolve-issue/SKILL.md)** -- implement a GitHub issue
-  end-to-end: ground in the repo, read the issue, branch, TDD, verify, PR with in-session
-  review, auto-merge, clean up. Ships stdlib-only helper scripts (`python3`, `git`, `gh` are
+  end-to-end: ground in the repo, read the issue, branch, TDD, verify, `/simplify`, PR with
+  in-session review, auto-merge, clean up. Ships stdlib-only helper scripts (`python3`, `git`, `gh` are
   the only runtime requirements) and the canonical
   [git-workflow doc](dot-claude/skills/resolve-issue/references/git-workflow.md).
 - **[maintain](dot-claude/skills/maintain/SKILL.md)** -- sweep recent work for the debris fast

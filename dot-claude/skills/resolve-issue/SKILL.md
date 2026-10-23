@@ -67,6 +67,11 @@ behavior and contracts, not implementation detail.
 Run the repo's test pipeline (named in its `docs/git-workflow.md` stub or `CLAUDE.md`) and paste
 real output.
 
+Once it passes, run the bundled `/simplify` on the uncommitted change, so its cleanup fixes land in
+the implementation commit rather than as review fix-ups. Skip it when the change touches only docs
+or tests, as Claude Code's own pre-commit `simplify` run does. If it edited anything, run the
+pipeline again and paste that output too.
+
 ## Phase 7 -- Commit and open an auto-merging PR
 
 One commit for the implementation, message in the repo's commit style, ending with
