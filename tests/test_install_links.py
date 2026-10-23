@@ -5,18 +5,31 @@ import shutil
 from pathlib import Path
 
 import pytest
-from install_links import install, is_retirable, links_into, main, planned_links
+from git_repo import git
+from install_links import install, is_link_into, links_into, main, planned_links
 from install_record import read_record
 
 
 @pytest.fixture
 def src(tmp_path: Path) -> Path:
-    src = tmp_path / "repo" / "dot-claude"
-    (src / "skills" / "keep").mkdir(parents=True)
-    (src / "skills" / "drop").mkdir()
+    repo = tmp_path / "repo"
+    src = repo / "dot-claude"
+    for skill in ("keep", "drop"):
+        (src / "skills" / skill).mkdir(parents=True)
+        (src / "skills" / skill / "SKILL.md").write_text(skill)
     (src / "CLAUDE.md").write_text("rules")
     (src / "settings.json").write_text("{}")
+    (repo / ".gitignore").write_text("__pycache__/\n")
+    git(repo, "init", "-q")
+    git(repo, "add", ".")
+    git(repo, "commit", "-q", "-m", "base")
     return src
+
+
+def leave_ignored_cache(directory: Path) -> None:
+    """Leave the git-ignored bytecode cache running a script in `directory` creates."""
+    (directory / "__pycache__").mkdir(parents=True)
+    (directory / "__pycache__" / "x.pyc").write_text("")
 
 
 @pytest.fixture
@@ -43,8 +56,29 @@ class TestPlannedLinks:
     def test_skips_hidden_entries(self, src):
         (src / ".hidden").write_text("")
         (src / "skills" / ".hidden").mkdir()
+        (src / "skills" / ".hidden" / "SKILL.md").write_text("")
         assert ".hidden" not in planned_links(src, MERGED)
         assert "skills/.hidden" not in planned_links(src, MERGED)
+
+    def test_skips_entries_holding_only_git_ignored_files(self, src):
+        leave_ignored_cache(src / "hooks")
+        leave_ignored_cache(src / "skills" / "gone")
+        planned = planned_links(src, MERGED)
+        assert "hooks/__pycache__" not in planned
+        assert "skills/gone" not in planned
+
+    def test_links_an_entry_not_yet_committed(self, src):
+        (src / "skills" / "new").mkdir()
+        (src / "skills" / "new" / "SKILL.md").write_text("new")
+        assert planned_links(src, MERGED)["skills/new"] == src / "skills" / "new"
+
+    def test_links_a_shipped_symlink_whose_target_is_absent(self, src, tmp_path):
+        (src / "skills" / "external").symlink_to(tmp_path / "not-here-yet")
+        assert "skills/external" in planned_links(src, MERGED)
+
+    def test_skips_a_committed_entry_deleted_from_the_working_tree(self, src):
+        (src / "CLAUDE.md").unlink()
+        assert "CLAUDE.md" not in planned_links(src, MERGED)
 
 
 class TestInstall:
@@ -98,6 +132,15 @@ class TestInstall:
         assert (dest / "skills" / "keep").is_symlink()
         assert "skills/drop" in capsys.readouterr().err
 
+    def test_retires_the_link_to_a_dropped_entry_git_ignored_files_outlive(self, src, dest, record):
+        # Removing a skill's tracked files leaves the ignored cache its scripts created.
+        leave_ignored_cache(src / "skills" / "drop")
+        install(src, dest, record, MERGED)
+        (src / "skills" / "drop" / "SKILL.md").unlink()
+        install(src, dest, record, MERGED)
+        assert not (dest / "skills" / "drop").is_symlink()
+        assert "skills/drop" not in read_record(record)["links"]
+
     def test_retires_a_dangling_link_an_unrecorded_install_left(self, src, dest, record):
         # Machines installed before the record existed carry such links with no record entry.
         install(src, dest, record, MERGED)
@@ -139,34 +182,34 @@ class TestLinksInto:
         assert links_into(dest, src) == set()
 
 
-class TestIsRetirable:
-    def test_a_dangling_link_into_the_repo_is_retirable(self, src, dest):
+class TestIsLinkInto:
+    def test_a_dangling_link_into_the_repo_counts(self, src, dest):
         dest.mkdir(parents=True)
         (dest / "gone").symlink_to(src / "gone")
-        assert is_retirable(dest / "gone", src)
+        assert is_link_into(dest / "gone", src)
 
-    def test_a_relative_dangling_link_into_the_repo_is_retirable(self, src, dest):
+    def test_a_relative_dangling_link_into_the_repo_counts(self, src, dest):
         dest.mkdir(parents=True)
         (dest / "gone").symlink_to(Path("..") / ".." / "repo" / "dot-claude" / "gone")
-        assert is_retirable(dest / "gone", src)
+        assert is_link_into(dest / "gone", src)
 
-    def test_a_live_link_into_the_repo_is_not(self, src, dest):
+    def test_a_live_link_into_the_repo_counts(self, src, dest):
         dest.mkdir(parents=True)
         (dest / "CLAUDE.md").symlink_to(src / "CLAUDE.md")
-        assert not is_retirable(dest / "CLAUDE.md", src)
+        assert is_link_into(dest / "CLAUDE.md", src)
 
     def test_a_dangling_link_outside_the_repo_is_not(self, src, dest, tmp_path):
         dest.mkdir(parents=True)
         (dest / "gone").symlink_to(tmp_path / "repo" / "dot-claude-old" / "gone")
-        assert not is_retirable(dest / "gone", src)
+        assert not is_link_into(dest / "gone", src)
 
     def test_a_regular_file_is_not(self, src, dest):
         dest.mkdir(parents=True)
         (dest / "file").write_text("")
-        assert not is_retirable(dest / "file", src)
+        assert not is_link_into(dest / "file", src)
 
     def test_a_missing_path_is_not(self, src, dest):
-        assert not is_retirable(dest / "missing", src)
+        assert not is_link_into(dest / "missing", src)
 
 
 class TestMain:

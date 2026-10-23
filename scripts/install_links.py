@@ -1,24 +1,27 @@
 #!/usr/bin/env python3
 """Symlink the dot-claude/ tree into ~/.claude and retire links to entries the repo dropped.
 
+The repo ships what git lists in dot-claude/ -- committed or not yet committed, but never
+git-ignored, so a cache that outlives the tracked files around it does not keep an entry shipped.
 A top-level file is linked whole and a top-level directory per child, so machine-local entries
 can coexist beside the repo's; the entries install.sh merges instead are skipped. Linking again
 is idempotent and heals links that point elsewhere, such as into a moved clone.
 
 The links placed are kept in the install record (install_record.py) under the "links" kind, and
-a recorded link the repo no longer ships is removed -- but only while it is still a dangling
-symlink into dot-claude/, so a machine-local file or link at that path is never touched. With no
-"links" kind in the record, the links into dot-claude/ already in ~/.claude stand in for it.
+a recorded link the repo no longer ships is removed -- but only while it is still a symlink into
+dot-claude/, so a machine-local file, or a link pointing elsewhere, at that path is never touched. With no "links" kind
+in the record, the links into dot-claude/ already in ~/.claude stand in for it.
 
 Usage: install_links.py <dot-claude-dir> <claude-dir> <record-file> [--merged NAME ...]
 """
 
 import argparse
 import os
+import subprocess
 import sys
 import tempfile
 from collections.abc import Collection
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from install_record import read_record, retired, write_kind
 
@@ -28,14 +31,11 @@ LINKS_KIND = "links"
 def planned_links(src: Path, merged: Collection[str]) -> dict[str, Path]:
     """Map each link path, relative to ~/.claude, to the entry of `src` it points to."""
     links: dict[str, Path] = {}
-    for entry in _visible_children(src):
-        if entry.name in merged:
+    for path in _shipped_files(src):
+        if path.parts[0] in merged or any(part.startswith(".") for part in path.parts[:2]):
             continue
-        if entry.is_dir():
-            for child in _visible_children(entry):
-                links[f"{entry.name}/{child.name}"] = child
-        else:
-            links[entry.name] = entry
+        name = PurePosixPath(*path.parts[:2])
+        links[str(name)] = src / name
     return links
 
 
@@ -46,20 +46,20 @@ def links_into(dest: Path, src: Path) -> set[str]:
     found: set[str] = set()
     for entry in dest.iterdir():
         if entry.is_symlink():
-            if _points_into(entry, src):
+            if is_link_into(entry, src):
                 found.add(entry.name)
         elif entry.is_dir():
             found |= {
                 f"{entry.name}/{child.name}"
                 for child in entry.iterdir()
-                if child.is_symlink() and _points_into(child, src)
+                if is_link_into(child, src)
             }
     return found
 
 
-def is_retirable(link: Path, src: Path) -> bool:
-    """Whether `link` is a symlink into `src` whose target no longer exists."""
-    return link.is_symlink() and not link.exists() and _points_into(link, src)
+def is_link_into(link: Path, src: Path) -> bool:
+    """Whether `link` is a symlink into `src`, live or dangling."""
+    return link.is_symlink() and _points_into(link, src)
 
 
 def install(src: Path, dest: Path, record: Path, merged: Collection[str]) -> None:
@@ -73,17 +73,26 @@ def install(src: Path, dest: Path, record: Path, merged: Collection[str]) -> Non
 
     for name in retired(recorded, set(planned)):
         link = dest / name
-        if is_retirable(link, src):
+        if is_link_into(link, src):
             link.unlink()
-            print(f"removed {link}: its target left {src}", file=sys.stderr)
+            print(f"removed {link}: {src} no longer ships its target", file=sys.stderr)
         elif link.exists() or link.is_symlink():
-            print(f"left {link}: not a dangling link into {src}", file=sys.stderr)
+            print(f"left {link}: not a link into {src}", file=sys.stderr)
 
     write_kind(record, LINKS_KIND, placed)
 
 
-def _visible_children(directory: Path) -> list[Path]:
-    return sorted(p for p in directory.iterdir() if not p.name.startswith("."))
+def _shipped_files(src: Path) -> list[PurePosixPath]:
+    """Return the files git lists under `src` that exist, relative to `src`."""
+    listed = subprocess.run(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        cwd=src,
+        check=True,
+        capture_output=True,
+    ).stdout
+    # --cached also lists committed files deleted from the working tree.
+    names = (os.fsdecode(name) for name in listed.split(b"\0") if name)
+    return [PurePosixPath(name) for name in names if os.path.lexists(src / name)]
 
 
 def _points_into(link: Path, src: Path) -> bool:
