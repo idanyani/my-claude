@@ -58,7 +58,8 @@ subagent per issue with `isolation: "worktree"`.
 
 ## Phase 5 -- Implement test-first
 
-Follow the repo CLAUDE.md's TDD rules. Test behavior and contracts, not implementation detail.
+Follow CLAUDE.md's TDD rules; a failing test must fail for the right reason. Test behavior and
+contracts, not implementation detail.
 
 ## Phase 6 -- Run the test pipeline
 
@@ -82,8 +83,7 @@ the rejected alternatives with why; the problem stays in the issue.
 
 ## Phase 9 -- Open the PR
 
-Run `python3 ${CLAUDE_SKILL_DIR}/scripts/open_pr.py`, which pushes the branch and opens the PR with
-the commit body as its description.
+Run `python3 ${CLAUDE_SKILL_DIR}/scripts/open_pr.py`, which pushes the branch and opens the PR.
 
 ## Phase 10 -- Review the PR
 
