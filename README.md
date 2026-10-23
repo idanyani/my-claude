@@ -36,6 +36,10 @@ any project, loaded into every Claude Code session on a machine that installs my
   prove they can fail by mutating the code under test in a scratch copy, find changed code no test
   exercises, and flag flaky, redundant, or implementation-coupled tests; report ranked findings,
   making no edits.
+- **[dead-code-review](dot-claude/skills/dead-code-review/SKILL.md)** -- find code, scripts, CI
+  jobs, hooks, data files, and modes that nothing calls, invokes, or reads, searching the whole
+  repo rather than only the diff, including targets a change orphaned by dropping their last
+  reference; report ranked findings, making no edits.
 
 ## Install
 
