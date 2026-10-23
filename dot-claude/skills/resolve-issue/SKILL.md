@@ -56,42 +56,60 @@ any dependency-install command the fresh worktree needs. If it refuses a dirty t
 and ask the user -- never stash silently. To resolve several issues in parallel, spawn one
 subagent per issue with `isolation: "worktree"`.
 
-## Phase 5 -- Classify and implement
+## Phase 5 -- Implement test-first
 
-State whether it is a **bug** or **feature**, then follow the repo CLAUDE.md's TDD rules: bugs
-reproduce-first (a failing test that fails for the right reason), features skeleton-first. Test
-behavior and contracts, not implementation detail.
+Follow CLAUDE.md's TDD rules; a failing test must fail for the right reason. Test behavior and
+contracts, not implementation detail.
 
-## Phase 6 -- Verify and simplify
+## Phase 6 -- Run the test pipeline
 
 Run the repo's test pipeline (named in its `docs/git-workflow.md` stub or `CLAUDE.md`) and paste
 real output.
 
-Once it passes, run the bundled `/simplify` on the uncommitted change, so its cleanup fixes land in
-the implementation commit rather than as review fix-ups. First `git add -N` any new files: its diff
-leaves untracked files out. Skip it when the change has no code outside tests -- prose (docs,
-skills, `CLAUDE.md`) and test-only changes give its cleanup angles nothing to work on. If it edited
-anything, revert any edit that weakens a test, run the pipeline again, and paste that output too;
-revert the edits that turn it red rather than fixing forward.
+## Phase 7 -- Simplify
 
-## Phase 7 -- Commit and open an auto-merging PR
+Once the pipeline passes, run the bundled `/simplify` on the uncommitted change, so its cleanup
+fixes land in the implementation commit rather than as review fix-ups. First `git add -N` any new
+files: its diff leaves untracked files out. Skip it when the change has no code outside tests --
+prose (docs, skills, `CLAUDE.md`) and test-only changes give its cleanup angles nothing to work
+on. If it edited anything, revert any edit that weakens a test, run the pipeline again, and paste
+that output too; revert the edits that turn it red rather than fixing forward.
+
+## Phase 8 -- Commit
 
 One commit for the implementation, message in the repo's commit style, ending with
-`Resolves #<number>`. Then run `python3 ${CLAUDE_SKILL_DIR}/scripts/open_pr.py`, which pushes the
-branch and opens the PR with the commit body as its description -- so the body states the chosen
-solution and the rejected alternatives with why; the problem stays in the issue. Review the PR in
-this session with `/code-review <pr>`. Apply the findings worth applying on the branch in the
-checkout Phase 4 made (not one the review created) and push fixes **as additional commits -- never amend or force-push the pushed branch; the squash-merge collapses
-them into one commit on `main`**; dismiss the rest with a one-line reason. Review once -- do not
-loop on further advisory findings.
+`Resolves #<number>`. The body becomes the PR description, so it states the chosen solution and
+the rejected alternatives with why; the problem stays in the issue.
 
-## Phase 8 -- Merge and finish
+## Phase 9 -- Open the PR
+
+Run `python3 ${CLAUDE_SKILL_DIR}/scripts/open_pr.py`, which pushes the branch and opens the PR.
+
+## Phase 10 -- Review the PR
+
+Review the PR in this session with `/code-review <pr>`. Review once -- do not loop on further
+advisory findings.
+
+## Phase 11 -- Address the review
+
+Apply the findings worth applying on the branch in the checkout Phase 4 made (not one the review
+created) and push fixes **as additional commits -- never amend or force-push the pushed branch;
+the squash-merge collapses them into one commit on `main`**; dismiss the rest with a one-line
+reason.
+
+## Phase 12 -- Arm auto-merge
 
 Once the review is addressed (arming authorizes the merge -- see step 4 of
 [references/git-workflow.md](references/git-workflow.md)), run
 `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>`: it arms auto-merge, confirms within
 seconds that GitHub will merge the PR without a person, then -- in the main checkout -- returns
-to `main`. It does not wait for CI. If it exits 3, fix what it names and re-run it. If Phase 4
-called `EnterWorktree`, call `ExitWorktree(action="keep")`; the next `start_branch.py` removes the
-worktree once the PR has merged. Then summarize the change, the test results,
-the triage, and the PR link for the user.
+to `main`. It does not wait for CI. If it exits 3, fix what it names and re-run it.
+
+## Phase 13 -- Exit the worktree
+
+If Phase 4 called `EnterWorktree`, call `ExitWorktree(action="keep")`; the next `start_branch.py`
+removes the worktree once the PR has merged.
+
+## Phase 14 -- Report to the user
+
+Summarize the change, the test results, the review triage, and the PR link for the user.
