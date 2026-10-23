@@ -245,6 +245,35 @@ class TestBackup:
         backup = live.with_name(live.name + BACKUP_SUFFIX)
         assert json.loads(backup.read_text()) == {"theme": "dark", "old": 1}
 
+    def test_backs_up_a_live_file_that_is_not_a_json_object(self, paths):
+        repo, live, record = paths
+        _write(repo, {"theme": "dark"})
+        live.write_text('{"theme": "light",}')
+        _install(repo, live, record)
+        backup = live.with_name(live.name + BACKUP_SUFFIX)
+        assert backup.read_text() == '{"theme": "light",}'
+
+    def test_keeps_the_live_file_mode_on_the_backup(self, paths):
+        # The live file may hold tokens under "env"; the backup must not widen who can read them.
+        repo, live, record = paths
+        _write(repo, {"theme": "dark"})
+        _write(live, {"theme": "light"})
+        live.chmod(0o600)
+        _install(repo, live, record)
+        assert live.with_name(live.name + BACKUP_SUFFIX).stat().st_mode & 0o777 == 0o600
+
+    def test_backs_up_next_to_the_target_of_a_symlinked_live_file(self, paths, tmp_path):
+        repo, live, record = paths
+        target = tmp_path / "dotfiles" / "settings.json"
+        target.parent.mkdir()
+        _write(target, {"theme": "light"})
+        live.symlink_to(target)
+        _write(repo, {"theme": "dark"})
+        _install(repo, live, record)
+        assert json.loads(target.with_name(target.name + BACKUP_SUFFIX).read_text()) == {
+            "theme": "light"
+        }
+
     def test_writes_no_backup_when_no_live_value_is_lost(self, paths):
         repo, live, record = paths
         _write(repo, {"theme": "dark", "new": 1})

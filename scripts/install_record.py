@@ -48,15 +48,21 @@ def write_kind(path: Path, kind: str, entries: set[str]) -> None:
 
 def write_json_atomically(path: Path, data: dict[str, Any]) -> None:
     """Write `data` as JSON so a reader never sees a partial file."""
+    write_atomically(path, (json.dumps(data, indent=2, ensure_ascii=False) + "\n").encode())
+
+
+def write_atomically(path: Path, content: bytes, mode: int | None = None) -> None:
+    """Write `content` so a reader never sees a partial file, with `mode` or else the file's own."""
     # Resolve so a symlinked file is updated through its link rather than replaced.
     target = path.resolve()
+    if mode is None:
+        # mkstemp creates the file owner-only; keep the mode the file had, as `cp` did.
+        mode = target.stat().st_mode & 0o777 if target.exists() else NEW_FILE_MODE
     fd, tmp = tempfile.mkstemp(dir=target.parent, prefix=target.name, suffix=".tmp")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-            f.write("\n")
-        # mkstemp creates the file owner-only; keep the mode the file had, as `cp` did.
-        os.chmod(tmp, target.stat().st_mode & 0o777 if target.exists() else NEW_FILE_MODE)
+        with os.fdopen(fd, "wb") as f:
+            f.write(content)
+        os.chmod(tmp, mode)
         os.replace(tmp, target)
     except BaseException:
         os.unlink(tmp)

@@ -15,8 +15,8 @@ in its git history stands in for it, so keys dropped before the record existed a
 
 Each kept key, removed key, and overwritten differing value is reported on stderr, so drift is
 visible and can be folded into the repo; an overwrite report carries the live value it replaced.
-When the merge overwrites or removes anything, the live file is first copied next to itself with
-a BACKUP_SUFFIX, so every discarded value stays recoverable as restorable JSON after the run's
+When the merge overwrites or removes anything, or replaces a live file that is not a JSON object,
+the live file is first copied next to itself with a BACKUP_SUFFIX, so every discarded value stays recoverable as restorable JSON after the run's
 output is gone. The backup holds the last run that discarded something; earlier backups are
 replaced rather than accumulated.
 
@@ -25,14 +25,19 @@ Usage: merge_settings.py <repo-settings.json> <live-settings.json> <record-file>
 
 import argparse
 import json
-import shutil
 import subprocess
 import sys
 from collections.abc import Collection, Iterator
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from install_record import read_record, retired, write_json_atomically, write_kind
+from install_record import (
+    read_record,
+    retired,
+    write_atomically,
+    write_json_atomically,
+    write_kind,
+)
 
 Settings = dict[str, Any]
 KeyPath = tuple[str, ...]
@@ -114,18 +119,24 @@ def _dotted(keys: KeyPath) -> str:
     return ".".join(keys)
 
 
-def _read_live(path: Path) -> Settings:
-    """Return the live settings, or none when the file is missing or not a JSON object."""
-    if not path.exists():
-        return {}
+def _parse_live(path: Path, content: bytes) -> Settings | None:
+    """Return the live settings in `content`, or None when they are not a JSON object."""
     try:
-        live = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
+        live = json.loads(content)
+    except ValueError:  # malformed JSON or text that is not UTF-8
         live = None
     if not isinstance(live, dict):
         print(f"replacing {path}: not a JSON object", file=sys.stderr)
-        return {}
+        return None
     return live
+
+
+def _back_up(live: Path, content: bytes) -> None:
+    """Write `content` next to the file `live` resolves to, with that file's mode."""
+    target = live.resolve()
+    backup = target.with_name(target.name + BACKUP_SUFFIX)
+    write_atomically(backup, content, mode=target.stat().st_mode & 0o777)
+    print(f"backed up {live} to {backup} before merging", file=sys.stderr)
 
 
 def _committed_versions(repo: Path) -> Iterator[Settings]:
@@ -168,11 +179,11 @@ def main(argv: list[str]) -> int:
     repo = json.loads(args.repo.read_text(encoding="utf-8"))
     shipped = shipped_paths(repo)
     dropped = retired(_recorded_paths(args.record, args.repo), shipped)
-    result = merge(repo, _read_live(args.live), dropped)
-    if result.overwritten or result.removed:
-        backup = args.live.with_name(args.live.name + BACKUP_SUFFIX)
-        shutil.copyfile(args.live, backup)
-        print(f"backed up {args.live} to {backup} before merging", file=sys.stderr)
+    original = args.live.read_bytes() if args.live.exists() else None
+    live = {} if original is None else _parse_live(args.live, original)
+    result = merge(repo, live or {}, dropped)
+    if original is not None and (live is None or result.overwritten or result.removed):
+        _back_up(args.live, original)
     write_json_atomically(args.live, result.merged)
     write_kind(args.record, SETTINGS_KIND, shipped)
 
