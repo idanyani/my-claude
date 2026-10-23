@@ -48,10 +48,8 @@ If a duplicate or in-flight PR exists, stop and surface it -- do not start paral
 
 ## Phase 4 -- Set up an isolated workspace
 
-Unless `--in-place` was given or the session is already in a worktree (a subagent spawned with
-`isolation: "worktree"`, or `claude --worktree`), call
-`EnterWorktree(name="<number>-<short-kebab-summary>")`. Then branch as step 1 of the workflow doc
-says, passing `<number> <short-kebab-summary>`. To resolve several issues in parallel, spawn one
+Unless `--in-place` was given or the session is already in a worktree, call
+`EnterWorktree(name="<number>-<kebab-summary>")`. Then branch as step 1 of the workflow doc says. To resolve several issues in parallel, spawn one
 subagent per issue with `isolation: "worktree"`.
 
 ## Phase 5 -- Implement test-first
@@ -85,19 +83,19 @@ Open the PR as step 2 of the workflow doc says.
 
 ## Phase 10 -- Review the PR
 
-Run the in-session review as step 3 of the workflow doc says.
+Run the review that opens step 3 of the workflow doc.
 
 ## Phase 11 -- Address the review
 
-Apply or dismiss each finding as step 3 of the workflow doc says.
+Handle the review's findings as the rest of step 3 of the workflow doc says.
 
 ## Phase 12 -- Arm auto-merge
 
-Arm auto-merge as step 4 of the workflow doc says.
+Run `finish_branch.py` as step 4 of the workflow doc says.
 
 ## Phase 13 -- Exit the worktree
 
-If Phase 4 called `EnterWorktree`, leave the worktree as step 4 of the workflow doc says.
+Leave the worktree as the end of step 4 of the workflow doc says.
 
 ## Phase 14 -- Report to the user
 
