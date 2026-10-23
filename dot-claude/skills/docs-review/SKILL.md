@@ -36,9 +36,8 @@ If the set is empty, say so and stop.
 Dispatch one subagent per concern below, in parallel -- `Explore` for concerns 1 and 2, which locate
 line-level findings, and `general-purpose` for concern 3, which must read whole files to judge
 spread, proportion, and reading order. Hand each the file set and the
-[rubric](references/rubric.md), and require it to return **only** a structured finding list -- one
-`[SEVERITY] one-line finding -- file:line` per line (concern 3 may anchor to a file or directory),
-no prose, no preamble. Severity is HIGH / MEDIUM / LOW. Concerns:
+[rubric](references/rubric.md), and require it to return **only** a finding list in the rubric's
+format, no prose, no preamble. Concerns:
 
 1. **Doc accuracy: freshness and backing** -- doc claims, commands, and API signatures that no
    longer match the code, and claims nothing in the code makes true. Seed this agent with the
@@ -59,9 +58,9 @@ no prose, no preamble. Severity is HIGH / MEDIUM / LOW. Concerns:
 ## Phase 3 -- Aggregate and report
 
 Merge the subagents' findings. Where two concerns flagged the same line, keep one finding at the
-higher severity. Rank HIGH before MEDIUM before LOW, group by concern, and print one markdown
-report -- each finding as `[SEVERITY] finding -- file:line` (or a file or directory for whole-set
-findings). **Make no edits.**
+higher severity. When concern 3 ran, fold concern 2's copied-comment findings about a fact into the
+concern 3 finding that reports that fact's spread. Rank by severity, group by concern, and print one
+markdown report in the rubric's finding format. **Make no edits.**
 
 Close by offering the follow-up the user chooses: open a fix session for the items they pick, or
 file issues for them. Triage stays with the user.

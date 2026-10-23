@@ -17,44 +17,52 @@ checklist lives in [references/rubric.md](references/rubric.md).
 
 ## Phase 1 -- Ground and scope
 
-Read `README.md`, the repo's `CLAUDE.md`, and `git log --oneline -10`. Then list the branch's work:
+Read `README.md`, the repo's `CLAUDE.md`, and `git log --oneline -10`. Then `git fetch` and run
+`git remote set-head origin --auto`, which records the remote default branch as `origin/HEAD` (a
+clone may lack it). List the branch's work against it, not a local `main` that may be stale or
+absent:
 
-- `git diff --name-only --merge-base main` -- committed since the branch left `main`;
+- `git diff --name-only --merge-base origin/HEAD` -- committed since the branch left it;
 - `git diff --name-only HEAD` -- uncommitted changes;
 - `git ls-files --others --exclude-standard` -- new untracked files.
 
-Split the union into **changed tests** and **changed production code**, and pair each with the
+Sort the union into **changed tests** (test files and their support code), **changed production
+code** (source the tests exercise), and everything else -- docs, prompts, configs, lockfiles,
+generated or vendored files -- which is out of scope. Pair each changed production file with the
 tests that exercise it (grep the test tree for the changed modules and symbols). When the user asks
-for a full review, take every tracked file instead. If neither list has anything, say so and stop.
+for a full review, take every tracked file instead. If the first two lists are empty, say so and
+stop.
 
 ## Phase 2 -- Parallel review
 
-Dispatch one subagent per concern below, in parallel. Hand each the two lists, the test command,
-and the [rubric](references/rubric.md), and require it to return **only** a structured finding list
--- one `[SEVERITY] one-line finding -- file:line` per line, no prose, no preamble. Severity is
-HIGH / MEDIUM / LOW.
+Dispatch one `general-purpose` subagent per concern below, in parallel -- each must read whole test
+files, and the first two run code. Hand each the two lists, the test command, and the
+[rubric](references/rubric.md), and require it to return **only** a finding list in the rubric's
+format, no prose, no preamble.
 
-A subagent that runs anything first copies the working tree -- tracked and untracked files, not
-ignored ones (`git ls-files -co --exclude-standard`) -- into its own temporary directory and works
-only there, so mutations, coverage data, and caches never touch the user's checkout.
+A subagent that runs anything first copies the whole repo directory -- ignored files and `.git`
+included (`cp -a`), so installed dependencies and git-aware tools work -- into its own temporary
+directory and works only there, so mutations, coverage data, and caches never touch the user's
+checkout. If the test tools fail to start in the copy, it runs the repo's dependency-install step
+there first. Each runner keeps its own copy: a mutation in a shared one would corrupt the other's
+coverage run.
 
-1. **Can the tests fail** (`general-purpose`, runs code) -- for each changed test, and each test
+1. **Can the tests fail** (runs code) -- for each changed test, and each test
    covering changed production code, prove it would catch a regression: if the repo configures a
    mutation tool (mutmut, Stryker, cargo-mutants, ...), run it scoped to the changed files;
    otherwise apply one minimal fault at a time to the code under test (invert a condition, return a
    constant, drop a call) and run the covering tests. A mutation every test survives is a finding.
-2. **Gaps** (`general-purpose`, runs code) -- changed production code no test exercises, measured
+2. **Gaps** (runs code) -- changed production code no test exercises, measured
    with the repo's coverage tool when one is configured and by tracing callers from the tests when
    not, and missing edge cases for logic that clearly has them.
-3. **Test design** (`Explore`) -- redundant tests and duplicated setup, coupling to implementation
+3. **Test design** -- redundant tests and duplicated setup, coupling to implementation
    detail, flakiness risks, and tests that assert on prompt prose.
 
 ## Phase 3 -- Aggregate and report
 
 Merge the subagents' findings. Where two concerns flagged the same line, keep one finding at the
-higher severity. Rank HIGH before MEDIUM before LOW, group by concern, and print one markdown
-report -- each finding as `[SEVERITY] finding -- file:line`, naming for concern 1 the mutation the
-tests survived. Delete the scratch copies. **Make no edits.**
+higher severity. Rank by severity, group by concern, and print one markdown report in the rubric's
+finding format, naming for concern 1 the mutation the tests survived. Delete the scratch copies. **Make no edits.**
 
 Close by offering the follow-up the user chooses: open a fix session for the items they pick, or
 file issues for them. Triage stays with the user.
