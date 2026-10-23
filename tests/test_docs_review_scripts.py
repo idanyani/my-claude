@@ -169,6 +169,31 @@ class TestChangedFilesAgainstClone:
         assert "kept.py" in changed_files.changed_paths()
 
 
+class TestChangedFilesWithoutARemote:
+    def test_scopes_against_local_main(self, temp_repo):
+        import changed_files
+
+        (temp_repo / "base.py").write_text("base\n")
+        git(temp_repo, "add", "-A")
+        commit(temp_repo, "base")
+        git(temp_repo, "checkout", "-q", "-b", "feature")
+        (temp_repo / "kept.py").write_text("new\n")
+        git(temp_repo, "add", "-A")
+        commit(temp_repo, "feature work")
+
+        assert changed_files.changed_paths() == ["kept.py"]
+
+    def test_reports_why_an_unreachable_remote_failed(self, temp_repo, tmp_path):
+        import changed_files
+
+        commit(temp_repo, "base")
+        unreachable = tmp_path / "gone.git"
+        git(temp_repo, "remote", "add", "origin", str(unreachable))
+
+        with pytest.raises(RuntimeError, match=str(unreachable)):
+            changed_files.changed_paths()
+
+
 class TestCheckLinksAgainstTempRepo:
     @pytest.fixture
     def repo(self, temp_repo):
