@@ -14,13 +14,18 @@ key nested inside it. With no "settings" kind in the record, every path the repo
 in its git history stands in for it, so keys dropped before the record existed are retired too.
 
 Each kept key, removed key, and overwritten differing value is reported on stderr, so drift is
-visible and can be folded into the repo.
+visible and can be folded into the repo; an overwrite report carries the live value it replaced.
+When the merge overwrites or removes anything, the live file is first copied next to itself with
+a BACKUP_SUFFIX, so every discarded value stays recoverable as restorable JSON after the run's
+output is gone. The backup holds the last run that discarded something; earlier backups are
+replaced rather than accumulated.
 
 Usage: merge_settings.py <repo-settings.json> <live-settings.json> <record-file>
 """
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from collections.abc import Collection, Iterator
@@ -33,14 +38,16 @@ Settings = dict[str, Any]
 KeyPath = tuple[str, ...]
 
 SETTINGS_KIND = "settings"
+BACKUP_SUFFIX = ".bak"
 
 
 class Merge(NamedTuple):
-    """The merged settings and the dotted paths kept from live, overwritten, and removed."""
+    """The merged settings, the dotted paths kept from live and removed, and the live value of
+    each dotted path the repo overwrote."""
 
     merged: Settings
     kept: list[str]
-    overwritten: list[str]
+    overwritten: dict[str, Any]
     removed: list[str]
 
 
@@ -55,7 +62,7 @@ def merge(repo: Settings, live: Settings, dropped: Collection[str] = ()) -> Merg
 
 
 def _merge(repo: Settings, live: Settings, prefix: KeyPath, dropped: set[str]) -> Merge:
-    result = Merge({}, [], [], [])
+    result = Merge({}, [], {}, [])
     for key, live_value in live.items():
         keys = (*prefix, key)
         if key in repo:
@@ -64,7 +71,7 @@ def _merge(repo: Settings, live: Settings, prefix: KeyPath, dropped: set[str]) -
             else:
                 result.merged[key] = repo[key]
                 if live_value != repo[key]:
-                    result.overwritten.append(_dotted(keys))
+                    result.overwritten[_dotted(keys)] = live_value
         elif _pointer(keys) not in dropped:
             result.merged[key] = live_value
             result.kept.append(_dotted(keys))
@@ -87,7 +94,7 @@ def _merge(repo: Settings, live: Settings, prefix: KeyPath, dropped: set[str]) -
 def _absorb(result: Merge, key: str, inner: Merge) -> None:
     result.merged[key] = inner.merged
     result.kept.extend(inner.kept)
-    result.overwritten.extend(inner.overwritten)
+    result.overwritten.update(inner.overwritten)
     result.removed.extend(inner.removed)
 
 
@@ -162,6 +169,10 @@ def main(argv: list[str]) -> int:
     shipped = shipped_paths(repo)
     dropped = retired(_recorded_paths(args.record, args.repo), shipped)
     result = merge(repo, _read_live(args.live), dropped)
+    if result.overwritten or result.removed:
+        backup = args.live.with_name(args.live.name + BACKUP_SUFFIX)
+        shutil.copyfile(args.live, backup)
+        print(f"backed up {args.live} to {backup} before merging", file=sys.stderr)
     write_json_atomically(args.live, result.merged)
     write_kind(args.record, SETTINGS_KIND, shipped)
 
@@ -173,8 +184,12 @@ def main(argv: list[str]) -> int:
         )
     for path in result.removed:
         print(f"removed {path} from {args.live}: {args.repo} no longer ships it", file=sys.stderr)
-    for path in result.overwritten:
-        print(f"overwrote {path} in {args.live} with the value from {args.repo}", file=sys.stderr)
+    for path, live_value in result.overwritten.items():
+        print(
+            f"overwrote {path} in {args.live} with the value from {args.repo}; "
+            f"it held {json.dumps(live_value)}",
+            file=sys.stderr,
+        )
     return 0
 
 
