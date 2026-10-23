@@ -62,10 +62,17 @@ State whether it is a **bug** or **feature**, then follow the repo CLAUDE.md's T
 reproduce-first (a failing test that fails for the right reason), features skeleton-first. Test
 behavior and contracts, not implementation detail.
 
-## Phase 6 -- Verify
+## Phase 6 -- Verify and simplify
 
 Run the repo's test pipeline (named in its `docs/git-workflow.md` stub or `CLAUDE.md`) and paste
 real output.
+
+Once it passes, run the bundled `/simplify` on the uncommitted change, so its cleanup fixes land in
+the implementation commit rather than as review fix-ups. First `git add -N` any new files: its diff
+leaves untracked files out. Skip it when the change has no code outside tests -- prose (docs,
+skills, `CLAUDE.md`) and test-only changes give its cleanup angles nothing to work on. If it edited
+anything, revert any edit that weakens a test, run the pipeline again, and paste that output too;
+revert the edits that turn it red rather than fixing forward.
 
 ## Phase 7 -- Commit and open an auto-merging PR
 
