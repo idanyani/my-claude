@@ -27,8 +27,10 @@ and `gh` on PATH; they run against the current working directory's repo.
 ## Steps
 
 1. **Branch from `main`.** Work in a Claude Code worktree (`EnterWorktree`, subagent
-   `isolation: "worktree"`, or `claude --worktree`) unless branching in place on purpose, then
-   run `python3 ${CLAUDE_SKILL_DIR}/scripts/start_branch.py <number> <kebab-summary>`. It
+   `isolation: "worktree"`, or `claude --worktree`) unless branching in place on purpose, so
+   other sessions sharing the main checkout never run against this one's uncommitted work. Then
+   run `python3 ${CLAUDE_SKILL_DIR}/scripts/start_branch.py <number> <kebab-summary>`; it names
+   any dependency-install command the fresh worktree needs. It
    refuses a dirty tree (it never stashes silently -- surface that and ask), deletes the local
    and remote branches whose PR merged (keeping and listing any it cannot confirm), re-arms your
    PRs whose auto-merge GitHub never fired and reopens those whose CI never started (see
@@ -47,13 +49,14 @@ and `gh` on PATH; they run against the current working directory's repo.
    leftover suggestion as a follow-up issue.
 4. **Merge and return to `main`.** Once the commit is final,
    `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` arms a squash auto-merge and,
-   in the main checkout, returns to `main`; from a worktree, leave it with `ExitWorktree`.
+   in the main checkout, returns to `main`; from a worktree, leave it with
+   `ExitWorktree(action="keep")`.
    Squash collapses the branch's commits into a single commit on `main`, so the branch itself
    may carry several commits (initial work plus review fixes). Arming auto-merge is what
    authorizes the merge, so do it only after addressing the review -- never before. GitHub then merges the moment
    `verify` is green; you do not watch the run, and the next `start_branch` deletes the branch
-   and its worktree once the PR has merged. When the PR needs you, the script stops and says
-   why (see Troubleshooting).
+   and its worktree once the PR has merged. When the PR needs you, the script exits 3 and says
+   why: fix that and re-run it (see Troubleshooting).
 
 Pause for explicit approval before pushing risky or ambiguous changes. Commit-message
 conventions live in the repo's `CLAUDE.md`.

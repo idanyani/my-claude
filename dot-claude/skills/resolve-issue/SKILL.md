@@ -18,8 +18,9 @@ Arguments: `$ARGUMENTS` -- an issue number (e.g. `42`) or full issue URL, option
 
 This skill is repo-agnostic. The repo's `CLAUDE.md` is the law (TDD rules, commit style, naming);
 repo-specifics such as what `verify` runs live in the repo's `docs/git-workflow.md` stub -- read
-both. The branch-and-PR mechanics are documented once in this skill's
-[references/git-workflow.md](references/git-workflow.md). The helper scripts live in this skill's
+both. The branch-and-PR mechanics are documented once in this skill's workflow doc,
+[references/git-workflow.md](references/git-workflow.md); read it before Phase 4, since the phases
+that branch, open, review, and merge the PR follow its steps. The helper scripts live in this skill's
 `scripts/` directory and are invoked as plain files: `python3 ${CLAUDE_SKILL_DIR}/scripts/<name>.py`
 (stdlib-only; they need just `python3`, `git`, and `gh` on PATH and run against the current
 working directory's repo).
@@ -47,13 +48,10 @@ If a duplicate or in-flight PR exists, stop and surface it -- do not start paral
 
 ## Phase 4 -- Set up an isolated workspace
 
-Work in a worktree, so other sessions sharing the main checkout never run against this one's
-uncommitted work. Unless `--in-place` was given or the session is already in a worktree (a
-subagent spawned with `isolation: "worktree"`, or `claude --worktree`), call
-`EnterWorktree(name="<number>-<short-kebab-summary>")`. Then run
-`python3 ${CLAUDE_SKILL_DIR}/scripts/start_branch.py <number> <short-kebab-summary>`; it names
-any dependency-install command the fresh worktree needs. If it refuses a dirty tree, surface that
-and ask the user -- never stash silently. To resolve several issues in parallel, spawn one
+Unless `--in-place` was given or the session is already in a worktree (a subagent spawned with
+`isolation: "worktree"`, or `claude --worktree`), call
+`EnterWorktree(name="<number>-<short-kebab-summary>")`. Then branch as step 1 of the workflow doc
+says, passing `<number> <short-kebab-summary>`. To resolve several issues in parallel, spawn one
 subagent per issue with `isolation: "worktree"`.
 
 ## Phase 5 -- Implement test-first
@@ -83,32 +81,23 @@ the rejected alternatives with why; the problem stays in the issue.
 
 ## Phase 9 -- Open the PR
 
-Run `python3 ${CLAUDE_SKILL_DIR}/scripts/open_pr.py`, which pushes the branch and opens the PR.
+Open the PR as step 2 of the workflow doc says.
 
 ## Phase 10 -- Review the PR
 
-Review the PR in this session with `/code-review <pr>`. Review once -- do not loop on further
-advisory findings.
+Run the in-session review as step 3 of the workflow doc says.
 
 ## Phase 11 -- Address the review
 
-Apply the findings worth applying on the branch in the checkout Phase 4 made (not one the review
-created) and push fixes **as additional commits -- never amend or force-push the pushed branch;
-the squash-merge collapses them into one commit on `main`**; dismiss the rest with a one-line
-reason.
+Apply or dismiss each finding as step 3 of the workflow doc says.
 
 ## Phase 12 -- Arm auto-merge
 
-Once the review is addressed (arming authorizes the merge -- see step 4 of
-[references/git-workflow.md](references/git-workflow.md)), run
-`python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>`: it arms auto-merge, confirms within
-seconds that GitHub will merge the PR without a person, then -- in the main checkout -- returns
-to `main`. It does not wait for CI. If it exits 3, fix what it names and re-run it.
+Arm auto-merge as step 4 of the workflow doc says.
 
 ## Phase 13 -- Exit the worktree
 
-If Phase 4 called `EnterWorktree`, call `ExitWorktree(action="keep")`; the next `start_branch.py`
-removes the worktree once the PR has merged.
+If Phase 4 called `EnterWorktree`, leave the worktree as step 4 of the workflow doc says.
 
 ## Phase 14 -- Report to the user
 
