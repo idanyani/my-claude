@@ -26,7 +26,7 @@ Read `README.md`, the repo's `CLAUDE.md`, and `git log --oneline -10` so finding
 changes. Then compute the file set:
 
 - Default: `python3 ${CLAUDE_SKILL_DIR}/scripts/changed_files.py` -- the current branch's work (changes
-  since the merge-base with `main`, plus uncommitted and untracked files).
+  since the merge-base with the remote default branch, plus uncommitted and untracked files).
 - Whole repo: pass `--all` when the user asks for a full review.
 
 If the set is empty, say so and stop.

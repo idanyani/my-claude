@@ -6,10 +6,10 @@ pure derivation from side effects.
 """
 
 import importlib
-import subprocess
 from pathlib import Path
 
 import pytest
+from git_repo import commit, git, make_clone
 from links import (
     extract_links,
     heading_slugs,
@@ -111,38 +111,62 @@ class TestExecutables:
         assert (SCRIPTS_DIR / f"{module_name}.py").stat().st_mode & 0o111
 
 
-def _git(repo: Path, *args: str) -> None:
-    subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True)
-
-
 @pytest.fixture
 def temp_repo(tmp_path, monkeypatch):
     """An empty git repo as the working directory."""
-    _git(tmp_path, "init", "-b", "main")
+    git(tmp_path, "init", "-q", "-b", "main")
     monkeypatch.chdir(tmp_path)
     return tmp_path
 
 
-class TestChangedFilesAgainstTempRepo:
-    @pytest.fixture
-    def repo(self, temp_repo):
-        tmp_path = temp_repo
-        _git(tmp_path, "config", "user.email", "t@e.st")
-        _git(tmp_path, "config", "user.name", "Tester")
-        (tmp_path / "kept.py").write_text("base\n")
-        _git(tmp_path, "add", "-A")
-        _git(tmp_path, "commit", "-m", "base")
-        _git(tmp_path, "checkout", "-b", "feature")
-        (tmp_path / "kept.py").write_text("changed\n")
-        (tmp_path / "uv.lock").write_text("noise\n")  # generated: must be filtered out
-        return tmp_path
+def _branch_off_remote_default(work: Path) -> None:
+    """Start `feature` from the remote default branch and change a tracked and a generated file."""
+    git(work, "remote", "set-head", "origin", "--auto")
+    git(work, "checkout", "-q", "-b", "feature", "origin/HEAD")
+    (work / "kept.py").write_text("changed\n")
+    (work / "uv.lock").write_text("noise\n")  # generated: must be filtered out
 
-    def test_reports_branch_changes_and_filters_generated(self, repo):
+
+class TestChangedFilesAgainstClone:
+    @pytest.fixture
+    def feature(self, clone):
+        """A branch off `origin/main` in a clone whose local `main` is one merge behind it."""
+        (clone / "kept.py").write_text("base\n")
+        (clone / "merged_elsewhere.py").write_text("other work\n")
+        git(clone, "add", "-A")
+        commit(clone, "another PR")
+        git(clone, "push", "-q", "origin", "main")
+        git(clone, "reset", "-q", "--hard", "HEAD~1")
+        _branch_off_remote_default(clone)
+        return clone
+
+    def test_reports_branch_changes_and_filters_generated(self, feature):
         import changed_files
 
         paths = filter_paths(changed_files.changed_paths())
         assert "kept.py" in paths
         assert "uv.lock" not in paths
+
+    def test_ignores_work_merged_after_local_main_was_updated(self, feature):
+        import changed_files
+
+        assert "merged_elsewhere.py" not in changed_files.changed_paths()
+
+    def test_records_a_missing_remote_default_branch(self, feature):
+        import changed_files
+
+        git(feature, "remote", "set-head", "origin", "--delete")
+
+        assert "kept.py" in changed_files.changed_paths()
+
+    def test_scopes_a_repo_without_a_main_branch(self, tmp_path, monkeypatch):
+        import changed_files
+
+        work = make_clone(tmp_path, "trunk")
+        monkeypatch.chdir(work)
+        _branch_off_remote_default(work)
+
+        assert "kept.py" in changed_files.changed_paths()
 
 
 class TestCheckLinksAgainstTempRepo:
