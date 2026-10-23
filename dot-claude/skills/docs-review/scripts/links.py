@@ -1,4 +1,4 @@
-"""Parse and resolve intra-repo markdown links, for the doc-freshness audit.
+"""Parse and resolve intra-repo markdown links, for the doc-accuracy review.
 
 Deterministic link resolution belongs in code, not a subagent's judgment: the audit should spend
 model attention on whether prose still matches the code, not on re-deriving whether a relative path

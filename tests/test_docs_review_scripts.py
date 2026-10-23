@@ -1,4 +1,4 @@
-"""Tests for the `maintain` skill's helper scripts.
+"""Tests for the `docs-review` skill's helper scripts.
 
 Pure logic (scope filtering, link resolution) is unit-tested directly; the git-facing executable is
 exercised against a throwaway repo built in a temp dir, mirroring how `resolve-issue`'s suites split
@@ -19,7 +19,7 @@ from links import (
 )
 from scope import filter_paths, is_ignored
 
-SCRIPTS_DIR = Path(__file__).parent.parent / "dot-claude" / "skills" / "maintain" / "scripts"
+SCRIPTS_DIR = Path(__file__).parent.parent / "dot-claude" / "skills" / "docs-review" / "scripts"
 EXECUTABLES = ["changed_files", "check_links"]
 
 

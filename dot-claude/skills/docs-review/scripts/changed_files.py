@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Print the file set a `maintain` sweep should audit, one path per line.
+"""Print the file set a `docs-review` should read, one path per line.
 
 Default scope is the current branch's work: files changed since the merge-base with `main`, plus
-uncommitted and untracked changes -- this matches the pain the skill targets (debris left *during*
-a development cycle). `--all` widens to every tracked file. Vendored, generated, and cache paths are
-filtered out (see scope.py) so the audit reads only authored files.
+uncommitted and untracked changes. `--all` widens to every tracked file. Vendored, generated, and
+cache paths are filtered out (see scope.py) so the review reads only authored files.
 
 Stdlib-only; needs `git` on PATH and runs against the current working directory's repo.
 """

@@ -8,7 +8,7 @@ job -- a loop that can never exit. The standard fix is a one-character regex bra
 `[p]ytest` matches a real `pytest` command line but not the literal text `[p]ytest`.
 
 The defect is provable from the command text alone, which is what makes this a hook rather than
-a judgment call for the `maintain` skill, and what makes denying rather than advising fair: the
+a judgment call left to review, and what makes denying rather than advising fair: the
 fix is mechanical. Deny is also right outside a loop, where the same self-match silently returns
 a bogus PID.
 
