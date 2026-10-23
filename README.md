@@ -27,12 +27,15 @@ any project, loaded into every Claude Code session on a machine that installs my
   in-session review, auto-merge, clean up. Ships stdlib-only helper scripts (`python3`, `git`,
   `gh` are the only runtime requirements) and the canonical
   [git-workflow doc](dot-claude/skills/resolve-issue/references/git-workflow.md).
-- **[maintain](dot-claude/skills/maintain/SKILL.md)** -- sweep recent work for the debris fast
-  cycles leave behind (stale or unbacked doc claims, docs shaped wrong as a whole, duplication and
-  reinvention, weak tests, dead code and data, convention drift) and report ranked findings for
-  triage, making no edits. Pairs with the `check_prose` PostToolUse hook, which deterministically
-  flags the mechanical prose-convention violations (non-ASCII typography, emojis in code) that
-  linters miss.
+- **[docs-review](dot-claude/skills/docs-review/SKILL.md)** -- review docs, docstrings, and
+  comments for stale or unbacked claims, broken links, prose-convention drift, and docs shaped
+  wrong as a whole, and report ranked findings for triage, making no edits. Pairs with the
+  `check_prose` PostToolUse hook, which deterministically flags the mechanical prose-convention
+  violations (non-ASCII typography, emojis in code) that linters miss.
+- **[test-review](dot-claude/skills/test-review/SKILL.md)** -- review the tests of recent work:
+  prove they can fail by mutating the code under test in a scratch copy, find changed code no test
+  exercises, and flag flaky, redundant, or implementation-coupled tests; report ranked findings,
+  making no edits.
 
 ## Install
 

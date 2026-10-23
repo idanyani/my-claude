@@ -17,7 +17,7 @@ dev = ["pytest>=8", "ruff>=0.10", "mypy>=1.14"]
 # sys.path without collision.
 pythonpath = [
     "dot-claude/skills/resolve-issue/scripts",
-    "dot-claude/skills/maintain/scripts",
+    "dot-claude/skills/docs-review/scripts",
     "dot-claude/hooks",
     "scripts",
 ]
@@ -34,7 +34,7 @@ extend-select = ["I"]
 files = ["dot-claude/skills", "dot-claude/hooks", "scripts", "tests"]
 mypy_path = [
     "dot-claude/skills/resolve-issue/scripts",
-    "dot-claude/skills/maintain/scripts",
+    "dot-claude/skills/docs-review/scripts",
     "dot-claude/hooks",
     "scripts",
 ]

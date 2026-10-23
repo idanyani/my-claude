@@ -1,6 +1,6 @@
-"""Filter a file list down to what a maintenance audit should read.
+"""Filter a file list down to what a docs review should read.
 
-Vendored, generated, and cache paths would drown the audit in noise and cost the subagents their
+Vendored, generated, and cache paths would drown the review in noise and cost the subagents their
 attention budget on files no human maintains. Pure so the executable can unit-test the exclusion
 rules without a git checkout.
 """

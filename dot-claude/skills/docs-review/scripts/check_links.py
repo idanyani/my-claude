@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Report broken intra-repo markdown links, one finding per line.
 
-Feeds the doc-accuracy concern of a `maintain` sweep with the deterministic half of the work, so
-the subagent spends its judgment on stale prose rather than path resolution. Takes markdown paths as
+Feeds the doc-accuracy concern of a `docs-review` with the deterministic half of the work, so the
+subagent spends its judgment on stale prose rather than path resolution. Takes markdown paths as
 arguments (or on stdin, one per line); non-markdown paths are ignored.
 
 Output: `[HIGH] broken link '<target>' -- <file>:<line>`. A file that cannot be read (not UTF-8, or
