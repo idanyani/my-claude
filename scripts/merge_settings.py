@@ -14,7 +14,11 @@ key nested inside it. With no "settings" kind in the record, every path the repo
 in its git history stands in for it, so keys dropped before the record existed are retired too.
 
 Each kept key, removed key, and overwritten differing value is reported on stderr, so drift is
-visible and can be folded into the repo.
+visible and can be folded into the repo; an overwrite report carries the live value it replaced.
+When the merge overwrites or removes anything, or replaces a live file that is not a JSON object,
+the live file is first copied next to itself with a BACKUP_SUFFIX, so every discarded value stays recoverable as restorable JSON after the run's
+output is gone. The backup holds the last run that discarded something; earlier backups are
+replaced rather than accumulated.
 
 Usage: merge_settings.py <repo-settings.json> <live-settings.json> <record-file>
 """
@@ -27,20 +31,28 @@ from collections.abc import Collection, Iterator
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from install_record import read_record, retired, write_json_atomically, write_kind
+from install_record import (
+    read_record,
+    retired,
+    write_atomically,
+    write_json_atomically,
+    write_kind,
+)
 
 Settings = dict[str, Any]
 KeyPath = tuple[str, ...]
 
 SETTINGS_KIND = "settings"
+BACKUP_SUFFIX = ".bak"
 
 
 class Merge(NamedTuple):
-    """The merged settings and the dotted paths kept from live, overwritten, and removed."""
+    """The merged settings, the dotted paths kept from live and removed, and the live value of
+    each dotted path the repo overwrote."""
 
     merged: Settings
     kept: list[str]
-    overwritten: list[str]
+    overwritten: dict[str, Any]
     removed: list[str]
 
 
@@ -55,7 +67,7 @@ def merge(repo: Settings, live: Settings, dropped: Collection[str] = ()) -> Merg
 
 
 def _merge(repo: Settings, live: Settings, prefix: KeyPath, dropped: set[str]) -> Merge:
-    result = Merge({}, [], [], [])
+    result = Merge({}, [], {}, [])
     for key, live_value in live.items():
         keys = (*prefix, key)
         if key in repo:
@@ -64,7 +76,7 @@ def _merge(repo: Settings, live: Settings, prefix: KeyPath, dropped: set[str]) -
             else:
                 result.merged[key] = repo[key]
                 if live_value != repo[key]:
-                    result.overwritten.append(_dotted(keys))
+                    result.overwritten[_dotted(keys)] = live_value
         elif _pointer(keys) not in dropped:
             result.merged[key] = live_value
             result.kept.append(_dotted(keys))
@@ -87,7 +99,7 @@ def _merge(repo: Settings, live: Settings, prefix: KeyPath, dropped: set[str]) -
 def _absorb(result: Merge, key: str, inner: Merge) -> None:
     result.merged[key] = inner.merged
     result.kept.extend(inner.kept)
-    result.overwritten.extend(inner.overwritten)
+    result.overwritten.update(inner.overwritten)
     result.removed.extend(inner.removed)
 
 
@@ -107,18 +119,24 @@ def _dotted(keys: KeyPath) -> str:
     return ".".join(keys)
 
 
-def _read_live(path: Path) -> Settings:
-    """Return the live settings, or none when the file is missing or not a JSON object."""
-    if not path.exists():
-        return {}
+def _parse_live(path: Path, content: bytes) -> Settings | None:
+    """Return the live settings in `content`, or None when they are not a JSON object."""
     try:
-        live = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
+        live = json.loads(content)
+    except ValueError:  # malformed JSON or text that is not UTF-8
         live = None
     if not isinstance(live, dict):
         print(f"replacing {path}: not a JSON object", file=sys.stderr)
-        return {}
+        return None
     return live
+
+
+def _back_up(live: Path, content: bytes) -> None:
+    """Write `content` next to the file `live` resolves to, with that file's mode."""
+    target = live.resolve()
+    backup = target.with_name(target.name + BACKUP_SUFFIX)
+    write_atomically(backup, content, mode=target.stat().st_mode & 0o777)
+    print(f"backed up {live} to {backup} before merging", file=sys.stderr)
 
 
 def _committed_versions(repo: Path) -> Iterator[Settings]:
@@ -161,7 +179,11 @@ def main(argv: list[str]) -> int:
     repo = json.loads(args.repo.read_text(encoding="utf-8"))
     shipped = shipped_paths(repo)
     dropped = retired(_recorded_paths(args.record, args.repo), shipped)
-    result = merge(repo, _read_live(args.live), dropped)
+    original = args.live.read_bytes() if args.live.exists() else None
+    live = {} if original is None else _parse_live(args.live, original)
+    result = merge(repo, live or {}, dropped)
+    if original is not None and (live is None or result.overwritten or result.removed):
+        _back_up(args.live, original)
     write_json_atomically(args.live, result.merged)
     write_kind(args.record, SETTINGS_KIND, shipped)
 
@@ -173,8 +195,12 @@ def main(argv: list[str]) -> int:
         )
     for path in result.removed:
         print(f"removed {path} from {args.live}: {args.repo} no longer ships it", file=sys.stderr)
-    for path in result.overwritten:
-        print(f"overwrote {path} in {args.live} with the value from {args.repo}", file=sys.stderr)
+    for path, live_value in result.overwritten.items():
+        print(
+            f"overwrote {path} in {args.live} with the value from {args.repo}; "
+            f"it held {json.dumps(live_value)}",
+            file=sys.stderr,
+        )
     return 0
 
 

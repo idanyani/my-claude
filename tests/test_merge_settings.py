@@ -6,7 +6,7 @@ import subprocess
 
 import pytest
 from install_record import read_record
-from merge_settings import SETTINGS_KIND, main, merge, shipped_paths
+from merge_settings import BACKUP_SUFFIX, SETTINGS_KIND, main, merge, shipped_paths
 
 
 class TestMerge:
@@ -20,7 +20,7 @@ class TestMerge:
         )
         assert merged == {"model": "opus", "autoMode": {"a": 1}}
         assert kept == ["autoMode"]
-        assert overwritten == []
+        assert overwritten == {}
 
     def test_keeps_a_machine_only_key_nested_under_a_repo_key(self):
         merged, kept, _, _ = merge({"permissions": {"allow": []}}, {"permissions": {"deny": ["x"]}})
@@ -31,11 +31,11 @@ class TestMerge:
         merged, kept, overwritten, _ = merge({"theme": "dark"}, {"theme": "light"})
         assert merged == {"theme": "dark"}
         assert kept == []
-        assert overwritten == ["theme"]
+        assert overwritten == {"theme": "light"}
 
     def test_equal_values_are_not_reported(self):
         settings = {"theme": "dark", "hooks": {"Stop": [{"command": "x"}]}}
-        assert merge(settings, json.loads(json.dumps(settings))) == (settings, [], [], [])
+        assert merge(settings, json.loads(json.dumps(settings))) == (settings, [], {}, [])
 
     def test_replaces_lists_instead_of_unioning_them(self):
         # A union would keep a permission the repo removed on every machine forever.
@@ -43,12 +43,12 @@ class TestMerge:
             {"permissions": {"allow": ["a"]}}, {"permissions": {"allow": ["a", "b"]}}
         )
         assert merged == {"permissions": {"allow": ["a"]}}
-        assert overwritten == ["permissions.allow"]
+        assert overwritten == {"permissions.allow": ["a", "b"]}
 
     def test_repo_object_replaces_a_live_scalar(self):
         merged, _, overwritten, _ = merge({"hooks": {"Stop": []}}, {"hooks": "broken"})
         assert merged == {"hooks": {"Stop": []}}
-        assert overwritten == ["hooks"]
+        assert overwritten == {"hooks": "broken"}
 
     def test_removes_and_reports_a_retired_key(self):
         merged, kept, _, removed = merge(
@@ -113,6 +113,16 @@ class TestMain:
         assert "autoMode" in err
         assert "theme" in err
 
+    def test_reports_the_overwritten_live_value_as_json(self, tmp_path, capsys):
+        # The old value is visible where the drift is reported, without opening the backup.
+        repo = tmp_path / "repo.json"
+        live = tmp_path / "live.json"
+        old = [{"command": "mine.sh"}]
+        _write(repo, {"hooks": {"SessionStart": []}})
+        _write(live, {"hooks": {"SessionStart": old}})
+        _install(repo, live, tmp_path / "record.json")
+        assert json.dumps(old) in capsys.readouterr().err
+
     def test_installs_the_repo_settings_when_no_live_file_exists(self, tmp_path, capsys):
         repo = tmp_path / "repo.json"
         live = tmp_path / "missing" / "live.json"
@@ -167,11 +177,12 @@ def _install(repo, live, record):
     assert main([str(repo), str(live), str(record)]) == 0
 
 
-class TestRetiringDroppedKeys:
-    @pytest.fixture
-    def paths(self, tmp_path):
-        return tmp_path / "repo.json", tmp_path / "live.json", tmp_path / "record.json"
+@pytest.fixture
+def paths(tmp_path):
+    return tmp_path / "repo.json", tmp_path / "live.json", tmp_path / "record.json"
 
+
+class TestRetiringDroppedKeys:
     def test_records_the_paths_the_repo_ships(self, paths):
         repo, live, record = paths
         _write(repo, {"enabledPlugins": {"a": True}})
@@ -211,6 +222,64 @@ class TestRetiringDroppedKeys:
         _write(repo, {"theme": "dark"})
         _install(repo, live, record)
         assert read_record(record)["links"] == ["skills/x"]
+
+
+class TestBackup:
+    """The live file is backed up before a merge discards any of its values."""
+
+    def test_backs_up_the_live_file_before_overwriting_a_value(self, paths, capsys):
+        repo, live, record = paths
+        _write(repo, {"theme": "dark"})
+        live.write_text('{"theme": "light"}')
+        _install(repo, live, record)
+        backup = live.with_name(live.name + BACKUP_SUFFIX)
+        assert backup.read_text() == '{"theme": "light"}'
+        assert str(backup) in capsys.readouterr().err
+
+    def test_backs_up_the_live_file_before_removing_a_retired_key(self, paths):
+        repo, live, record = paths
+        _write(repo, {"theme": "dark", "old": 1})
+        _install(repo, live, record)
+        _write(repo, {"theme": "dark"})
+        _install(repo, live, record)
+        backup = live.with_name(live.name + BACKUP_SUFFIX)
+        assert json.loads(backup.read_text()) == {"theme": "dark", "old": 1}
+
+    def test_backs_up_a_live_file_that_is_not_a_json_object(self, paths):
+        repo, live, record = paths
+        _write(repo, {"theme": "dark"})
+        live.write_text('{"theme": "light",}')
+        _install(repo, live, record)
+        backup = live.with_name(live.name + BACKUP_SUFFIX)
+        assert backup.read_text() == '{"theme": "light",}'
+
+    def test_keeps_the_live_file_mode_on_the_backup(self, paths):
+        # The live file may hold tokens under "env"; the backup must not widen who can read them.
+        repo, live, record = paths
+        _write(repo, {"theme": "dark"})
+        _write(live, {"theme": "light"})
+        live.chmod(0o600)
+        _install(repo, live, record)
+        assert live.with_name(live.name + BACKUP_SUFFIX).stat().st_mode & 0o777 == 0o600
+
+    def test_backs_up_next_to_the_target_of_a_symlinked_live_file(self, paths, tmp_path):
+        repo, live, record = paths
+        target = tmp_path / "dotfiles" / "settings.json"
+        target.parent.mkdir()
+        _write(target, {"theme": "light"})
+        live.symlink_to(target)
+        _write(repo, {"theme": "dark"})
+        _install(repo, live, record)
+        assert json.loads(target.with_name(target.name + BACKUP_SUFFIX).read_text()) == {
+            "theme": "light"
+        }
+
+    def test_writes_no_backup_when_no_live_value_is_lost(self, paths):
+        repo, live, record = paths
+        _write(repo, {"theme": "dark", "new": 1})
+        _write(live, {"theme": "dark", "mine": 1})
+        _install(repo, live, record)
+        assert not live.with_name(live.name + BACKUP_SUFFIX).exists()
 
 
 def _git(cwd, *args):
