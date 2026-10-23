@@ -12,8 +12,8 @@ point that cannot work if invoked, a documented mode whose input nothing produce
 debris that is plainly dead (no invoker or reader anywhere); LOW for a candidate only the owner can
 judge (reached only through reflection, a public API, or a consumer outside the repo).
 
-Ask reachability outward -- "who calls, invokes, or reads this?" -- never whether the file it
-points to exists. Search code, tests, `.github/`, sibling scripts, the package manifest, harness and
+Ask reachability outward -- "who calls, invokes, or reads this?" -- not merely whether the file
+it points to exists, which is a separate check (an entry point that cannot work). Search code, tests, `.github/`, sibling scripts, the package manifest, harness and
 tool configs (`settings.json`, `.pre-commit-config.yaml`, ...), and docs. Run `git log -S"<name>"`
 to learn whether a candidate was ever wired up, and when its last reference was dropped. An event
 or naming convention is an invoker too: a workflow's `on:` triggers, a hook file in the hooks path,
@@ -49,6 +49,7 @@ Nothing imports it, so no resolver, type checker, or linter flags it; debris sur
 - A data or config file nothing reads. Being written, validated against a schema, or hand-maintained
   is not being read: ask "who reads this?" and search for a consumer.
 - A config key or field nothing reads, though the file itself is read.
+- Data orphaned by the change: an orphan target whose last reader the change removed.
 - A dead mode: a CLI mode, flag, or branch whose input -- a state, file layout, or format -- the repo
   can no longer produce. Check that something still creates its input, not only that something
   calls it.

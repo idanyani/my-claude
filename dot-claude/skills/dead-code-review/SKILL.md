@@ -22,9 +22,11 @@ Read `README.md`, the repo's `CLAUDE.md`, and `git log --oneline -10`. Then `git
 `git remote set-head origin --auto`, which records the remote default branch as `origin/HEAD` (a
 clone may lack it). The candidates are, by default, the branch's work against it:
 
-- the files in `git diff --name-only --merge-base origin/HEAD`, `git diff --name-only HEAD`, and
-  `git ls-files --others --exclude-standard` -- what the branch added or changed;
-- the **orphan targets** -- every symbol, script, config, or file a removed line in
+- the files in `git diff --name-only --diff-filter=d --merge-base origin/HEAD`,
+  `git diff --name-only --diff-filter=d HEAD`, and `git ls-files --others --exclude-standard` --
+  what the branch added or changed, leaving out lockfiles and generated or vendored files;
+- the **orphan targets** -- every symbol, script, config, or file a removed line (deleted files
+  included) in
   `git diff --merge-base origin/HEAD` and `git diff HEAD` referred to. They sit outside the diff,
   and the change may have dropped their last reference.
 
@@ -53,7 +55,7 @@ rubric's format, no prose, no preamble.
 
 Merge the subagents' findings. Where two concerns flagged the same target, keep one finding at the
 higher severity. Rank by severity, group by concern, and print one markdown report in the rubric's
-finding format. **Make no edits.**
+finding format. Delete any scratch copy. **Make no edits.**
 
 Close by offering the follow-up the user chooses: open a fix session for the items they pick, or
 file issues for them. Triage stays with the user.
