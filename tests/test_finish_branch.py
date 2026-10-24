@@ -6,13 +6,20 @@ import finish_branch
 import pytest
 
 PR = "7"
-ARMED = {"state": "OPEN", "mergeable": "MERGEABLE", "autoMergeRequest": {"mergeMethod": "SQUASH"}}
+HEAD = "c0ffee"
+ARMED = {
+    "state": "OPEN",
+    "mergeable": "MERGEABLE",
+    "autoMergeRequest": {"mergeMethod": "SQUASH"},
+    "headRefOid": HEAD,
+}
 UNKNOWN = {**ARMED, "mergeable": "UNKNOWN"}
 UNARMED = {**ARMED, "autoMergeRequest": None}
 CONFLICT = {**ARMED, "mergeable": "CONFLICTING"}
-MERGED = {"state": "MERGED", "mergeable": "UNKNOWN", "autoMergeRequest": None}
-CLOSED = {"state": "CLOSED", "mergeable": "UNKNOWN", "autoMergeRequest": None}
-HEAD = "c0ffee"
+MERGED = {**UNARMED, "state": "MERGED", "mergeable": "UNKNOWN"}
+CLOSED = {**MERGED, "state": "CLOSED"}
+# GitHub's view a moment after a push: the previous head, with that head's mergeability.
+PREVIOUS_HEAD = "0ldhead"
 REFUSED = RuntimeError("gh pr merge exited 1: GraphQL: Pull Request is not mergeable")
 
 
@@ -124,6 +131,17 @@ def test_stops_for_a_person_naming_why_github_kept_refusing_the_arm(run, capsys)
     views = [UNARMED] * finish_branch.POLL_LIMIT
     assert run(views, refusals=len(views)) == finish_branch.EXIT_NEEDS_ATTENTION
     assert "Pull Request is not mergeable" in capsys.readouterr().err
+
+
+def test_waits_out_a_no_conflict_status_that_describes_the_previous_head(run, capsys):
+    stale = {**ARMED, "headRefOid": PREVIOUS_HEAD}
+    assert run([stale, CONFLICT]) == finish_branch.EXIT_NEEDS_ATTENTION
+    assert "conflicts with main" in capsys.readouterr().err
+
+
+def test_waits_out_a_conflict_status_that_describes_the_previous_head(run):
+    stale = {**CONFLICT, "headRefOid": PREVIOUS_HEAD}
+    assert run([stale, ARMED]) == 0
 
 
 def test_proceeds_when_mergeability_stays_unknown(run, git_calls, capsys):

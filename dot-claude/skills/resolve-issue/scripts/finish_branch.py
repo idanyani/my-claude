@@ -6,10 +6,10 @@ Usage: python3 <skill-dir>/scripts/finish_branch.py <pr>
 Unless the PR already merged or closed, it first refuses while a local branch or worktree HEAD of
 this repo holds commits that build on the PR but are not in it (lib/unpushed.py), so a merge cannot
 leave them behind. Then it arms auto-merge (squash, deleting the remote branch, pinned to the head
-that check measured), retrying while GitHub refuses, and checks
-only what GitHub knows within seconds -- the PR merged, or auto-merge is armed and the PR has no
-conflict with `main` -- polling briefly while GitHub settles. It never waits for CI. Whatever
-surfaces later (a failed check, a conflict with a PR merged after this one, CI that never starts)
+that check measured), retrying while GitHub refuses, and checks only what GitHub knows within
+seconds -- the PR merged, or auto-merge is armed and the PR has no conflict with `main` -- polling
+briefly while GitHub settles, and until GitHub's view names that head. It never waits for CI.
+Whatever surfaces later (a failed check, a conflict with a PR merged after this one, CI that never starts)
 leaves the PR open, where `gh pr ls` lists it (see references/git-workflow.md). The next
 start_branch.py deletes the merged branch, re-arms the PR if GitHub never fired its merge, and
 reopens it if its CI never started.
@@ -36,9 +36,19 @@ POLL_LIMIT = 6
 EXIT_NEEDS_ATTENTION = 3
 
 
-def pr_verdict(pr: str) -> str:
-    view = run_gh(["pr", "view", pr, "--json", "state,mergeable,autoMergeRequest"])
-    return arm_verdict(view["state"], view["mergeable"], view["autoMergeRequest"] is not None)
+def view_pr(pr: str) -> dict:
+    return run_gh(["pr", "view", pr, "--json", "state,mergeable,autoMergeRequest,headRefOid"])
+
+
+def verdict_of(view: dict, checked_head: str) -> str:
+    """`arm_verdict` of a `view_pr` result, as of `checked_head`.
+
+    A moment after a push GitHub's view still names the previous head, whose mergeability says
+    nothing about the head checked, so it counts as not yet known.
+    """
+    current = view["headRefOid"] == checked_head
+    mergeable = view["mergeable"] if current else "UNKNOWN"
+    return arm_verdict(view["state"], mergeable, view["autoMergeRequest"] is not None)
 
 
 def report_missing_commits(pr: str, missing: dict[str, list[str]]) -> None:
@@ -56,16 +66,17 @@ def report_missing_commits(pr: str, missing: dict[str, list[str]]) -> None:
 
 def main(argv: list[str]) -> int:
     pr = parse_args(argv)
-    verdict = pr_verdict(pr)
+    view = view_pr(pr)
+    checked_head = view["headRefOid"]
     # Arming authorizes the merge, so first make sure no local work on the PR is left behind, and
-    # pin the merge to the head that check measured; a merged or closed PR has nothing left to
-    # authorize.
-    checked_head = None
-    if verdict not in ("merged", "closed"):
+    # pin the merge, and every verdict after it, to the head that check measured; a merged or
+    # closed PR has nothing left to authorize.
+    if view["state"] not in ("MERGED", "CLOSED"):
         checked_head, missing = commits_missing_from_pr(pr)
         if missing:
             report_missing_commits(pr, missing)
             return EXIT_NEEDS_ATTENTION
+    verdict = verdict_of(view, checked_head)
     # What the last arm attempt reported, success or refusal, for an exit-3 message.
     arm_outcome = "not attempted"
     for _ in range(POLL_LIMIT - 1):
@@ -80,7 +91,7 @@ def main(argv: list[str]) -> int:
             except RuntimeError as error:
                 arm_outcome = str(error)
         time.sleep(POLL_INTERVAL_SECONDS)
-        verdict = pr_verdict(pr)
+        verdict = verdict_of(view_pr(pr), checked_head)
 
     if verdict == "closed":
         print(f"PR #{pr} is CLOSED without merging.", file=sys.stderr)
