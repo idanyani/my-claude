@@ -179,9 +179,21 @@ class TestMergingLists:
 
 
 class TestMergingListsOfObjects:
-    """An object in a list is identified by its fields that are not lists (a hook group by its
-    matcher), and its list fields merge like any other list, so an object another tool edited
-    in place stays one object."""
+    """An object in a list is identified by every field but its member lists (a hook group by its
+    matcher), which merge like a top-level list, so an object another tool edited in place stays
+    one object."""
+
+    def test_leaves_another_tools_group_with_the_same_identity_alone(self):
+        repo = _hooks(SessionStart=[OURS])
+        live = _hooks(SessionStart=[THEIRS, OURS])
+        merged, _, overwritten, _ = merge(repo, live)
+        assert merged == live
+        assert overwritten == {}
+
+    def test_reports_dropping_a_duplicate_element(self):
+        merged, _, overwritten, _ = merge({"p": ["x"]}, {"p": ["x", "x"]})
+        assert merged == {"p": ["x"]}
+        assert overwritten == {"p": ["x", "x"]}
 
     def test_keeps_a_hook_another_tool_added_inside_a_repo_group(self):
         repo = _hooks(PreToolUse=[{"matcher": "Bash", "hooks": [OUR_HOOK]}])
@@ -210,11 +222,12 @@ class TestMergingListsOfObjects:
         assert list(overwritten) == ["hooks.PreToolUse"]
 
     def test_an_ordered_list_field_is_part_of_an_objects_identity(self):
-        # A handler's args are an argv: merging two handlers' args would corrupt both.
+        # A handler's args are an argv: one with other args is another handler, not the repo's
+        # with extra args merged in.
         ours = {"type": "command", "command": "python3", "args": ["a.py"]}
-        theirs = {"type": "command", "command": "python3", "args": ["mine.py"]}
-        merged = merge(_hooks(Stop=[{"hooks": [ours]}]), _hooks(Stop=[{"hooks": [theirs]}]))
-        assert merged.merged == _hooks(Stop=[{"hooks": [theirs, ours]}])
+        changed = {"type": "command", "command": "python3", "args": ["a.py", "mine.py"]}
+        merged = merge(_hooks(Stop=[{"hooks": [ours]}]), _hooks(Stop=[{"hooks": [changed]}]))
+        assert merged.merged == _hooks(Stop=[{"hooks": [changed]}, {"hooks": [ours]}])
 
     def test_keeps_every_repo_object_sharing_an_identity(self):
         repo = _hooks(SessionStart=[OURS, {"hooks": [{"type": "command", "command": "b"}]}])
@@ -527,3 +540,24 @@ class TestBootstrappingFromHistory:
         _write(live, {"allow": ["old", "mine"]})
         _install(repo, live, record)
         assert json.loads(live.read_text()) == {"allow": ["mine", "a"]}
+
+    def test_retires_a_hook_recorded_before_groups_were_identified_by_matcher(self, tmp_path):
+        # Such a record names a whole hook group, which no group's identity matches any more.
+        group = {"matcher": "Bash", "hooks": [OUR_HOOK]}
+        repo = _commit_history(
+            tmp_path / "clone", _hooks(PreToolUse=[group]), _hooks(PreToolUse=[])
+        )
+        live = tmp_path / "live.json"
+        record = tmp_path / "record.json"
+        _write(
+            record,
+            {
+                SETTINGS_KIND: ["/hooks", "/hooks/PreToolUse"],
+                "settings-elements": [f"/hooks/PreToolUse/{json.dumps(group, sort_keys=True)}"],
+            },
+        )
+        _write(live, _hooks(PreToolUse=[{"matcher": "Bash", "hooks": [OUR_HOOK, THEIR_HOOK]}]))
+        _install(repo, live, record)
+        assert json.loads(live.read_text()) == _hooks(
+            PreToolUse=[{"matcher": "Bash", "hooks": [THEIR_HOOK]}]
+        )

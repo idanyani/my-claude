@@ -11,11 +11,11 @@ added inside one of the repo's groups stays in that group.
 
 A key or list element absent from the repo is either the machine's own or one the repo dropped.
 To tell them apart, the install record (install_record.py) keeps what the repo ships: its key
-paths under the "settings" kind, and its list elements under the "settings-elements" kind, each
-as a JSON Pointer (RFC 6901) so a key containing a dot stays unambiguous; a list element's
-segment is its identity as canonical JSON. A recorded path the repo no longer ships is removed
-from the live file, keeping any machine-only key or list element nested inside it, and a
-recorded list element the repo no longer ships is removed from its list. For a kind missing from the record, everything
+paths under SETTINGS_KIND, and its list elements under ELEMENTS_KIND, each as a JSON Pointer
+(RFC 6901) so a key containing a dot stays unambiguous; a list element's segment is its identity
+as canonical JSON. A recorded path the repo no longer ships is removed from the live file,
+keeping any machine-only key or list element nested inside it, and a recorded list element the
+repo no longer ships is removed from its list. For a kind missing from the record, everything
 the repo's file shipped in its git history stands in for it, so what the repo dropped before the
 record existed is retired too.
 
@@ -50,7 +50,9 @@ Settings = dict[str, Any]
 KeyPath = tuple[str, ...]
 
 SETTINGS_KIND = "settings"
-ELEMENTS_KIND = "settings-elements"
+# Named for how it identifies an element: a record naming elements by another identity must be
+# missing this kind, so that git history stands in for it rather than entries nothing matches.
+ELEMENTS_KIND = "settings-element-identities"
 BACKUP_SUFFIX = ".bak"
 # The list fields of an object in a list whose elements merge one by one, like a top-level list:
 # a hook group's handlers, which other tools add to. Any other list field (a handler's args) is an
@@ -147,8 +149,9 @@ def _merge_list(
     """Return the `live` list at `keys` in its own order, each element merged with the `repo`
     element of the same identity, followed by the `repo` elements `live` lacks.
 
-    The k-th live element of an identity pairs with the k-th repo element of it. A live element
-    left unpaired whose identity `owned` holds keeps only the member elements the repo does not
+    The k-th live element of an identity pairs with the k-th repo element of it, skipping a live
+    object whose members are all another's (a group another tool added with no matcher, like the
+    repo's), which is not the repo's object. A live element left unpaired whose identity `owned` holds keeps only the member elements the repo does not
     own, and goes when none is left; any other unpaired element is kept and reported."""
     unpaired: dict[str, list[Any]] = {}
     for element in repo:
@@ -156,7 +159,7 @@ def _merge_list(
     merged = []
     for element in live:
         identity = _identity(element)
-        if unpaired.get(identity):
+        if unpaired.get(identity) and _holds_owned_member(keys, identity, element, owned):
             repo_element = unpaired[identity].pop(0)
             merged.append(_merge_element(result, keys, identity, repo_element, element, owned))
         elif _pointer((*keys, identity)) in owned:
@@ -197,6 +200,16 @@ def _unowned_part(result: Merge, keys: KeyPath, identity: str, live: Any, owned:
     return {**live, **members} if any(members.values()) else None
 
 
+def _holds_owned_member(keys: KeyPath, identity: str, element: Any, owned: set[str]) -> bool:
+    """Whether `element` has no members or holds one that `owned` names."""
+    members = _members(element)
+    return not members or any(
+        _pointer((*keys, identity, field, _identity(member))) in owned
+        for field, values in members.items()
+        for member in values
+    )
+
+
 def _members(element: Any) -> dict[str, list[Any]]:
     """Return the MEMBER_FIELDS of `element` that hold lists; none for an element not an object."""
     if not isinstance(element, dict):
@@ -206,9 +219,9 @@ def _members(element: Any) -> dict[str, list[Any]]:
 
 def _discards(live_value: Any, value: Any) -> bool:
     """Whether merging replaced `live_value` with a `value` that lost some of it; reordering a
-    list loses nothing."""
+    list loses nothing, dropping a duplicate does."""
     if isinstance(live_value, list) and isinstance(value, list):
-        return any(element not in value for element in live_value)
+        return any(live_value.count(element) > value.count(element) for element in live_value)
     return live_value != value
 
 
