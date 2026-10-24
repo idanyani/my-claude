@@ -12,6 +12,8 @@
   rejected. It links the problem with `Resolves #N` instead of restating it.
 - A commit message describes what the commit does to the repository's persistent state,
   never the session: no "as discussed", no naming uncommitted scratch files.
+- Move with `git mv` and delete with `git rm`, never plain `mv`/`rm`: they stage both sides,
+  so a commit cannot keep the old path or miss the deletion.
 
 ## Problem-solving
 
