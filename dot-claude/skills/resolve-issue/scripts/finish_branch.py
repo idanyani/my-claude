@@ -9,8 +9,8 @@ leave them behind. Then it arms auto-merge (squash, deleting the remote branch, 
 that check measured), retrying while GitHub refuses, and checks only what GitHub knows within
 seconds -- the PR merged, or auto-merge is armed and the PR has no conflict with `main` -- polling
 briefly while GitHub settles, and until GitHub's view names that head. It never waits for CI.
-Whatever surfaces later (a failed check, a conflict with a PR merged after this one, CI that never starts)
-leaves the PR open, where `gh pr ls` lists it (see references/git-workflow.md). The next
+Whatever surfaces later (a failed check, a conflict with a PR merged after this one, CI that never
+starts) leaves the PR open, where `gh pr ls` lists it (see references/git-workflow.md). The next
 start_branch.py deletes the merged branch, re-arms the PR if GitHub never fired its merge, and
 reopens it if its CI never started.
 
@@ -21,7 +21,8 @@ Exit 0: the PR merged, or will merge once its checks pass; the message says whic
     was still checking it for conflicts.
 Exit 1: the PR closed without merging, or a git/gh call failed.
 Exit 3: the PR needs a person -- local commits build on it without being in it, it conflicts with
-    main, or GitHub kept refusing to arm auto-merge; the message names which. Fix that and re-run.
+    main, GitHub kept refusing to arm auto-merge, or GitHub's view never named the head checked;
+    the message names which. Fix that and re-run.
 """
 
 import sys
@@ -71,7 +72,7 @@ def main(argv: list[str]) -> int:
     # Arming authorizes the merge, so first make sure no local work on the PR is left behind, and
     # pin the merge, and every verdict after it, to the head that check measured; a merged or
     # closed PR has nothing left to authorize.
-    if view["state"] not in ("MERGED", "CLOSED"):
+    if verdict_of(view, checked_head) not in ("merged", "closed"):
         checked_head, missing = commits_missing_from_pr(pr)
         if missing:
             report_missing_commits(pr, missing)
@@ -83,19 +84,28 @@ def main(argv: list[str]) -> int:
         if verdict not in SETTLING:
             break
         if verdict == "unarmed":
-            # Right after a push GitHub's PR can still describe the previous head: gh may then
-            # pick "merge now" over "enable auto-merge", and the head pin fails. GitHub refuses
-            # either way, a refused attempt changes nothing, and the next poll retries it.
+            # From a view of the previous head (see `verdict_of`) gh may pick "merge now" over
+            # "enable auto-merge", and the head pin fails. GitHub refuses either way, a refused
+            # attempt changes nothing, and the next poll retries it.
             try:
                 arm_outcome = arm_auto_merge(pr, checked_head) or "gh reported nothing"
             except RuntimeError as error:
                 arm_outcome = str(error)
         time.sleep(POLL_INTERVAL_SECONDS)
-        verdict = verdict_of(view_pr(pr), checked_head)
+        view = view_pr(pr)
+        verdict = verdict_of(view, checked_head)
 
     if verdict == "closed":
         print(f"PR #{pr} is CLOSED without merging.", file=sys.stderr)
         return 1
+    if verdict != "merged" and view["headRefOid"] != checked_head:
+        print(
+            f"GitHub's PR #{pr} still names head {view['headRefOid']}, not {checked_head} as its "
+            "branch on origin does, so whether it conflicts with main is unknown -- if the branch "
+            "moved or the PR comes from a fork, sort that out; then re-run.",
+            file=sys.stderr,
+        )
+        return EXIT_NEEDS_ATTENTION
     if verdict == "conflict":
         print(
             f"PR #{pr} conflicts with main -- merge main into the branch, resolve, push a new "

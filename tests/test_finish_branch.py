@@ -144,6 +144,21 @@ def test_waits_out_a_conflict_status_that_describes_the_previous_head(run):
     assert run([stale, ARMED]) == 0
 
 
+def test_stops_for_a_person_when_github_never_names_the_checked_head(run, git_calls, capsys):
+    stale = {**CONFLICT, "headRefOid": PREVIOUS_HEAD}
+    assert run([stale] * finish_branch.POLL_LIMIT) == finish_branch.EXIT_NEEDS_ATTENTION
+    err = capsys.readouterr().err
+    assert PREVIOUS_HEAD in err
+    assert HEAD in err
+    assert not returned_to_main(git_calls)
+
+
+def test_arms_a_pr_whose_view_names_the_previous_head_pinned_to_the_checked_head(run, arm_calls):
+    stale = {**UNARMED, "headRefOid": PREVIOUS_HEAD}
+    assert run([stale, ARMED]) == 0
+    assert arm_calls == [(PR, HEAD)]
+
+
 def test_proceeds_when_mergeability_stays_unknown(run, git_calls, capsys):
     assert run([UNKNOWN] * finish_branch.POLL_LIMIT) == 0
     assert "gh pr ls" in capsys.readouterr().out
