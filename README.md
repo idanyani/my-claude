@@ -23,9 +23,10 @@ any project, loaded into every Claude Code session on a machine that installs my
 ## Skills
 
 - **[resolve-issue](dot-claude/skills/resolve-issue/SKILL.md)** -- implement a GitHub issue
-  end-to-end: ground in the repo, read the issue, branch, TDD, verify, `/simplify`, PR with
-  in-session review, auto-merge, clean up. Ships stdlib-only helper scripts (`python3`, `git`,
-  `gh` are the only runtime requirements) and the canonical
+  end-to-end: ground in the repo, read the issue, brief the user, branch, TDD, verify,
+  `/simplify`, PR with in-session review, auto-merge, clean up, brief the user on the result.
+  Ships stdlib-only helper scripts (`python3`, `git`, `gh` are the only runtime requirements)
+  and the canonical
   [git-workflow doc](dot-claude/skills/resolve-issue/references/git-workflow.md).
 - **[docs-review](dot-claude/skills/docs-review/SKILL.md)** -- review docs, docstrings, and
   comments for stale or unbacked claims, broken links, prose-convention drift, and docs shaped
@@ -40,6 +41,10 @@ any project, loaded into every Claude Code session on a machine that installs my
   jobs, hooks, data files, and modes that nothing calls, invokes, or reads, searching the whole
   repo rather than only the diff, including targets a change orphaned by dropping their last
   reference; report ranked findings, making no edits.
+- **[brief](dot-claude/skills/brief/SKILL.md)** -- fill the user in on a session's work so they
+  can review and steer it: one screen, top-down from the epic, issue and PR, with each finding
+  tagged by how well it is backed, the choices made without the user, and the decisions waiting
+  on them.
 
 ## Install
 

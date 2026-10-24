@@ -95,6 +95,16 @@
 - No hardcoded counts that rot: prefer structural descriptions unless the number is cited
   or definitional.
 
+## Messages to the user
+
+- Report work for review, or ask for a decision that needs background, in the brief skill's
+  format: the user supervises the work and steers it from what the message tells them. Ask a
+  quick question that stands on its own directly.
+- Explain the problem before the mechanism that fixes it.
+- The coined-vocabulary rule of Docs content applies to messages too: a label made up
+  mid-session means nothing to a user who was away.
+- When the user reads back their understanding, confirm or correct it first, directly.
+
 ## Docs content
 
 - Docs tell the high-level story; mechanism lives in the code. The refactor test: a
