@@ -85,8 +85,15 @@ class TestMerge:
         assert removed == ["a"]
 
 
-OURS = {"hooks": [{"type": "command", "command": "ours.py"}]}
-THEIRS = {"hooks": [{"type": "command", "command": "theirs.sh"}]}
+OUR_HOOK = {"type": "command", "command": "ours.py"}
+THEIR_HOOK = {"type": "command", "command": "theirs.sh"}
+OURS = {"hooks": [OUR_HOOK]}
+THEIRS = {"hooks": [THEIR_HOOK]}
+
+
+def _kept_hook(event, hook, group="{}"):
+    """The report of a kept hook nested in the matcher group whose identity is `group`."""
+    return f"hooks.{event}.{group}.hooks {json.dumps(hook, sort_keys=True)}"
 
 
 def _hooks(**events):
@@ -102,7 +109,7 @@ class TestMergingLists:
         live = _hooks(SessionStart=[OURS, THEIRS])
         merged, kept, overwritten, removed = merge(repo, live)
         assert merged == live
-        assert kept == [f"hooks.SessionStart {json.dumps(THEIRS, sort_keys=True)}"]
+        assert kept == [_kept_hook("SessionStart", THEIR_HOOK)]
         assert overwritten == {}
         assert removed == []
 
@@ -151,7 +158,7 @@ class TestMergingLists:
             owned=shipped_elements(_hooks(Stop=[OURS])),
         )
         assert merged == _hooks(Stop=[THEIRS])
-        assert kept == [f"hooks.Stop {json.dumps(THEIRS, sort_keys=True)}"]
+        assert kept == [_kept_hook("Stop", THEIR_HOOK)]
         assert overwritten == {"hooks.Stop": [OURS, THEIRS]}
 
     def test_removes_a_dropped_list_whole_when_the_repo_owns_every_element(self):
@@ -171,7 +178,68 @@ class TestMergingLists:
         assert overwritten == {"hooks.Stop": "broken"}
 
 
+class TestMergingListsOfObjects:
+    """An object in a list is identified by every field but its member lists (a hook group by its
+    matcher), which merge like a top-level list, so an object another tool edited in place stays
+    one object."""
+
+    def test_leaves_another_tools_group_with_the_same_identity_alone(self):
+        repo = _hooks(SessionStart=[OURS])
+        live = _hooks(SessionStart=[THEIRS, OURS])
+        merged, _, overwritten, _ = merge(repo, live)
+        assert merged == live
+        assert overwritten == {}
+
+    def test_reports_dropping_a_duplicate_element(self):
+        merged, _, overwritten, _ = merge({"p": ["x"]}, {"p": ["x", "x"]})
+        assert merged == {"p": ["x"]}
+        assert overwritten == {"p": ["x", "x"]}
+
+    def test_keeps_a_hook_another_tool_added_inside_a_repo_group(self):
+        repo = _hooks(PreToolUse=[{"matcher": "Bash", "hooks": [OUR_HOOK]}])
+        live = _hooks(PreToolUse=[{"matcher": "Bash", "hooks": [OUR_HOOK, THEIR_HOOK]}])
+        merged, kept, overwritten, _ = merge(repo, live)
+        assert merged == live
+        assert kept == [_kept_hook("PreToolUse", THEIR_HOOK, '{"matcher": "Bash"}')]
+        assert overwritten == {}
+
+    def test_retires_a_repo_hook_from_a_group_another_tool_edited(self):
+        old = _hooks(PreToolUse=[{"matcher": "Bash", "hooks": [OUR_HOOK]}])
+        live = _hooks(PreToolUse=[{"matcher": "Bash", "hooks": [OUR_HOOK, THEIR_HOOK]}])
+        merged = merge(_hooks(PreToolUse=[]), live, owned=shipped_elements(old)).merged
+        assert merged == _hooks(PreToolUse=[{"matcher": "Bash", "hooks": [THEIR_HOOK]}])
+
+    def test_drops_a_duplicate_of_a_repo_group(self):
+        repo = _hooks(PreToolUse=[{"matcher": "Bash", "hooks": [OUR_HOOK]}])
+        live = _hooks(
+            PreToolUse=[
+                {"matcher": "Bash", "hooks": [OUR_HOOK, THEIR_HOOK]},
+                {"matcher": "Bash", "hooks": [OUR_HOOK]},
+            ]
+        )
+        merged, _, overwritten, _ = merge(repo, live)
+        assert merged == _hooks(PreToolUse=[{"matcher": "Bash", "hooks": [OUR_HOOK, THEIR_HOOK]}])
+        assert list(overwritten) == ["hooks.PreToolUse"]
+
+    def test_an_ordered_list_field_is_part_of_an_objects_identity(self):
+        # A handler's args are an argv: one with other args is another handler, not the repo's
+        # with extra args merged in.
+        ours = {"type": "command", "command": "python3", "args": ["a.py"]}
+        changed = {"type": "command", "command": "python3", "args": ["a.py", "mine.py"]}
+        merged = merge(_hooks(Stop=[{"hooks": [ours]}]), _hooks(Stop=[{"hooks": [changed]}]))
+        assert merged.merged == _hooks(Stop=[{"hooks": [changed]}, {"hooks": [ours]}])
+
+    def test_keeps_every_repo_object_sharing_an_identity(self):
+        repo = _hooks(SessionStart=[OURS, {"hooks": [{"type": "command", "command": "b"}]}])
+        assert merge(repo, {}).merged == repo
+        assert merge(repo, repo) == (repo, [], {}, [])
+
+
 class TestShippedElements:
+    def test_names_the_elements_nested_in_an_object_in_a_list(self):
+        settings = {"h": [{"m": "x", "hooks": ["a"]}]}
+        assert shipped_elements(settings) == {'/h/{"m": "x"}', '/h/{"m": "x"}/hooks/"a"'}
+
     def test_names_every_list_element_under_its_lists_json_pointer(self):
         settings = {"permissions": {"allow": ["x"]}, "model": "opus"}
         assert shipped_elements(settings) == {'/permissions/allow/"x"'}
@@ -472,3 +540,24 @@ class TestBootstrappingFromHistory:
         _write(live, {"allow": ["old", "mine"]})
         _install(repo, live, record)
         assert json.loads(live.read_text()) == {"allow": ["mine", "a"]}
+
+    def test_retires_a_hook_recorded_before_groups_were_identified_by_matcher(self, tmp_path):
+        # Such a record names a whole hook group, which no group's identity matches any more.
+        group = {"matcher": "Bash", "hooks": [OUR_HOOK]}
+        repo = _commit_history(
+            tmp_path / "clone", _hooks(PreToolUse=[group]), _hooks(PreToolUse=[])
+        )
+        live = tmp_path / "live.json"
+        record = tmp_path / "record.json"
+        _write(
+            record,
+            {
+                SETTINGS_KIND: ["/hooks", "/hooks/PreToolUse"],
+                "settings-elements": [f"/hooks/PreToolUse/{json.dumps(group, sort_keys=True)}"],
+            },
+        )
+        _write(live, _hooks(PreToolUse=[{"matcher": "Bash", "hooks": [OUR_HOOK, THEIR_HOOK]}]))
+        _install(repo, live, record)
+        assert json.loads(live.read_text()) == _hooks(
+            PreToolUse=[{"matcher": "Bash", "hooks": [THEIR_HOOK]}]
+        )
