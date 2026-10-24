@@ -21,8 +21,9 @@ Each kept key or list element, removed key, and overwritten differing value is r
 stderr, so drift is visible and can be folded into the repo; an overwrite report carries the live
 value it replaced. When the merge overwrites or removes anything, or replaces a live file that is
 not a JSON object, the live file is first copied next to itself with a BACKUP_SUFFIX, so every
-discarded value stays recoverable as restorable JSON after the run's output is gone. The backup holds the last run that discarded something; earlier backups are
-replaced rather than accumulated.
+discarded value stays recoverable as restorable JSON after the run's output is gone. The backup
+holds the last run that discarded something; earlier backups are replaced rather than
+accumulated.
 
 Usage: merge_settings.py <repo-settings.json> <live-settings.json> <record-file>
 """
@@ -80,8 +81,8 @@ def merge(
     repo: Settings, live: Settings, dropped: Collection[str] = (), owned: Collection[str] = ()
 ) -> Merge:
     """Merge `repo` into `live`, removing the live keys whose JSON Pointer is in `dropped` and the
-    live list elements whose JSON Pointer is in `owned` or `repo` ships."""
-    return _merge(repo, live, (), set(dropped), set(owned) | shipped_elements(repo))
+    live list elements whose JSON Pointer is in `owned` and that `repo` no longer ships."""
+    return _merge(repo, live, (), set(dropped), set(owned))
 
 
 def _merge(
@@ -96,9 +97,9 @@ def _merge(
                 continue
             value = repo[key]
             if isinstance(value, list) and isinstance(live_value, list):
-                value = value + _keep_foreign(result, keys, live_value, owned)
+                value = _merge_list(result, keys, value, live_value, owned)
             result.merged[key] = value
-            if live_value != value:
+            if _discards(live_value, value):
                 result.overwritten[_dotted(keys)] = live_value
         elif _pointer(keys) not in dropped:
             result.merged[key] = live_value
@@ -112,10 +113,10 @@ def _merge(
             else:
                 result.removed.append(_dotted(keys))
         elif isinstance(live_value, list) and (
-            foreign := _keep_foreign(result, keys, live_value, owned)
+            foreign := _merge_list(result, keys, [], live_value, owned)
         ):
             result.merged[key] = foreign
-            if live_value != foreign:
+            if _discards(live_value, foreign):
                 result.overwritten[_dotted(keys)] = live_value
         else:
             result.removed.append(_dotted(keys))
@@ -125,11 +126,23 @@ def _merge(
     return result
 
 
-def _keep_foreign(result: Merge, keys: KeyPath, live: list[Any], owned: set[str]) -> list[Any]:
-    """Return the elements of the `live` list at `keys` not in `owned`, reporting each as kept."""
-    foreign = [element for element in live if _element_pointer(keys, element) not in owned]
-    result.kept.extend(f"{_dotted(keys)} {json.dumps(element)}" for element in foreign)
-    return foreign
+def _merge_list(
+    result: Merge, keys: KeyPath, repo: list[Any], live: list[Any], owned: set[str]
+) -> list[Any]:
+    """Return the `live` list at `keys` in its own order, without the elements in `owned` that
+    `repo` lacks, followed by the `repo` elements `live` lacks; report each kept element `repo`
+    lacks."""
+    merged = [e for e in live if e in repo or _element_pointer(keys, e) not in owned]
+    result.kept.extend(f"{_dotted(keys)} {_canonical(e)}" for e in merged if e not in repo)
+    return merged + [e for e in repo if e not in live]
+
+
+def _discards(live_value: Any, value: Any) -> bool:
+    """Whether merging replaced `live_value` with a `value` that lost some of it; reordering a
+    list loses nothing."""
+    if isinstance(live_value, list) and isinstance(value, list):
+        return any(element not in value for element in live_value)
+    return live_value != value
 
 
 def _absorb(result: Merge, key: str, inner: Merge) -> None:
@@ -152,7 +165,11 @@ def _pointer(keys: KeyPath) -> str:
 
 
 def _element_pointer(keys: KeyPath, element: Any) -> str:
-    return _pointer((*keys, json.dumps(element, sort_keys=True)))
+    return _pointer((*keys, _canonical(element)))
+
+
+def _canonical(element: Any) -> str:
+    return json.dumps(element, sort_keys=True)
 
 
 def _dotted(keys: KeyPath) -> str:

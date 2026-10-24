@@ -102,7 +102,7 @@ class TestMergingLists:
         live = _hooks(SessionStart=[OURS, THEIRS])
         merged, kept, overwritten, removed = merge(repo, live)
         assert merged == live
-        assert kept == [f"hooks.SessionStart {json.dumps(THEIRS)}"]
+        assert kept == [f"hooks.SessionStart {json.dumps(THEIRS, sort_keys=True)}"]
         assert overwritten == {}
         assert removed == []
 
@@ -112,6 +112,19 @@ class TestMergingLists:
         merged, _, overwritten, _ = merge(repo, first)
         assert merged == first
         assert overwritten == {}
+
+    def test_keeps_the_live_element_order_and_appends_missing_repo_elements(self):
+        merged, _, overwritten, _ = merge({"a": ["x", "y", "z"]}, {"a": ["y", "x"]})
+        assert merged == {"a": ["y", "x", "z"]}
+        assert overwritten == {}
+
+    def test_keeps_an_owned_element_the_repo_still_ships(self):
+        repo = {"a": ["x"]}
+        assert merge(repo, {"a": ["x"]}, owned=shipped_elements(repo)) == (repo, [], {}, [])
+
+    def test_reports_a_kept_element_as_canonical_json(self):
+        _, kept, _, _ = merge({"a": []}, {"a": [{"b": 1, "a": 2}]})
+        assert kept == ['a {"a": 2, "b": 1}']
 
     def test_identifies_an_element_regardless_of_its_key_order(self):
         repo = {"list": [{"a": 1, "b": 2}]}
@@ -127,7 +140,7 @@ class TestMergingLists:
             {"permissions": {"allow": ["old", "mine"]}},
             owned=owned,
         )
-        assert merged == {"permissions": {"allow": ["a", "mine"]}}
+        assert merged == {"permissions": {"allow": ["mine", "a"]}}
         assert overwritten == {"permissions.allow": ["old", "mine"]}
 
     def test_keeps_the_foreign_elements_of_a_list_the_repo_dropped(self):
@@ -138,7 +151,7 @@ class TestMergingLists:
             owned=shipped_elements(_hooks(Stop=[OURS])),
         )
         assert merged == _hooks(Stop=[THEIRS])
-        assert kept == [f"hooks.Stop {json.dumps(THEIRS)}"]
+        assert kept == [f"hooks.Stop {json.dumps(THEIRS, sort_keys=True)}"]
         assert overwritten == {"hooks.Stop": [OURS, THEIRS]}
 
     def test_removes_a_dropped_list_whole_when_the_repo_owns_every_element(self):
@@ -449,4 +462,4 @@ class TestBootstrappingFromHistory:
         _write(record, {SETTINGS_KIND: ["/allow"]})
         _write(live, {"allow": ["old", "mine"]})
         _install(repo, live, record)
-        assert json.loads(live.read_text()) == {"allow": ["a", "mine"]}
+        assert json.loads(live.read_text()) == {"allow": ["mine", "a"]}
