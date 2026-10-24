@@ -263,6 +263,15 @@ class TestMain:
         with pytest.raises(SystemExit):
             main([])
 
+    def test_a_repeated_install_rewrites_neither_the_live_file_nor_the_record(self, repo, tmp_path):
+        # Every running session's settings watcher sees a replaced file, even an identical one.
+        live = tmp_path / "live.json"
+        record = tmp_path / "record.json"
+        _install(repo, live, record)
+        before = live.stat().st_ino, record.stat().st_ino
+        _install(repo, live, record)
+        assert (live.stat().st_ino, record.stat().st_ino) == before
+
 
 def _write(path, settings):
     path.write_text(json.dumps(settings))
