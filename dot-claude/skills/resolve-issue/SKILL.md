@@ -72,8 +72,8 @@ real output.
 ## Phase 8 -- Simplify
 
 Once the pipeline passes, run the bundled `/simplify` on the uncommitted change, so its cleanup
-fixes land in the implementation commit rather than as review fix-ups. First `git add -N` any new
-files: its diff leaves untracked files out. Skip it when the change has no code outside tests --
+fixes land in the implementation commit rather than as review fix-ups. First `git add -N` each file
+the change created: its diff leaves untracked files out. Skip it when the change has no code outside tests --
 prose (docs, skills, `CLAUDE.md`) and test-only changes give its cleanup angles nothing to work
 on. If it edited anything, revert any edit that weakens a test, run the pipeline again, and paste
 that output too; revert the edits that turn it red rather than fixing forward.

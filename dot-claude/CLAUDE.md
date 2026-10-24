@@ -14,6 +14,9 @@
   never the session: no "as discussed", no naming uncommitted scratch files.
 - Move with `git mv` and delete with `git rm`, never plain `mv`/`rm`: they stage both sides,
   so a commit cannot keep the old path or miss the deletion.
+- Stage only the files the change touched, each by its path: never a directory, a glob, or
+  an all-files flag (`-A`, `-u`, `commit -a`), which sweep in scratch output, local config,
+  or edits another session left in the same tree.
 
 ## Problem-solving
 
