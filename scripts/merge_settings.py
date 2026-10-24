@@ -3,17 +3,19 @@
 
 Claude Code rewrites the live file at runtime, so it is merged rather than linked or copied:
 every key the repo defines takes the repo's value, and keys that exist only on the machine are
-kept. Objects merge recursively; a list is the repo's elements followed by the live elements the
-repo does not own, so an entry another tool or the machine added (a hook, a permission) survives;
-any other value is replaced whole.
+kept. Objects merge recursively; a list keeps its live order and the live elements the repo does
+not own, so an entry another tool or the machine added (a hook, a permission) survives; any other
+value is replaced whole. An object in a list is identified by every field but its MEMBER_FIELDS
+(a hook group by its matcher), whose lists merge like a top-level list, so a hook another tool
+added inside one of the repo's groups stays in that group.
 
 A key or list element absent from the repo is either the machine's own or one the repo dropped.
 To tell them apart, the install record (install_record.py) keeps what the repo ships: its key
 paths under the "settings" kind, and its list elements under the "settings-elements" kind, each
-as a JSON Pointer (RFC 6901) so a key containing a dot stays unambiguous; a list element's last
-segment is its canonical JSON. A recorded path the repo no longer ships is removed from the live
-file, keeping any machine-only key or list element nested inside it, and a recorded list element
-the repo no longer ships is removed from its list. For a kind missing from the record, everything
+as a JSON Pointer (RFC 6901) so a key containing a dot stays unambiguous; a list element's
+segment is its identity as canonical JSON. A recorded path the repo no longer ships is removed
+from the live file, keeping any machine-only key or list element nested inside it, and a
+recorded list element the repo no longer ships is removed from its list. For a kind missing from the record, everything
 the repo's file shipped in its git history stands in for it, so what the repo dropped before the
 record existed is retired too.
 
@@ -50,6 +52,10 @@ KeyPath = tuple[str, ...]
 SETTINGS_KIND = "settings"
 ELEMENTS_KIND = "settings-elements"
 BACKUP_SUFFIX = ".bak"
+# The list fields of an object in a list whose elements merge one by one, like a top-level list:
+# a hook group's handlers, which other tools add to. Any other list field (a handler's args) is an
+# ordered value and part of the object's identity.
+MEMBER_FIELDS = frozenset({"hooks"})
 
 
 class Merge(NamedTuple):
@@ -68,13 +74,22 @@ def shipped_paths(settings: Settings) -> set[str]:
 
 
 def shipped_elements(settings: Settings) -> set[str]:
-    """Return the JSON Pointer of every list element in `settings`, nested lists included."""
+    """Return the JSON Pointer of every list element in `settings`, including the elements of
+    lists nested in objects and in the MEMBER_FIELDS of an object in a list."""
     return {
-        _element_pointer(keys, element)
+        pointer
         for keys, value in _key_values(settings, ())
         if isinstance(value, list)
-        for element in value
+        for pointer in _list_pointers(keys, value)
     }
+
+
+def _list_pointers(keys: KeyPath, elements: list[Any]) -> Iterator[str]:
+    for element in elements:
+        identity = _identity(element)
+        yield _pointer((*keys, identity))
+        for field, members in _members(element).items():
+            yield from _list_pointers((*keys, identity, field), members)
 
 
 def merge(
@@ -82,7 +97,7 @@ def merge(
 ) -> Merge:
     """Merge `repo` into `live`, removing the live keys whose JSON Pointer is in `dropped` and the
     live list elements whose JSON Pointer is in `owned` and that `repo` no longer ships."""
-    return _merge(repo, live, (), set(dropped), set(owned))
+    return _merge(repo, live, (), set(dropped), set(owned) | shipped_elements(repo))
 
 
 def _merge(
@@ -129,12 +144,64 @@ def _merge(
 def _merge_list(
     result: Merge, keys: KeyPath, repo: list[Any], live: list[Any], owned: set[str]
 ) -> list[Any]:
-    """Return the `live` list at `keys` in its own order, without the elements in `owned` that
-    `repo` lacks, followed by the `repo` elements `live` lacks; report each kept element `repo`
-    lacks."""
-    merged = [e for e in live if e in repo or _element_pointer(keys, e) not in owned]
-    result.kept.extend(f"{_dotted(keys)} {_canonical(e)}" for e in merged if e not in repo)
-    return merged + [e for e in repo if e not in live]
+    """Return the `live` list at `keys` in its own order, each element merged with the `repo`
+    element of the same identity, followed by the `repo` elements `live` lacks.
+
+    The k-th live element of an identity pairs with the k-th repo element of it. A live element
+    left unpaired whose identity `owned` holds keeps only the member elements the repo does not
+    own, and goes when none is left; any other unpaired element is kept and reported."""
+    unpaired: dict[str, list[Any]] = {}
+    for element in repo:
+        unpaired.setdefault(_identity(element), []).append(element)
+    merged = []
+    for element in live:
+        identity = _identity(element)
+        if unpaired.get(identity):
+            repo_element = unpaired[identity].pop(0)
+            merged.append(_merge_element(result, keys, identity, repo_element, element, owned))
+        elif _pointer((*keys, identity)) in owned:
+            if (rest := _unowned_part(result, keys, identity, element, owned)) is not None:
+                merged.append(rest)
+        else:
+            merged.append(element)
+            result.kept.append(f"{_dotted(keys)} {_canonical(element)}")
+    return merged + [element for left in unpaired.values() for element in left]
+
+
+def _merge_element(
+    result: Merge, keys: KeyPath, identity: str, repo: Any, live: Any, owned: set[str]
+) -> Any:
+    """Return the `live` element paired with `repo`: the repo's, with each member list merged."""
+    if not isinstance(repo, dict):
+        return repo
+    live_members = _members(live)
+    return {
+        **repo,
+        **{
+            field: _merge_list(
+                result, (*keys, identity, field), members, live_members[field], owned
+            )
+            for field, members in _members(repo).items()
+            if field in live_members
+        },
+    }
+
+
+def _unowned_part(result: Merge, keys: KeyPath, identity: str, live: Any, owned: set[str]) -> Any:
+    """Return the `live` element the repo owns with only the member elements it does not own, or
+    None when none is left."""
+    members = {
+        field: _merge_list(result, (*keys, identity, field), [], value, owned)
+        for field, value in _members(live).items()
+    }
+    return {**live, **members} if any(members.values()) else None
+
+
+def _members(element: Any) -> dict[str, list[Any]]:
+    """Return the MEMBER_FIELDS of `element` that hold lists; none for an element not an object."""
+    if not isinstance(element, dict):
+        return {}
+    return {f: v for f, v in element.items() if f in MEMBER_FIELDS and isinstance(v, list)}
 
 
 def _discards(live_value: Any, value: Any) -> bool:
@@ -164,8 +231,12 @@ def _pointer(keys: KeyPath) -> str:
     return "".join("/" + key.replace("~", "~0").replace("/", "~1") for key in keys)
 
 
-def _element_pointer(keys: KeyPath, element: Any) -> str:
-    return _pointer((*keys, _canonical(element)))
+def _identity(element: Any) -> str:
+    """The canonical JSON of `element` without its member lists."""
+    members = _members(element)
+    if members:
+        element = {k: v for k, v in element.items() if k not in members}
+    return _canonical(element)
 
 
 def _canonical(element: Any) -> str:
