@@ -1,17 +1,6 @@
 # Working conventions
 
-## Git commit messages
-
-- Start with a specific imperative verb conveying intent ("Implement", "Refactor",
-  "Document", "Harden") -- not generic "Add"/"Update"/"Change".
-- Describe what the commit does to the repository's persistent state, never the session:
-  no "as discussed", no naming uncommitted scratch files.
-- No conventional-commit prefixes ("feat:", "fix:"); no Co-Authored-By lines.
-- Reference issues with `Resolves #N`.
-- Rename/move with `git mv` and delete with `git rm`, never plain `rm`, so history
-  follows the file.
-
-## Issues and pull requests
+## Issues, pull requests, and commits
 
 - Every change meant to land on `main` follows the resolve-issue skill's steps, through the
   merge and local cleanup, even when the session did not start from an issue: first open an
@@ -21,6 +10,8 @@
   two issues, each resolved by its own PR.
 - A PR states the chosen solution and the alternatives considered, each with why it was
   rejected. It links the problem with `Resolves #N` instead of restating it.
+- A commit message describes what the commit does to the repository's persistent state,
+  never the session: no "as discussed", no naming uncommitted scratch files.
 
 ## Problem-solving
 
