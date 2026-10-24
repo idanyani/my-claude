@@ -97,8 +97,9 @@
 
 ## Messages to the user
 
-- Report work for review, or ask for a decision, in the brief skill's format: the user
-  supervises the work and steers it from what the message tells them.
+- Report work for review, or ask for a decision that needs background, in the brief skill's
+  format: the user supervises the work and steers it from what the message tells them. Ask a
+  quick question that stands on its own directly.
 - Explain the problem before the mechanism that fixes it.
 - The coined-vocabulary rule of Docs content applies to messages too: a label made up
   mid-session means nothing to a user who was away.
