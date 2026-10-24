@@ -1,6 +1,7 @@
 """Tests for the install record that lets a later install retire what the repo dropped."""
 
 import json
+import os
 
 import pytest
 from install_record import read_record, retired, write_atomically, write_kind
@@ -71,6 +72,21 @@ class TestWriteAtomically:
         path = tmp_path / "settings.json"
         write_atomically(path, b"{}\n")
         write_atomically(path, b"[]\n")
+        assert path.read_bytes() == b"[]\n"
+
+    def test_leaves_an_owner_only_file_with_the_same_content_in_place(self, tmp_path):
+        path = tmp_path / "settings.json"
+        write_atomically(path, b"{}\n", mode=0o600)
+        before = path.stat().st_ino
+        write_atomically(path, b"{}\n")
+        assert path.stat().st_ino == before
+
+    @pytest.mark.skipif(os.geteuid() == 0, reason="root reads any file")
+    def test_replaces_a_file_it_cannot_read(self, tmp_path):
+        path = tmp_path / "settings.json"
+        write_atomically(path, b"{}\n", mode=0o200)
+        write_atomically(path, b"[]\n")
+        path.chmod(0o600)
         assert path.read_bytes() == b"[]\n"
 
     def test_applies_a_new_mode_to_a_file_with_the_same_content(self, tmp_path):

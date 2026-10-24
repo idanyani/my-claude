@@ -62,7 +62,7 @@ def write_atomically(path: Path, content: bytes, mode: int | None = None) -> Non
     if mode is None:
         # mkstemp creates the file owner-only; keep the mode the file had, as `cp` did.
         mode = NEW_FILE_MODE if current_mode is None else current_mode
-    if current_mode == mode and target.read_bytes() == content:
+    if current_mode == mode and _holds(target, content):
         return
     fd, tmp = tempfile.mkstemp(dir=target.parent, prefix=target.name, suffix=".tmp")
     try:
@@ -73,3 +73,11 @@ def write_atomically(path: Path, content: bytes, mode: int | None = None) -> Non
     except BaseException:
         os.unlink(tmp)
         raise
+
+
+def _holds(path: Path, content: bytes) -> bool:
+    """Whether `path` holds `content`; a file it cannot read is taken not to."""
+    try:
+        return path.read_bytes() == content
+    except OSError:
+        return False
