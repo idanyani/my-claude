@@ -7,7 +7,7 @@ on a second worktree's detached HEAD.
 from pathlib import Path
 
 import pytest
-from git_repo import commit, git, publish_pr_head
+from git_repo import commit, git
 from lib import unpushed
 from lib.unpushed import commits_missing_from_pr, parse_local_tips
 
@@ -21,8 +21,7 @@ def pr_head(clone: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     git(clone, "checkout", "-q", "-b", BRANCH, "main")
     head = commit(clone, "implement")
     git(clone, "push", "-q", "-u", "origin", BRANCH)
-    publish_pr_head(clone, head, PR)
-    view = {"headRefOid": head, "commits": [{"oid": head}]}
+    view = {"headRefName": BRANCH, "commits": [{"oid": head}]}
     monkeypatch.setattr(unpushed, "run_gh", lambda _args: view)
     return head
 
@@ -74,6 +73,12 @@ class TestCommitsMissingFromPr:
     def test_reports_an_unpushed_commit_on_the_pr_branch(self, clone, pr_head):
         commit(clone, "fix review finding")
         assert subjects(commits_missing_from_pr(PR)) == {BRANCH: ["fix review finding"]}
+
+    def test_counts_a_pushed_commit_github_has_not_yet_added_to_the_pr(self, clone, pr_head):
+        # GitHub adds a pushed commit to the PR seconds later, so the faked view still lacks it.
+        commit(clone, "fix review finding")
+        git(clone, "push", "-q", "origin", BRANCH)
+        assert commits_missing_from_pr(PR) == {}
 
     def test_reports_a_commit_on_another_worktrees_branch_with_no_upstream(
         self, clone, pr_head, tmp_path

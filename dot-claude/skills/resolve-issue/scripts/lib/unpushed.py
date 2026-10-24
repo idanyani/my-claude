@@ -32,10 +32,11 @@ def commits_missing_from_pr(pr: str) -> dict[str, list[str]]:
 
     Returns `git rev-list --oneline` lines per tip label; empty when the PR holds them all.
     """
-    view = run_gh(["pr", "view", pr, "--json", "headRefOid,commits"])
-    head = view["headRefOid"]
-    # The head may exist only on the remote, e.g. after GitHub's update-branch merge.
-    run_git(["fetch", "origin", f"pull/{pr}/head"])
+    view = run_gh(["pr", "view", pr, "--json", "headRefName,commits"])
+    # Fetch the head branch, not the PR head: GitHub updates the PR seconds after a push, and the
+    # branch may hold commits that exist only on the remote (e.g. after an update-branch merge).
+    run_git(["fetch", "origin", f"refs/heads/{view['headRefName']}"])
+    head = run_git(["rev-parse", "FETCH_HEAD"]).strip()
     tips = parse_local_tips(
         run_git(["for-each-ref", "--format=%(objectname) %(refname:lstrip=2)", "refs/heads"]),
         run_git(["worktree", "list", "--porcelain"]),
