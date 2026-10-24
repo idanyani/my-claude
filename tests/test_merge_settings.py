@@ -6,7 +6,15 @@ import subprocess
 
 import pytest
 from install_record import read_record
-from merge_settings import BACKUP_SUFFIX, SETTINGS_KIND, main, merge, shipped_paths
+from merge_settings import (
+    BACKUP_SUFFIX,
+    ELEMENTS_KIND,
+    SETTINGS_KIND,
+    main,
+    merge,
+    shipped_elements,
+    shipped_paths,
+)
 
 
 class TestMerge:
@@ -36,14 +44,6 @@ class TestMerge:
     def test_equal_values_are_not_reported(self):
         settings = {"theme": "dark", "hooks": {"Stop": [{"command": "x"}]}}
         assert merge(settings, json.loads(json.dumps(settings))) == (settings, [], {}, [])
-
-    def test_replaces_lists_instead_of_unioning_them(self):
-        # A union would keep a permission the repo removed on every machine forever.
-        merged, _, overwritten, _ = merge(
-            {"permissions": {"allow": ["a"]}}, {"permissions": {"allow": ["a", "b"]}}
-        )
-        assert merged == {"permissions": {"allow": ["a"]}}
-        assert overwritten == {"permissions.allow": ["a", "b"]}
 
     def test_repo_object_replaces_a_live_scalar(self):
         merged, _, overwritten, _ = merge({"hooks": {"Stop": []}}, {"hooks": "broken"})
@@ -85,6 +85,88 @@ class TestMerge:
         assert removed == ["a"]
 
 
+OURS = {"hooks": [{"type": "command", "command": "ours.py"}]}
+THEIRS = {"hooks": [{"type": "command", "command": "theirs.sh"}]}
+
+
+def _hooks(**events):
+    return {"hooks": events}
+
+
+class TestMergingLists:
+    """A list keeps the elements another tool or the machine added; the repo owns only the ones
+    it ships or once shipped."""
+
+    def test_keeps_and_reports_an_element_another_tool_added(self):
+        repo = _hooks(SessionStart=[OURS])
+        live = _hooks(SessionStart=[OURS, THEIRS])
+        merged, kept, overwritten, removed = merge(repo, live)
+        assert merged == live
+        assert kept == [f"hooks.SessionStart {json.dumps(THEIRS)}"]
+        assert overwritten == {}
+        assert removed == []
+
+    def test_merging_its_own_result_again_changes_nothing(self):
+        repo = _hooks(SessionStart=[OURS])
+        first = merge(repo, _hooks(SessionStart=[THEIRS])).merged
+        merged, _, overwritten, _ = merge(repo, first)
+        assert merged == first
+        assert overwritten == {}
+
+    def test_identifies_an_element_regardless_of_its_key_order(self):
+        repo = {"list": [{"a": 1, "b": 2}]}
+        merged, kept, _, _ = merge(repo, {"list": [{"b": 2, "a": 1}]})
+        assert merged == repo
+        assert kept == []
+
+    def test_removes_an_element_the_repo_once_shipped(self):
+        # Keeping it would keep a permission the repo removed on every machine forever.
+        owned = shipped_elements({"permissions": {"allow": ["old"]}})
+        merged, _, overwritten, _ = merge(
+            {"permissions": {"allow": ["a"]}},
+            {"permissions": {"allow": ["old", "mine"]}},
+            owned=owned,
+        )
+        assert merged == {"permissions": {"allow": ["a", "mine"]}}
+        assert overwritten == {"permissions.allow": ["old", "mine"]}
+
+    def test_keeps_the_foreign_elements_of_a_list_the_repo_dropped(self):
+        merged, kept, overwritten, _ = merge(
+            {},
+            _hooks(Stop=[OURS, THEIRS]),
+            dropped={"/hooks", "/hooks/Stop"},
+            owned=shipped_elements(_hooks(Stop=[OURS])),
+        )
+        assert merged == _hooks(Stop=[THEIRS])
+        assert kept == [f"hooks.Stop {json.dumps(THEIRS)}"]
+        assert overwritten == {"hooks.Stop": [OURS, THEIRS]}
+
+    def test_removes_a_dropped_list_whole_when_the_repo_owns_every_element(self):
+        merged, _, _, removed = merge(
+            {"theme": "dark"},
+            {"theme": "dark", "old": ["x"]},
+            dropped={"/old"},
+            owned=shipped_elements({"old": ["x"]}),
+        )
+        assert merged == {"theme": "dark"}
+        assert removed == ["old"]
+
+    def test_repo_list_replaces_a_live_value_that_is_not_a_list(self):
+        repo = _hooks(Stop=[OURS])
+        merged, _, overwritten, _ = merge(repo, _hooks(Stop="broken"))
+        assert merged == repo
+        assert overwritten == {"hooks.Stop": "broken"}
+
+
+class TestShippedElements:
+    def test_names_every_list_element_under_its_lists_json_pointer(self):
+        settings = {"permissions": {"allow": ["x"]}, "model": "opus"}
+        assert shipped_elements(settings) == {'/permissions/allow/"x"'}
+
+    def test_escapes_slashes_in_an_element(self):
+        assert shipped_elements({"a": ["b/c"]}) == {'/a/"b~1c"'}
+
+
 class TestShippedPaths:
     def test_names_every_key_including_nested_ones_as_json_pointers(self):
         settings = {"permissions": {"allow": ["x"]}, "model": "opus"}
@@ -117,9 +199,9 @@ class TestMain:
         # The old value is visible where the drift is reported, without opening the backup.
         repo = tmp_path / "repo.json"
         live = tmp_path / "live.json"
-        old = [{"command": "mine.sh"}]
-        _write(repo, {"hooks": {"SessionStart": []}})
-        _write(live, {"hooks": {"SessionStart": old}})
+        old = {"type": "command", "command": "mine.sh"}
+        _write(repo, {"statusLine": "none"})
+        _write(live, {"statusLine": old})
         _install(repo, live, tmp_path / "record.json")
         assert json.dumps(old) in capsys.readouterr().err
 
@@ -224,6 +306,31 @@ class TestRetiringDroppedKeys:
         assert read_record(record)["links"] == ["skills/x"]
 
 
+class TestRetiringDroppedElements:
+    def test_records_the_list_elements_the_repo_ships(self, paths):
+        repo, live, record = paths
+        settings = {"permissions": {"allow": ["a"]}}
+        _write(repo, settings)
+        _install(repo, live, record)
+        assert read_record(record)[ELEMENTS_KIND] == sorted(shipped_elements(settings))
+
+    def test_retires_an_element_the_repo_dropped_and_keeps_another_tools(self, paths):
+        repo, live, record = paths
+        _write(repo, _hooks(SessionStart=[OURS]))
+        _install(repo, live, record)
+        _write(live, _hooks(SessionStart=[OURS, THEIRS]))
+        _write(repo, _hooks(SessionStart=[]))
+        _install(repo, live, record)
+        assert json.loads(live.read_text()) == _hooks(SessionStart=[THEIRS])
+
+    def test_writes_no_backup_for_an_element_another_tool_added(self, paths):
+        repo, live, record = paths
+        _write(repo, _hooks(SessionStart=[OURS]))
+        _write(live, _hooks(SessionStart=[OURS, THEIRS]))
+        _install(repo, live, record)
+        assert not live.with_name(live.name + BACKUP_SUFFIX).exists()
+
+
 class TestBackup:
     """The live file is backed up before a merge discards any of its values."""
 
@@ -291,19 +398,27 @@ def _git(cwd, *args):
     )
 
 
+def _commit_history(clone, *versions):
+    """Commit each settings version in turn to a new clone; return its settings file."""
+    clone.mkdir()
+    repo = clone / "settings.json"
+    _git(clone, "init", "-q")
+    for version in versions:
+        _write(repo, version)
+        _git(clone, "add", "settings.json")
+        _git(clone, "commit", "-q", "-m", "version")
+    return repo
+
+
 class TestBootstrappingFromHistory:
     """With no settings record yet, every path the repo's file ever shipped stands in for it."""
 
     def test_retires_a_key_an_earlier_commit_shipped(self, tmp_path):
-        clone = tmp_path / "clone"
-        clone.mkdir()
-        repo = clone / "settings.json"
-        _git(clone, "init", "-q")
-        _write(repo, {"theme": "dark", "enabledPlugins": {"old": False}})
-        _git(clone, "add", "settings.json")
-        _git(clone, "commit", "-q", "-m", "ship old")
-        _write(repo, {"theme": "dark", "enabledPlugins": {}})
-        _git(clone, "commit", "-q", "-am", "drop old")
+        repo = _commit_history(
+            tmp_path / "clone",
+            {"theme": "dark", "enabledPlugins": {"old": False}},
+            {"theme": "dark", "enabledPlugins": {}},
+        )
         live = tmp_path / "live.json"
         _write(live, {"theme": "dark", "enabledPlugins": {"old": False}, "mine": 1})
         _install(repo, live, tmp_path / "record.json")
@@ -325,3 +440,13 @@ class TestBootstrappingFromHistory:
         _write(live, {"theme": "dark", "mine": 1})
         _install(repo, live, tmp_path / "record.json")
         assert json.loads(live.read_text()) == {"theme": "dark", "mine": 1}
+
+    def test_retires_a_list_element_an_earlier_commit_shipped(self, tmp_path):
+        # A record from before list elements were recorded holds only the "settings" kind.
+        repo = _commit_history(tmp_path / "clone", {"allow": ["old"]}, {"allow": ["a"]})
+        live = tmp_path / "live.json"
+        record = tmp_path / "record.json"
+        _write(record, {SETTINGS_KIND: ["/allow"]})
+        _write(live, {"allow": ["old", "mine"]})
+        _install(repo, live, record)
+        assert json.loads(live.read_text()) == {"allow": ["a", "mine"]}

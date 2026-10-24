@@ -3,21 +3,25 @@
 
 Claude Code rewrites the live file at runtime, so it is merged rather than linked or copied:
 every key the repo defines takes the repo's value, and keys that exist only on the machine are
-kept. Objects merge recursively; any other value, lists included, is replaced whole, because a
-list union would keep a permission the repo removed on every machine forever.
+kept. Objects merge recursively; a list is the repo's elements followed by the live elements the
+repo does not own, so an entry another tool or the machine added (a hook, a permission) survives;
+any other value is replaced whole.
 
-A key absent from the repo is either the machine's own or one the repo dropped. To tell them
-apart, the paths the repo ships are kept in the install record (install_record.py) under the
-"settings" kind, as JSON Pointers (RFC 6901) so a key containing a dot stays unambiguous; a
-recorded path the repo no longer ships is removed from the live file, keeping any machine-only
-key nested inside it. With no "settings" kind in the record, every path the repo's file shipped
-in its git history stands in for it, so keys dropped before the record existed are retired too.
+A key or list element absent from the repo is either the machine's own or one the repo dropped.
+To tell them apart, the install record (install_record.py) keeps what the repo ships: its key
+paths under the "settings" kind, and its list elements under the "settings-elements" kind, each
+as a JSON Pointer (RFC 6901) so a key containing a dot stays unambiguous; a list element's last
+segment is its canonical JSON. A recorded path the repo no longer ships is removed from the live
+file, keeping any machine-only key or list element nested inside it, and a recorded list element
+the repo no longer ships is removed from its list. For a kind missing from the record, everything
+the repo's file shipped in its git history stands in for it, so what the repo dropped before the
+record existed is retired too.
 
-Each kept key, removed key, and overwritten differing value is reported on stderr, so drift is
-visible and can be folded into the repo; an overwrite report carries the live value it replaced.
-When the merge overwrites or removes anything, or replaces a live file that is not a JSON object,
-the live file is first copied next to itself with a BACKUP_SUFFIX, so every discarded value stays recoverable as restorable JSON after the run's
-output is gone. The backup holds the last run that discarded something; earlier backups are
+Each kept key or list element, removed key, and overwritten differing value is reported on
+stderr, so drift is visible and can be folded into the repo; an overwrite report carries the live
+value it replaced. When the merge overwrites or removes anything, or replaces a live file that is
+not a JSON object, the live file is first copied next to itself with a BACKUP_SUFFIX, so every
+discarded value stays recoverable as restorable JSON after the run's output is gone. The backup holds the last run that discarded something; earlier backups are
 replaced rather than accumulated.
 
 Usage: merge_settings.py <repo-settings.json> <live-settings.json> <record-file>
@@ -27,7 +31,7 @@ import argparse
 import json
 import subprocess
 import sys
-from collections.abc import Collection, Iterator
+from collections.abc import Callable, Collection, Iterator
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -43,12 +47,13 @@ Settings = dict[str, Any]
 KeyPath = tuple[str, ...]
 
 SETTINGS_KIND = "settings"
+ELEMENTS_KIND = "settings-elements"
 BACKUP_SUFFIX = ".bak"
 
 
 class Merge(NamedTuple):
-    """The merged settings, the dotted paths kept from live and removed, and the live value of
-    each dotted path the repo overwrote."""
+    """The merged settings, the dotted paths (and list elements) kept from live and removed, and
+    the live value of each dotted path the repo overwrote."""
 
     merged: Settings
     kept: list[str]
@@ -58,42 +63,73 @@ class Merge(NamedTuple):
 
 def shipped_paths(settings: Settings) -> set[str]:
     """Return the JSON Pointer of every key in `settings`, nested object keys included."""
-    return {_pointer(keys) for keys in _key_paths(settings, ())}
+    return {_pointer(keys) for keys, _ in _key_values(settings, ())}
 
 
-def merge(repo: Settings, live: Settings, dropped: Collection[str] = ()) -> Merge:
-    """Merge `repo` into `live`, removing the live keys whose JSON Pointer is in `dropped`."""
-    return _merge(repo, live, (), set(dropped))
+def shipped_elements(settings: Settings) -> set[str]:
+    """Return the JSON Pointer of every list element in `settings`, nested lists included."""
+    return {
+        _element_pointer(keys, element)
+        for keys, value in _key_values(settings, ())
+        if isinstance(value, list)
+        for element in value
+    }
 
 
-def _merge(repo: Settings, live: Settings, prefix: KeyPath, dropped: set[str]) -> Merge:
+def merge(
+    repo: Settings, live: Settings, dropped: Collection[str] = (), owned: Collection[str] = ()
+) -> Merge:
+    """Merge `repo` into `live`, removing the live keys whose JSON Pointer is in `dropped` and the
+    live list elements whose JSON Pointer is in `owned` or `repo` ships."""
+    return _merge(repo, live, (), set(dropped), set(owned) | shipped_elements(repo))
+
+
+def _merge(
+    repo: Settings, live: Settings, prefix: KeyPath, dropped: set[str], owned: set[str]
+) -> Merge:
     result = Merge({}, [], {}, [])
     for key, live_value in live.items():
         keys = (*prefix, key)
         if key in repo:
             if isinstance(repo[key], dict) and isinstance(live_value, dict):
-                _absorb(result, key, _merge(repo[key], live_value, keys, dropped))
-            else:
-                result.merged[key] = repo[key]
-                if live_value != repo[key]:
-                    result.overwritten[_dotted(keys)] = live_value
+                _absorb(result, key, _merge(repo[key], live_value, keys, dropped, owned))
+                continue
+            value = repo[key]
+            if isinstance(value, list) and isinstance(live_value, list):
+                value = value + _keep_foreign(result, keys, live_value, owned)
+            result.merged[key] = value
+            if live_value != value:
+                result.overwritten[_dotted(keys)] = live_value
         elif _pointer(keys) not in dropped:
             result.merged[key] = live_value
             result.kept.append(_dotted(keys))
         elif isinstance(live_value, dict):
             # The machine may have added its own keys inside an object the repo dropped; those
             # stay, and the object goes as one removal only when nothing of the machine's is left.
-            inner = _merge({}, live_value, keys, dropped)
+            inner = _merge({}, live_value, keys, dropped, owned)
             if inner.merged:
                 _absorb(result, key, inner)
             else:
                 result.removed.append(_dotted(keys))
+        elif isinstance(live_value, list) and (
+            foreign := _keep_foreign(result, keys, live_value, owned)
+        ):
+            result.merged[key] = foreign
+            if live_value != foreign:
+                result.overwritten[_dotted(keys)] = live_value
         else:
             result.removed.append(_dotted(keys))
     for key, repo_value in repo.items():
         if key not in live:
             result.merged[key] = repo_value
     return result
+
+
+def _keep_foreign(result: Merge, keys: KeyPath, live: list[Any], owned: set[str]) -> list[Any]:
+    """Return the elements of the `live` list at `keys` not in `owned`, reporting each as kept."""
+    foreign = [element for element in live if _element_pointer(keys, element) not in owned]
+    result.kept.extend(f"{_dotted(keys)} {json.dumps(element)}" for element in foreign)
+    return foreign
 
 
 def _absorb(result: Merge, key: str, inner: Merge) -> None:
@@ -103,16 +139,20 @@ def _absorb(result: Merge, key: str, inner: Merge) -> None:
     result.removed.extend(inner.removed)
 
 
-def _key_paths(settings: Settings, prefix: KeyPath) -> Iterator[KeyPath]:
+def _key_values(settings: Settings, prefix: KeyPath) -> Iterator[tuple[KeyPath, Any]]:
     for key, value in settings.items():
         keys = (*prefix, key)
-        yield keys
+        yield keys, value
         if isinstance(value, dict):
-            yield from _key_paths(value, keys)
+            yield from _key_values(value, keys)
 
 
 def _pointer(keys: KeyPath) -> str:
     return "".join("/" + key.replace("~", "~0").replace("/", "~1") for key in keys)
+
+
+def _element_pointer(keys: KeyPath, element: Any) -> str:
+    return _pointer((*keys, json.dumps(element, sort_keys=True)))
 
 
 def _dotted(keys: KeyPath) -> str:
@@ -162,11 +202,18 @@ def _committed_versions(repo: Path) -> Iterator[Settings]:
             yield version
 
 
-def _recorded_paths(record: Path, repo: Path) -> set[str]:
+def _recorded(
+    record: Path, repo: Path, shipped: dict[str, Callable[[Settings], set[str]]]
+) -> dict[str, set[str]]:
+    """Return the recorded entries of each kind in `shipped`, standing in for a kind missing from
+    the record with what that kind's function finds in every committed version of `repo`."""
     kinds = read_record(record)
-    if SETTINGS_KIND in kinds:
-        return set(kinds[SETTINGS_KIND])
-    return set().union(*(shipped_paths(version) for version in _committed_versions(repo)))
+    missing = [kind for kind in shipped if kind not in kinds]
+    versions = list(_committed_versions(repo)) if missing else []
+    return {
+        kind: set(kinds[kind]) if kind in kinds else set().union(*map(extract, versions))
+        for kind, extract in shipped.items()
+    }
 
 
 def main(argv: list[str]) -> int:
@@ -177,15 +224,19 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
 
     repo = json.loads(args.repo.read_text(encoding="utf-8"))
-    shipped = shipped_paths(repo)
-    dropped = retired(_recorded_paths(args.record, args.repo), shipped)
+    paths, elements = shipped_paths(repo), shipped_elements(repo)
+    recorded = _recorded(
+        args.record, args.repo, {SETTINGS_KIND: shipped_paths, ELEMENTS_KIND: shipped_elements}
+    )
+    dropped = retired(recorded[SETTINGS_KIND], paths)
     original = args.live.read_bytes() if args.live.exists() else None
     live = {} if original is None else _parse_live(args.live, original)
-    result = merge(repo, live or {}, dropped)
+    result = merge(repo, live or {}, dropped, recorded[ELEMENTS_KIND])
     if original is not None and (live is None or result.overwritten or result.removed):
         _back_up(args.live, original)
     write_json_atomically(args.live, result.merged)
-    write_kind(args.record, SETTINGS_KIND, shipped)
+    write_kind(args.record, SETTINGS_KIND, paths)
+    write_kind(args.record, ELEMENTS_KIND, elements)
 
     for path in result.kept:
         print(
