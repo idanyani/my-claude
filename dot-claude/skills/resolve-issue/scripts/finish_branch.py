@@ -5,7 +5,8 @@ Usage: python3 <skill-dir>/scripts/finish_branch.py <pr>
 
 Unless the PR already merged or closed, it first refuses while a local branch or worktree HEAD of
 this repo holds commits that build on the PR but are not in it (lib/unpushed.py), so a merge cannot
-leave them behind. Then it arms auto-merge (squash, deleting the remote branch), retrying while GitHub refuses, and checks
+leave them behind. Then it arms auto-merge (squash, deleting the remote branch, pinned to the head
+that check measured), retrying while GitHub refuses, and checks
 only what GitHub knows within seconds -- the PR merged, or auto-merge is armed and the PR has no
 conflict with `main` -- polling briefly while GitHub settles. It never waits for CI. Whatever
 surfaces later (a failed check, a conflict with a PR merged after this one, CI that never starts)
@@ -56,10 +57,12 @@ def report_missing_commits(pr: str, missing: dict[str, list[str]]) -> None:
 def main(argv: list[str]) -> int:
     pr = parse_args(argv)
     verdict = pr_verdict(pr)
-    # Arming authorizes the merge, so first make sure no local work on the PR is left behind;
-    # a merged or closed PR has nothing left to authorize.
+    # Arming authorizes the merge, so first make sure no local work on the PR is left behind, and
+    # pin the merge to the head that check measured; a merged or closed PR has nothing left to
+    # authorize.
+    checked_head = None
     if verdict not in ("merged", "closed"):
-        missing = commits_missing_from_pr(pr)
+        checked_head, missing = commits_missing_from_pr(pr)
         if missing:
             report_missing_commits(pr, missing)
             return EXIT_NEEDS_ATTENTION
@@ -69,11 +72,11 @@ def main(argv: list[str]) -> int:
         if verdict not in SETTLING:
             break
         if verdict == "unarmed":
-            # gh picks "merge now" over "enable auto-merge" from a status that, right after a push,
-            # can still describe the previous head, and GitHub then refuses; a refused attempt
-            # changes nothing, so the next poll retries it.
+            # Right after a push GitHub's PR can still describe the previous head: gh may then
+            # pick "merge now" over "enable auto-merge", and the head pin fails. GitHub refuses
+            # either way, a refused attempt changes nothing, and the next poll retries it.
             try:
-                arm_outcome = arm_auto_merge(pr) or "gh reported nothing"
+                arm_outcome = arm_auto_merge(pr, checked_head) or "gh reported nothing"
             except RuntimeError as error:
                 arm_outcome = str(error)
         time.sleep(POLL_INTERVAL_SECONDS)

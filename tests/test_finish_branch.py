@@ -12,6 +12,7 @@ UNARMED = {**ARMED, "autoMergeRequest": None}
 CONFLICT = {**ARMED, "mergeable": "CONFLICTING"}
 MERGED = {"state": "MERGED", "mergeable": "UNKNOWN", "autoMergeRequest": None}
 CLOSED = {"state": "CLOSED", "mergeable": "UNKNOWN", "autoMergeRequest": None}
+HEAD = "c0ffee"
 REFUSED = RuntimeError("gh pr merge exited 1: GraphQL: Pull Request is not mergeable")
 
 
@@ -21,16 +22,20 @@ def git_calls() -> list[list[str]]:
 
 
 @pytest.fixture
-def arm_calls() -> list[str]:
+def arm_calls() -> list[tuple[str, str | None]]:
     return []
 
 
 @pytest.fixture
-def run(monkeypatch: pytest.MonkeyPatch, git_calls: list[list[str]], arm_calls: list[str]):
+def run(
+    monkeypatch: pytest.MonkeyPatch,
+    git_calls: list[list[str]],
+    arm_calls: list[tuple[str, str | None]],
+):
     """Run `main` against scripted `gh pr view` results; returns its exit code.
 
     `refusals` is how many arm attempts GitHub refuses before one succeeds; `missing` is what
-    `commits_missing_from_pr` finds.
+    `commits_missing_from_pr` finds beyond the head branch's tip, `HEAD`.
     """
 
     def run_git(args: list[str]) -> str:
@@ -43,10 +48,12 @@ def run(monkeypatch: pytest.MonkeyPatch, git_calls: list[list[str]], arm_calls: 
         views: list[dict], refusals: int = 0, missing: dict[str, list[str]] | None = None
     ) -> int:
         script: Iterator[dict] = iter(views)
-        monkeypatch.setattr(finish_branch, "commits_missing_from_pr", lambda _pr: missing or {})
+        monkeypatch.setattr(
+            finish_branch, "commits_missing_from_pr", lambda _pr: (HEAD, missing or {})
+        )
 
-        def arm_auto_merge(pr: str) -> str:
-            arm_calls.append(pr)
+        def arm_auto_merge(pr: str, head_oid: str | None = None) -> str:
+            arm_calls.append((pr, head_oid))
             if len(arm_calls) <= refusals:
                 raise REFUSED
             return "Pull request will be automatically merged"
@@ -78,14 +85,14 @@ def test_waits_while_github_computes_mergeability(run):
     assert run([UNKNOWN, UNKNOWN, CONFLICT]) == finish_branch.EXIT_NEEDS_ATTENTION
 
 
-def test_arms_auto_merge(run, arm_calls):
+def test_arms_auto_merge_pinned_to_the_head_checked_for_missing_commits(run, arm_calls):
     assert run([UNARMED, ARMED]) == 0
-    assert arm_calls == [PR]
+    assert arm_calls == [(PR, HEAD)]
 
 
 def test_retries_an_arm_github_refused(run, arm_calls):
     assert run([UNARMED, UNARMED, ARMED], refusals=1) == 0
-    assert arm_calls == [PR, PR]
+    assert arm_calls == [(PR, HEAD), (PR, HEAD)]
 
 
 @pytest.mark.parametrize("view", [ARMED, UNKNOWN, MERGED, CONFLICT, CLOSED])
