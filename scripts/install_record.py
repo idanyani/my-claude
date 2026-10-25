@@ -4,7 +4,8 @@ An install only adds and refreshes what the repo ships; on its own it cannot tel
 repo dropped from one the machine owns. Each installer step therefore records the entries it
 installed under its own kind (one JSON list per kind, e.g. "links"), and on the next run retires
 the recorded entries the repo no longer ships. How to retire an entry is the kind's own business,
-and it must leave anything it cannot prove it installed untouched.
+and it must leave anything it cannot prove it installed untouched. A step may also record, under a
+kind of its own, a condition it reported, so a later install reports only what is new.
 """
 
 import json
@@ -39,10 +40,10 @@ def read_record(path: Path) -> Record:
     }
 
 
-def write_kind(path: Path, kind: str, entries: set[str]) -> None:
-    """Replace the entries recorded under `kind`, keeping every other kind's."""
+def write_kinds(path: Path, kinds: dict[str, set[str]]) -> None:
+    """Replace the entries recorded under each kind in `kinds`, keeping every other kind's."""
     record = read_record(path)
-    record[kind] = sorted(entries)
+    record.update({kind: sorted(entries) for kind, entries in kinds.items()})
     write_json_atomically(path, record)
 
 

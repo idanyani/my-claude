@@ -9,6 +9,7 @@ from install_record import read_record
 from merge_settings import (
     BACKUP_SUFFIX,
     ELEMENTS_KIND,
+    KEPT_KIND,
     SETTINGS_KIND,
     main,
     merge,
@@ -394,6 +395,44 @@ class TestRetiringDroppedKeys:
         _write(repo, {"theme": "dark"})
         _install(repo, live, record)
         assert read_record(record)["links"] == ["skills/x"]
+
+
+class TestReportingKeptSettings:
+    """A machine-only setting is reported once, on the install that first keeps it."""
+
+    @pytest.fixture
+    def kept(self, paths, capsys):
+        """The paths after an install that kept the machine-only setting "mine", its report read."""
+        repo, live, record = paths
+        _write(repo, {"theme": "dark"})
+        _write(live, {"theme": "dark", "mine": 1})
+        _install(repo, live, record)
+        capsys.readouterr()
+        return paths
+
+    def test_records_the_kept_settings(self, kept):
+        _, _, record = kept
+        assert read_record(record)[KEPT_KIND] == ["mine"]
+
+    def test_does_not_report_a_setting_an_earlier_install_kept(self, kept, capsys):
+        _install(*kept)
+        assert capsys.readouterr().err == ""
+
+    def test_reports_only_the_newly_kept_setting(self, kept, capsys):
+        repo, live, record = kept
+        _write(live, {"theme": "dark", "mine": 1, "other": 2})
+        _install(repo, live, record)
+        err = capsys.readouterr().err
+        assert "other" in err
+        assert "mine" not in err
+
+    def test_reports_a_kept_setting_again_after_it_was_gone(self, kept, capsys):
+        repo, live, record = kept
+        _write(live, {"theme": "dark"})
+        _install(repo, live, record)
+        _write(live, {"theme": "dark", "mine": 1})
+        _install(repo, live, record)
+        assert "mine" in capsys.readouterr().err
 
 
 class TestRetiringDroppedElements:
