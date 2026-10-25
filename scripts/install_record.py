@@ -4,9 +4,14 @@ An install only adds and refreshes what the repo ships; on its own it cannot tel
 repo dropped from one the machine owns. Each installer step therefore records the entries it
 installed under its own kind (one JSON list per kind, e.g. "links"), and on the next run retires
 the recorded entries the repo no longer ships. How to retire an entry is the kind's own business,
-and it must leave anything it cannot prove it installed untouched. A step may also record, under a
-kind of its own, a condition it reported, so a later install reports only what is new; such a kind
-names nothing installed, so nothing is ever retired from it.
+and it must leave anything it cannot prove it installed untouched.
+
+A condition that lasts across runs, such as a machine-only setting or a directory in the way of a
+link, is reported only on the run that first finds it: a step records the conditions it found
+under a kind of its own and reports only those the last run did not record, so an install run
+from a timer does not repeat a report until it buries the ones that need action. The step writes
+such a kind only after reporting, so a run that dies before reporting reports again next time.
+Such a kind names nothing installed, so nothing is ever retired from it.
 """
 
 import json

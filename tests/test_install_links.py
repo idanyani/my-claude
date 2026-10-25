@@ -6,7 +6,14 @@ from pathlib import Path
 
 import pytest
 from git_repo import git
-from install_links import install, is_link_into, links_into, main, planned_links
+from install_links import (
+    BLOCKED_KIND,
+    install,
+    is_link_into,
+    links_into,
+    main,
+    planned_links,
+)
 from install_record import read_record
 
 
@@ -30,6 +37,14 @@ def leave_ignored_cache(directory: Path) -> None:
     """Leave the git-ignored bytecode cache running a script in `directory` creates."""
     (directory / "__pycache__").mkdir(parents=True)
     (directory / "__pycache__" / "x.pyc").write_text("")
+
+
+def block(dest: Path, name: str) -> None:
+    """Put a directory where the link `name` goes, replacing any link already there."""
+    path = dest / name
+    if path.is_symlink():
+        path.unlink()
+    path.mkdir(parents=True)
 
 
 @pytest.fixture
@@ -113,15 +128,49 @@ class TestInstall:
         assert (src / "agents" / "a.md").read_text() == "agent"
 
     def test_does_not_record_a_link_a_directory_blocked(self, src, dest, record):
-        (dest / "skills" / "keep").mkdir(parents=True)
+        block(dest, "skills/keep")
         install(src, dest, record, MERGED)
         assert "skills/keep" not in read_record(record)["links"]
 
     def test_leaves_a_directory_in_the_way_of_a_link(self, src, dest, record, capsys):
-        (dest / "skills" / "keep").mkdir(parents=True)
+        block(dest, "skills/keep")
         install(src, dest, record, MERGED)
         assert not (dest / "skills" / "keep").is_symlink()
         assert sorted(p.name for p in (dest / "skills").iterdir()) == ["drop", "keep"]
+        assert "a directory is in the way" in capsys.readouterr().err
+
+    def test_records_a_link_a_directory_blocked(self, src, dest, record):
+        block(dest, "skills/keep")
+        install(src, dest, record, MERGED)
+        assert read_record(record)[BLOCKED_KIND] == ["skills/keep"]
+
+    def test_does_not_report_a_link_an_earlier_install_found_blocked(
+        self, src, dest, record, capsys
+    ):
+        block(dest, "skills/keep")
+        install(src, dest, record, MERGED)
+        capsys.readouterr()
+        install(src, dest, record, MERGED)
+        assert capsys.readouterr().err == ""
+
+    def test_reports_only_the_newly_blocked_link(self, src, dest, record, capsys):
+        block(dest, "skills/keep")
+        install(src, dest, record, MERGED)
+        capsys.readouterr()
+        block(dest, "skills/drop")
+        install(src, dest, record, MERGED)
+        err = capsys.readouterr().err
+        assert "skills/drop" in err
+        assert "skills/keep" not in err
+
+    def test_reports_a_blocked_link_again_after_it_was_unblocked(self, src, dest, record, capsys):
+        block(dest, "skills/keep")
+        install(src, dest, record, MERGED)
+        (dest / "skills" / "keep").rmdir()
+        install(src, dest, record, MERGED)
+        block(dest, "skills/keep")
+        capsys.readouterr()
+        install(src, dest, record, MERGED)
         assert "a directory is in the way" in capsys.readouterr().err
 
     def test_retires_the_link_to_an_entry_the_repo_dropped(self, src, dest, record, capsys):

@@ -12,6 +12,9 @@ a recorded link the repo no longer ships is removed -- but only while it is stil
 dot-claude/, so a machine-local file, or a link pointing elsewhere, at that path is never touched. With no "links" kind
 in the record, the links into dot-claude/ already in ~/.claude stand in for it.
 
+A directory in the way of a link is left alone and reported only on the run that first finds it,
+recorded under BLOCKED_KIND.
+
 Usage: install_links.py <dot-claude-dir> <claude-dir> <record-file> [--merged NAME ...]
 """
 
@@ -26,6 +29,7 @@ from pathlib import Path, PurePosixPath
 from install_record import read_record, retired, write_kinds
 
 LINKS_KIND = "links"
+BLOCKED_KIND = "links-blocked"
 
 
 def planned_links(src: Path, merged: Collection[str]) -> dict[str, Path]:
@@ -70,8 +74,17 @@ def install(src: Path, dest: Path, record: Path, merged: Collection[str]) -> Non
 
     planned = planned_links(src, merged)
     placed = {name for name, target in planned.items() if _link(dest / name, target, src)}
+    shipped = set(planned)
+    blocked = shipped - placed
 
-    for name in retired(recorded, set(planned)):
+    previously_blocked = set(recorded_kinds.get(BLOCKED_KIND, []))
+    for name in sorted(blocked - previously_blocked):
+        print(
+            f"left {dest / name}: a directory is in the way of the link to {planned[name]}",
+            file=sys.stderr,
+        )
+
+    for name in retired(recorded, shipped):
         link = dest / name
         if is_link_into(link, src):
             link.unlink()
@@ -79,7 +92,7 @@ def install(src: Path, dest: Path, record: Path, merged: Collection[str]) -> Non
         elif link.exists() or link.is_symlink():
             print(f"left {link}: not a link into {src}", file=sys.stderr)
 
-    write_kinds(record, {LINKS_KIND: placed})
+    write_kinds(record, {LINKS_KIND: placed, BLOCKED_KIND: blocked})
 
 
 def _shipped_files(src: Path) -> list[PurePosixPath]:
@@ -102,7 +115,8 @@ def _points_into(link: Path, src: Path) -> bool:
 
 
 def _link(path: Path, target: Path, src: Path) -> bool:
-    """Point `path` at `target` atomically, replacing a file or link there; report success."""
+    """Point `path` at `target` atomically, replacing a file or link there; return False when a
+    directory is in the way."""
     if path.is_symlink() and os.readlink(path) == str(target):
         return True
     # A parent that is itself a link into the repo (a repo file that became a directory) would
@@ -116,7 +130,6 @@ def _link(path: Path, target: Path, src: Path) -> bool:
     try:
         os.replace(tmp, path)
     except IsADirectoryError:
-        print(f"left {path}: a directory is in the way of the link to {target}", file=sys.stderr)
         return False
     finally:
         tmp.unlink(missing_ok=True)
