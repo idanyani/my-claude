@@ -168,6 +168,7 @@ class TestInstall:
         install(src, dest, record, MERGED)
         (dest / "skills" / "keep").rmdir()
         install(src, dest, record, MERGED)
+        assert read_record(record)[BLOCKED_KIND] == []
         block(dest, "skills/keep")
         capsys.readouterr()
         install(src, dest, record, MERGED)

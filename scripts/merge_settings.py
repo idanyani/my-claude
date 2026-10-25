@@ -21,7 +21,7 @@ record existed is retired too.
 
 Each removed key and overwritten differing value is reported on stderr, so drift is visible and
 can be folded into the repo; an overwrite report carries the live value it replaced. A kept key or
-list element is reported only on the run that first keeps it, recorded under KEPT_KIND, since
+list element is reported as a lasting condition (see install_record.py) under KEPT_KIND, since
 some machine-only settings belong to another tool and can never be folded in.
 
 When the merge overwrites or removes anything, or replaces a live file that is not a JSON object,

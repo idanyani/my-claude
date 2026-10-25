@@ -12,8 +12,8 @@ a recorded link the repo no longer ships is removed -- but only while it is stil
 dot-claude/, so a machine-local file, or a link pointing elsewhere, at that path is never touched. With no "links" kind
 in the record, the links into dot-claude/ already in ~/.claude stand in for it.
 
-A directory in the way of a link is left alone and reported only on the run that first finds it,
-recorded under BLOCKED_KIND.
+A directory in the way of a link is left alone, and reported as a lasting condition (see
+install_record.py) under BLOCKED_KIND.
 
 Usage: install_links.py <dot-claude-dir> <claude-dir> <record-file> [--merged NAME ...]
 """
