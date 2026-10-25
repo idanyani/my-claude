@@ -19,13 +19,16 @@ repo no longer ships is removed from its list. For a kind missing from the recor
 the repo's file shipped in its git history stands in for it, so what the repo dropped before the
 record existed is retired too.
 
-Each kept key or list element, removed key, and overwritten differing value is reported on
-stderr, so drift is visible and can be folded into the repo; an overwrite report carries the live
-value it replaced. When the merge overwrites or removes anything, or replaces a live file that is
-not a JSON object, the live file is first copied next to itself with a BACKUP_SUFFIX, so every
-discarded value stays recoverable as restorable JSON after the run's output is gone. The backup
-holds the last run that discarded something; earlier backups are replaced rather than
-accumulated.
+Each removed key and overwritten differing value is reported on stderr, so drift is visible and
+can be folded into the repo; an overwrite report carries the live value it replaced. A kept key or
+list element is reported only on the run that first keeps it: the record holds what the last run
+kept under KEPT_KIND, because some machine-only settings belong to another tool and can never be
+folded in, and repeating them on every run would bury the reports that need action.
+
+When the merge overwrites or removes anything, or replaces a live file that is not a JSON object,
+the live file is first copied next to itself with a BACKUP_SUFFIX, so every discarded value stays
+recoverable as restorable JSON after the run's output is gone. The backup holds the last run that
+discarded something; earlier backups are replaced rather than accumulated.
 
 Usage: merge_settings.py <repo-settings.json> <live-settings.json> <record-file>
 """
@@ -39,11 +42,12 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from install_record import (
+    Record,
     read_record,
     retired,
     write_atomically,
     write_json_atomically,
-    write_kind,
+    write_kinds,
 )
 
 Settings = dict[str, Any]
@@ -53,6 +57,7 @@ SETTINGS_KIND = "settings"
 # Named for how it identifies an element: a record naming elements by another identity must be
 # missing this kind, so that git history stands in for it rather than entries nothing matches.
 ELEMENTS_KIND = "settings-element-identities"
+KEPT_KIND = "settings-kept"
 BACKUP_SUFFIX = ".bak"
 # The list fields of an object in a list whose elements merge one by one, like a top-level list:
 # a hook group's handlers, which other tools add to. Any other list field (a handler's args) is an
@@ -304,11 +309,10 @@ def _committed_versions(repo: Path) -> Iterator[Settings]:
 
 
 def _recorded(
-    record: Path, repo: Path, shipped: dict[str, Callable[[Settings], set[str]]]
+    kinds: Record, repo: Path, shipped: dict[str, Callable[[Settings], set[str]]]
 ) -> dict[str, set[str]]:
-    """Return the recorded entries of each kind in `shipped`, standing in for a kind missing from
-    the record with what that kind's function finds in every committed version of `repo`."""
-    kinds = read_record(record)
+    """Return the entries of each kind in `shipped` recorded in `kinds`, standing in for a kind
+    missing from it with what that kind's function finds in every committed version of `repo`."""
     missing = [kind for kind in shipped if kind not in kinds]
     versions = list(_committed_versions(repo)) if missing else []
     return {
@@ -326,8 +330,9 @@ def main(argv: list[str]) -> int:
 
     repo = json.loads(args.repo.read_text(encoding="utf-8"))
     paths, elements = shipped_paths(repo), shipped_elements(repo)
+    record = read_record(args.record)
     recorded = _recorded(
-        args.record, args.repo, {SETTINGS_KIND: shipped_paths, ELEMENTS_KIND: shipped_elements}
+        record, args.repo, {SETTINGS_KIND: shipped_paths, ELEMENTS_KIND: shipped_elements}
     )
     dropped = retired(recorded[SETTINGS_KIND], paths)
     original = args.live.read_bytes() if args.live.exists() else None
@@ -336,15 +341,15 @@ def main(argv: list[str]) -> int:
     if original is not None and (live is None or result.overwritten or result.removed):
         _back_up(args.live, original)
     write_json_atomically(args.live, result.merged)
-    write_kind(args.record, SETTINGS_KIND, paths)
-    write_kind(args.record, ELEMENTS_KIND, elements)
 
+    previously_kept = set(record.get(KEPT_KIND, []))
     for path in result.kept:
-        print(
-            f"kept machine-only setting {path} in {args.live}; "
-            f"fold it into {args.repo} to keep it under version control",
-            file=sys.stderr,
-        )
+        if path not in previously_kept:
+            print(
+                f"kept machine-only setting {path} in {args.live}; "
+                f"fold it into {args.repo} to keep it under version control",
+                file=sys.stderr,
+            )
     for path in result.removed:
         print(f"removed {path} from {args.live}: {args.repo} no longer ships it", file=sys.stderr)
     for path, live_value in result.overwritten.items():
@@ -353,6 +358,12 @@ def main(argv: list[str]) -> int:
             f"it held {json.dumps(live_value)}",
             file=sys.stderr,
         )
+    # Recorded only after the reports, so a run that dies before reporting a kept setting
+    # reports it next time.
+    write_kinds(
+        args.record,
+        {SETTINGS_KIND: paths, ELEMENTS_KIND: elements, KEPT_KIND: set(result.kept)},
+    )
     return 0
 
 

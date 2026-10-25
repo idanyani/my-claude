@@ -23,7 +23,7 @@ import tempfile
 from collections.abc import Collection
 from pathlib import Path, PurePosixPath
 
-from install_record import read_record, retired, write_kind
+from install_record import read_record, retired, write_kinds
 
 LINKS_KIND = "links"
 
@@ -79,7 +79,7 @@ def install(src: Path, dest: Path, record: Path, merged: Collection[str]) -> Non
         elif link.exists() or link.is_symlink():
             print(f"left {link}: not a link into {src}", file=sys.stderr)
 
-    write_kind(record, LINKS_KIND, placed)
+    write_kinds(record, {LINKS_KIND: placed})
 
 
 def _shipped_files(src: Path) -> list[PurePosixPath]:

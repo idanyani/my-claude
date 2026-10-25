@@ -4,7 +4,7 @@ import json
 import os
 
 import pytest
-from install_record import read_record, retired, write_atomically, write_kind
+from install_record import read_record, retired, write_atomically, write_kinds
 
 
 class TestRetired:
@@ -18,7 +18,7 @@ class TestRetired:
 class TestReadRecord:
     def test_reads_a_written_kind(self, tmp_path):
         path = tmp_path / "record.json"
-        write_kind(path, "links", {"b", "a"})
+        write_kinds(path, {"links": {"b", "a"}})
         assert read_record(path) == {"links": ["a", "b"]}
 
     def test_a_missing_file_is_an_empty_record(self, tmp_path):
@@ -41,19 +41,24 @@ class TestReadRecord:
         assert read_record(path) == {"links": ["a"]}
 
 
-class TestWriteKind:
+class TestWriteKinds:
     def test_keeps_every_other_kind(self, tmp_path):
         path = tmp_path / "record.json"
-        write_kind(path, "settings", {"theme"})
-        write_kind(path, "links", {"CLAUDE.md"})
-        write_kind(path, "links", set())
+        write_kinds(path, {"settings": {"theme"}})
+        write_kinds(path, {"links": {"CLAUDE.md"}})
+        write_kinds(path, {"links": set()})
         assert json.loads(path.read_text()) == {"settings": ["theme"], "links": []}
+
+    def test_writes_several_kinds_at_once(self, tmp_path):
+        path = tmp_path / "record.json"
+        write_kinds(path, {"links": {"b", "a"}, "settings": {"theme"}})
+        assert read_record(path) == {"links": ["a", "b"], "settings": ["theme"]}
 
     def test_rewrites_nothing_when_the_kind_is_unchanged(self, tmp_path):
         path = tmp_path / "record.json"
-        write_kind(path, "links", {"a"})
+        write_kinds(path, {"links": {"a"}})
         before = path.stat().st_ino
-        write_kind(path, "links", {"a"})
+        write_kinds(path, {"links": {"a"}})
         assert path.stat().st_ino == before
 
 
