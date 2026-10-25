@@ -42,9 +42,9 @@ any project, loaded into every Claude Code session on a machine that installs my
   repo rather than only the diff, including targets a change orphaned by dropping their last
   reference; report ranked findings, making no edits.
 - **[brief](dot-claude/skills/brief/SKILL.md)** -- fill the user in on a session's work so they
-  can review and steer it: one screen, top-down from the epic, issue and PR, with each finding
-  tagged by how well it is backed, the choices made without the user, and the decisions waiting
-  on them.
+  can review and steer it: one screen of short, plain bullets saying where the work stands,
+  what to check (each claim tagged by how well it is backed, and the choices made without the
+  user), and, last, the decisions waiting on them with a recommendation.
 
 ## Install
 
