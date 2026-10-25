@@ -426,6 +426,15 @@ class TestReportingKeptSettings:
         assert "other" in err
         assert "mine" not in err
 
+    def test_does_not_report_a_hook_an_earlier_install_kept(self, paths, capsys):
+        repo, live, record = paths
+        _write(repo, _hooks(SessionStart=[OURS]))
+        _write(live, _hooks(SessionStart=[OURS, THEIRS]))
+        _install(repo, live, record)
+        assert "kept machine-only setting" in capsys.readouterr().err
+        _install(repo, live, record)
+        assert capsys.readouterr().err == ""
+
     def test_reports_a_kept_setting_again_after_it_was_gone(self, kept, capsys):
         repo, live, record = kept
         _write(live, {"theme": "dark"})

@@ -5,7 +5,8 @@ repo dropped from one the machine owns. Each installer step therefore records th
 installed under its own kind (one JSON list per kind, e.g. "links"), and on the next run retires
 the recorded entries the repo no longer ships. How to retire an entry is the kind's own business,
 and it must leave anything it cannot prove it installed untouched. A step may also record, under a
-kind of its own, a condition it reported, so a later install reports only what is new.
+kind of its own, a condition it reported, so a later install reports only what is new; such a kind
+names nothing installed, so nothing is ever retired from it.
 """
 
 import json

@@ -341,14 +341,10 @@ def main(argv: list[str]) -> int:
     if original is not None and (live is None or result.overwritten or result.removed):
         _back_up(args.live, original)
     write_json_atomically(args.live, result.merged)
-    write_kinds(
-        args.record,
-        {SETTINGS_KIND: paths, ELEMENTS_KIND: elements, KEPT_KIND: set(result.kept)},
-    )
 
-    reported = set(record.get(KEPT_KIND, []))
+    previously_kept = set(record.get(KEPT_KIND, []))
     for path in result.kept:
-        if path not in reported:
+        if path not in previously_kept:
             print(
                 f"kept machine-only setting {path} in {args.live}; "
                 f"fold it into {args.repo} to keep it under version control",
@@ -362,6 +358,12 @@ def main(argv: list[str]) -> int:
             f"it held {json.dumps(live_value)}",
             file=sys.stderr,
         )
+    # Recorded only after the reports, so a run that dies before reporting a kept setting
+    # reports it next time.
+    write_kinds(
+        args.record,
+        {SETTINGS_KIND: paths, ELEMENTS_KIND: elements, KEPT_KIND: set(result.kept)},
+    )
     return 0
 
 
