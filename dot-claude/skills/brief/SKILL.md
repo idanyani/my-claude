@@ -17,15 +17,16 @@ session, so it is current even for an old issue. Skip what the session already l
 
 - `gh issue view <N> --json number,title,body,state,comments` -- the issue the session works on.
 - `gh api repos/{owner}/{repo}/issues/<N>/timeline --paginate -q '.[] | select(.event ==
-  "cross-referenced") | .source.issue | select(.pull_request) | "\(.repository.full_name)#\(.number) \(.title)"'`
-  -- the PR that resolves it, from any repo. Name a PR in another repo as `<repo>#<N>`.
+  "cross-referenced") | .source.issue | select(.pull_request and (.state == "open" or .pull_request.merged_at)) |
+  "\(.repository.full_name)#\(.number) \(.title)"'` -- its open or merged PRs, from any repo;
+  pick the one that resolves it.
 
 ## Format
 
 Write markdown, which the terminal renders: three sections, in this order.
 
 **Where we are**
-- **\<repo\>@\<branch\>** (PR #\<N\>)
+- **\<repo\>@\<branch\>** (PR \<ref\>)
 - Done: \<plain words\>
 - Next: \<plain words\>
 - Blocked on: \<a blocker outside the user's control: CI, another PR\>
@@ -54,8 +55,10 @@ For example:
 > 1. Also retry on timeout? Yes: fewer failures, slower errors. No: as now. **I recommend
 >    yes**: timeouts are the most common failure.
 
-- **Where we are:** the branch names the issue, so it stands in for a link. Add the PR number
-  once a PR exists. Blocked on names only what the user cannot answer; a decision of theirs goes
+- **Where we are:** an issue branch names the issue, so it stands in for a link. When the
+  branch does not name it (still on `main`, or the issue lives in another repo), add the issue
+  as `#<N> <a few words>`. Add the PR once one exists: `#<N>`, or `<repo>#<N>` in another
+  repo. Blocked on names only what the user cannot answer; a decision of theirs goes
   in Your turn.
 - **What to check:** everything the reviewer should confirm or reject. A claim's tag says where
   to look: its evidence (a test, a log line, a source), what it was guessed from, or that it is
@@ -65,16 +68,18 @@ For example:
 - **Your turn:** always last, so the last thing read is what the user must answer. Each
   decision stands on its own: the question, its options and where each leads, and the
   recommendation. Numbered, so the user can answer by number. With nothing to decide, it is one
-  line: `**Your turn:** nothing. Next I'll <X>.`
+  line: `**Your turn:** nothing.`
 
 ## Rules
 
-- Plain and short: one idea per bullet, about 15 words at most, everyday words. Describe what a
+- Plain and short: one idea per bullet, about 15 words at most (a decision may run longer),
+  everyday words. Describe what a
   function, flag, or script does instead of naming it, unless the user must act on the name.
 - Problem before mechanism.
 - Bold only the section labels, the branch, and the recommendation; leave a blank line between
   sections.
 - Read linearly: each line uses only terms introduced above it, never a forward reference.
-- Every `#N`, file, or term gets a few words the first time it appears, or is left out.
+- Every `#N`, file, or term gets a few words the first time it appears, or is left out. Give
+  background only where the reader needs it to follow the rest.
 - Each fact once. Leave out an empty line or section.
 - One screen. Details only when the user asks for them.
