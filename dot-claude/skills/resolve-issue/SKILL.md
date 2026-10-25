@@ -50,8 +50,8 @@ If a duplicate or in-flight PR exists, stop and surface it -- do not start paral
 Brief the user on the issue in the brief skill's format, so they can steer before any work
 starts. For an issue filed a while ago, say what has happened since: its comments, and the
 related PRs and commits Phases 1 and 3 found. If the issue is vague or criteria-less, ask in the
-brief's Your turn. Wait for the user's answer when the brief has My calls or Your turn items, so
-they can reject a choice before work builds on it; otherwise carry on.
+brief's Your turn. Wait for the user's answer when the brief has an "I chose" line or Your turn
+items, so they can reject a choice before work builds on it; otherwise carry on.
 
 ## Phase 5 -- Set up an isolated workspace
 
@@ -106,5 +106,5 @@ Leave the worktree as the end of step 4 of the workflow doc says.
 
 ## Phase 15 -- Report to the user
 
-Brief the user on the result in the brief skill's format: the headline says what is different
-now, Progress says what was done, and the test results and review triage are findings.
+Brief the user on the result in the brief skill's format: Done says what is different now, and
+the test results and review triage go under What to check.

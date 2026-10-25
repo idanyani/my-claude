@@ -12,45 +12,74 @@ asking for a re-explanation.
 
 ## Gather
 
-Take the links from GitHub, not from memory of the session, so they are current even for an old
-issue. Skip what the session already loaded this turn, and the step altogether for a session with
-no GitHub issue:
+For a session that works on a GitHub issue, find its PR on GitHub rather than from memory of the
+session, so it is current even for an old issue. Skip what the session already loaded this turn:
 
 - `gh issue view <N> --json number,title,body,state,comments` -- the issue the session works on.
 - `gh api repos/{owner}/{repo}/issues/<N>/timeline --paginate -q '.[] | select(.event ==
-  "cross-referenced") | .source.issue | "\(.repository.full_name)#\(.number) \(.title)"'` --
-  what refers to it, from any repo: its PRs, and the epic (an issue whose title starts `Epic:`)
-  that lists it. Name a link in another repo as `<repo>#<N>`.
+  "cross-referenced") | .source.issue | select(.pull_request and (.state == "open" or .pull_request.merged_at)) |
+  "\(.repository.full_name)#\(.number) \(.title)"'` -- its open or merged PRs, from any repo;
+  pick the one that resolves it.
 
 ## Format
 
-```
-<repo>@<branch>: the state now, and what waits on the user, if anything.
+Write markdown, which the terminal renders: three sections, in this order.
 
-Context    The links the reader needs, top-down, a few words each: epic --> issue --> PR.
-Progress   Done / in progress / blocked on what.
-Findings   1. <claim> [checked: <evidence>] / [inferred: <from what>] / [assumed]
-My calls   1. <choice made without the user>: one-line reason.
-Your turn  1. <decision>: the options and what each leads to; the recommendation.
-```
+**Where we are**
+- **\<repo\>@\<branch\>** (PR \<ref\>)
+- Done: \<plain words\>
+- Next: \<plain words\>
+- Blocked on: \<a blocker outside the user's control: CI, another PR\>
 
-- **Headline:** the user tracks work by issue, and an issue's branch names it with a short
-  summary (`42-retry-uploads`). State what waits on the user by what it blocks ("one decision
-  blocks the merge"), or that nothing does.
-- **Context:** only the links that explain the rest. Leave out the epic when the issue stands on
-  its own.
-- **Findings:** only claims that change the picture. The tag tells the reviewer where to look:
-  `checked` names its evidence (a test, a log line, a source), `inferred` names what it rests on,
-  `assumed` asks the user to confirm.
-- **My calls:** every design choice made without the user, so they catch the ones they would
-  reject before work builds on them.
-- **Your turn:** each question stands on its own: what is being decided, why it matters, the
-  options, the recommendation. Numbered, so the user can answer by number.
+**What to check**
+- \<claim\>: checked by \<evidence\> | guessed from \<what\> | assumed, please confirm
+- I chose \<X\>: \<one-line reason\>
+- Look first at `<file:line>`; verify with `<command>`
+
+**Your turn**
+1. \<decision\>? A: \<result\>. B: \<result\>. **I recommend A**: \<reason\>.
+
+For example:
+
+> **Where we are**
+> - **my-claude@42-retry-uploads** (PR #45)
+> - Done: failed uploads now retry 3 times
+> - Next: merge, once you answer below
+>
+> **What to check**
+> - Retries stop on a 4xx error: checked by a new test
+> - I chose a fixed 2s wait over a growing one: simpler, and uploads are rare
+> - Look first at `upload.py:80`; verify with `uv run pytest -k retry`
+>
+> **Your turn**
+> 1. Also retry on timeout? Yes: fewer failures, slower errors. No: as now. **I recommend
+>    yes**: timeouts are the most common failure.
+
+- **Where we are:** an issue branch names the issue, so it stands in for a link. When the
+  branch does not name it (still on `main`, or the issue lives in another repo), add the issue
+  as `#<N> <a few words>`. Add the PR once one exists: `#<N>`, or `<repo>#<N>` in another
+  repo. Blocked on names only what the user cannot answer; a decision of theirs goes
+  in Your turn.
+- **What to check:** everything the reviewer should confirm or reject. A claim's tag says where
+  to look: its evidence (a test, a log line, a source), what it was guessed from, or that it is
+  assumed and needs the user's word. List every choice made without the user, so they catch one
+  they would reject before work builds on it. End with the few spots worth reading first and a
+  command that shows the work runs.
+- **Your turn:** always last, so the last thing read is what the user must answer. Each
+  decision stands on its own: the question, its options and where each leads, and the
+  recommendation. Numbered, so the user can answer by number. With nothing to decide, it is one
+  line: `**Your turn:** nothing.`
 
 ## Rules
 
+- Plain and short: one idea per bullet, about 15 words at most (a decision may run longer),
+  everyday words. Describe what a
+  function, flag, or script does instead of naming it, unless the user must act on the name.
+- Problem before mechanism.
+- Bold only the section labels, the branch, and the recommendation; leave a blank line between
+  sections.
 - Read linearly: each line uses only terms introduced above it, never a forward reference.
 - Every `#N`, file, or term gets a few words the first time it appears, or is left out. Give
   background only where the reader needs it to follow the rest.
-- Each fact once. Leave out an empty section.
+- Each fact once. Leave out an empty line or section.
 - One screen. Details only when the user asks for them.
