@@ -1,5 +1,22 @@
 # Working conventions
 
+## Less is more
+
+- Everything you add -- code, a file, a comment, a link, a sentence in a doc or a message
+  -- costs the reader attention and the repo upkeep. Before adding it, ask: does the reader
+  need it to understand or act? A side note, a nice-to-have, or a just-in-case stays out.
+- Code: the least that solves the task. No feature, option, abstraction or error handling
+  the task does not need.
+- Files: create one only when the task needs it, never an unrequested summary or notes file.
+- References: point to another file only for a fact the text cannot do without, or from an
+  index or README entry. Each link makes the reader jump, and every rename must edit it.
+  Never point from a file to one written after it. Never cite the project's own issues or
+  PRs in comments, docstrings, or docs: state the reason itself. `git blame` reaches the
+  commit, and its `Resolves #N` reaches the issue. An upstream bug a workaround depends on
+  is a reference, not history, so cite it.
+- Cut without fear: if fewer words, lines or tests keep the same meaning, behavior and
+  coverage, use fewer. Delete dead code, prose and tests -- git remembers.
+
 ## Issues, pull requests, and commits
 
 - Every change meant to land on `main` follows the resolve-issue skill's steps, through the
@@ -26,7 +43,6 @@
   symptoms.
 - Prefer standard, off-the-shelf solutions over clever custom code; if a solution feels
   hacky, it probably is.
-- Delete dead code -- git remembers.
 - Automate everything: manual inspection sessions are a code smell.
 - Never leave loose ends: no speculation -- investigate until known or explicitly mark
   unknown.
@@ -76,9 +92,6 @@
   Never restate code.
 - No journal comments -- write for a clean-slate reader who never saw the change; change
   history belongs in commit messages.
-- Never cite the project's own issues or PRs in comments, docstrings, or docs: state the
-  reason itself. `git blame` reaches the commit, and its `Resolves #N` reaches the issue. An
-  upstream bug a workaround depends on is a reference, not history, so cite it.
 
 ## Prose and docs
 
@@ -107,9 +120,7 @@
   sentence that would have to change under a refactor belongs in the docstring of the
   module that implements it, not in README or `docs/`.
 - One owner per fact: each fact has one page that owns it; other pages link to it
-  rather than restate it. A relative link is Required (points to the page that owns a
-  fact or definition, or is an index/README entry) or Noise (bare "see also"). Test: if
-  removing the link loses no fact, it should not be there.
+  rather than restate it.
 - The clean-slate reader of Readability applies to docs too: say what the repo is,
   never what it no longer is ("X is a label, not a folder").
 - Don't coin vocabulary the repo doesn't use: name a thing the way the code (or the

@@ -43,7 +43,8 @@ Applies to docs, docstrings, and code comments alike. The mechanical prose check
 glyphs, emojis in code/docs) are handled deterministically by the `check_prose` PostToolUse hook --
 do NOT re-scan for them. This concern covers only what needs judgment:
 
-- Journal comments that narrate change history (that belongs in commit messages).
+- Journal comments that narrate change history (that belongs in commit messages), and citations of
+  the project's own issues or PRs.
 - Docs prose defined against a design the reader never saw: a contrast or denial whose other half
   exists only in history or imagination ("X is a label, not a folder", "there is no state file").
   The doc counterpart of a journal comment -- state what the design is, not what it is not.
@@ -51,7 +52,8 @@ do NOT re-scan for them. This concern covers only what needs judgment:
   before reporting): an invented distinction that cannot be checked against anything.
 - Comments that restate what the code plainly says, rather than explaining a non-obvious *why*.
 - A copied comment -- the information belongs in a doc or a named constant, not repeated.
-- A bare "see also" cross-reference that loses no fact if removed (noise, not a required link).
+- A reference to another file that carries no fact the text needs and is no index entry, or that
+  points to a file written after it.
 - A hardcoded count that will rot, where a structural description would not.
 - AI-tic filler ("delve", "load-bearing", "testament") in prose.
 
