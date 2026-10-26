@@ -46,9 +46,9 @@ format, no prose, no preamble. Concerns:
    Also hand it any file the script names on stderr as skipped unreadable: its links went unchecked.
 2. **Prose conventions (judgment)** -- in docs, docstrings, and comments: journal comments, prose
    defined against a design the reader never saw, coined vocabulary, comments restating code or
-   copied between places, references the text does not need, rotting counts, and AI-tic filler. The mechanical
-   subset (non-ASCII glyphs, emojis in code/docs) is caught deterministically by the `check_prose`
-   PostToolUse hook, so do not re-scan for it here.
+   copied between places, references the text does not need, rotting counts, and AI-tic filler.
+   The mechanical subset (non-ASCII glyphs, emojis in code/docs) is caught deterministically by
+   the `check_prose` PostToolUse hook, so do not re-scan for it here.
 3. **Docs shape (whole set)** -- dispatched only when the file set includes a markdown doc, but
    then hand it every authored markdown doc in the repo (plus the module docstrings they
    describe), not just the changed files: facts stated in many places, pages restating module

@@ -6,16 +6,16 @@
   -- costs the reader attention and the repo upkeep. Before adding it, ask: does the reader
   need it to understand or act? A side note, a nice-to-have, or a just-in-case stays out.
 - Code: the least that solves the task. No feature, option, abstraction or error handling
-  the task does not need, and no edit outside it.
+  the task does not need.
 - Files: create one only when the task needs it, never an unrequested summary or notes file.
-- References: point to another file only for a fact the text cannot do without. Each link
-  makes the reader jump, and every rename must edit it. Never point to something written
-  later. Never cite the project's own issues or PRs in code or docs: state the reason
-  itself. `git blame` reaches the commit, and its `Resolves #N` reaches the issue. An
-  upstream bug a workaround depends on is a reference, not history, so cite it.
-- Messages: the answer first. Never restate the task or narrate the process.
-- Cut without fear: if fewer words, lines or tests keep the same meaning and behavior,
-  use fewer. Delete dead code, prose and tests -- git remembers.
+- References: point to another file only for a fact the text cannot do without, or from an
+  index or README entry. Each link makes the reader jump, and every rename must edit it.
+  Never point from a file to one written after it. Never cite the project's own issues or
+  PRs in comments, docstrings, or docs: state the reason itself. `git blame` reaches the
+  commit, and its `Resolves #N` reaches the issue. An upstream bug a workaround depends on
+  is a reference, not history, so cite it.
+- Cut without fear: if fewer words, lines or tests keep the same meaning, behavior and
+  coverage, use fewer. Delete dead code, prose and tests -- git remembers.
 
 ## Issues, pull requests, and commits
 
