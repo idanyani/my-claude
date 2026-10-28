@@ -27,14 +27,14 @@ Write markdown, which the terminal renders: three sections, in this order.
 
 **Where we are**
 - **\<repo\>@\<branch\>** (PR \<ref\>)
-- Done: \<plain words\>
-- Next: \<plain words\>
-- Blocked on: \<a blocker outside the user's control: CI, another PR\>
+- \<the big picture: what the project is for, and the larger plan, if any\>
+- \<the problem this issue solves\>
 
-**What to check**
-- \<claim\>: checked by \<evidence\> | guessed from \<what\> | assumed, please confirm
-- I chose \<X\>: \<one-line reason\>
-- Look first at `<file:line>`; verify with `<command>`
+**What I did**
+- \<Verb\>ed \<what\>: \<result\>. Checked by \<evidence\> | guessed from \<what\> | assumed,
+  please confirm
+- Chose \<X\> over \<Y\>: \<one-line reason\>
+- Read first: `<file:line>`; verify with `<command>`
 
 **Your turn**
 1. \<decision\>? A: \<result\>. B: \<result\>. **I recommend A**: \<reason\>.
@@ -43,32 +43,37 @@ For example:
 
 > **Where we are**
 > - **my-claude@42-retry-uploads** (PR #45)
-> - Done: failed uploads now retry 3 times
-> - Next: merge, once you answer below
+> - The app backs up phone photos to the cloud.
+> - A failed upload is never tried again, so the photo stays without a backup.
 >
-> **What to check**
-> - Retries stop on a 4xx error: checked by a new test
-> - I chose a fixed 2s wait over a growing one: simpler, and uploads are rare
-> - Look first at `upload.py:80`; verify with `uv run pytest -k retry`
+> **What I did**
+> - Implemented retries: a failed upload now tries 3 more times. Checked by a new test.
+> - Found that a 4xx error means the server refuses the photo, so retries stop there. Checked
+>   by a new test.
+> - Chose a fixed 2s wait over a growing one: simpler, and uploads are rare.
+> - Read first: `upload.py:80`; verify with `uv run pytest -k retry`
 >
 > **Your turn**
 > 1. Also retry on timeout? Yes: fewer failures, slower errors. No: as now. **I recommend
 >    yes**: timeouts are the most common failure.
 
-- **Where we are:** an issue branch names the issue, so it stands in for a link. When the
-  branch does not name it (still on `main`, or the issue lives in another repo), add the issue
-  as `#<N> <a few words>`. Add the PR once one exists: `#<N>`, or `<repo>#<N>` in another
-  repo. Blocked on names only what the user cannot answer; a decision of theirs goes
-  in Your turn.
-- **What to check:** everything the reviewer should confirm or reject. A claim's tag says where
-  to look: its evidence (a test, a log line, a source), what it was guessed from, or that it is
-  assumed and needs the user's word. List every choice made without the user, so they catch one
-  they would reject before work builds on it. End with the few spots worth reading first and a
-  command that shows the work runs.
+- **Where we are:** gets the reader back into the work from the top down: the big picture,
+  then the problem at hand, in a few lines. Introduce here the terms the rest of the brief
+  uses. An issue branch names the issue, so it stands in for a link. When the branch does not
+  name it (still on `main`, or the issue lives in another repo), add the issue as
+  `#<N> <a few words>`. Add the PR once one exists: `#<N>`, or `<repo>#<N>` in another repo.
+- **What I did:** everything the reviewer should confirm or reject, findings included. Each
+  bullet starts with a past-tense verb (Implemented, Scanned, Reviewed, Found) and ends on its
+  result, not the steps that led there. The tag says where to look: its evidence (a test, a
+  log line, a source), what it was guessed from, or that it is assumed and needs the user's
+  word. List every choice made without the user, so they catch one they would reject before
+  work builds on it. When a number replaces one the user has seen, give both and why it
+  changed. End with the few spots worth reading first and a command that shows the work runs.
 - **Your turn:** always last, so the last thing read is what the user must answer. Each
   decision stands on its own: the question, its options and where each leads, and the
   recommendation. Numbered, so the user can answer by number. With nothing to decide, it is one
-  line: `**Your turn:** nothing.`
+  line saying what happens next without the user and what it waits on (CI, another PR):
+  `**Your turn:** nothing. <next step>, once <what it waits on>.`
 
 ## Rules
 
