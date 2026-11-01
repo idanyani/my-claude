@@ -38,9 +38,11 @@ and `gh` on PATH; they run against the current working directory's repo.
    for everyone, administrators included.
 2. **Open the PR.** `python3 ${CLAUDE_SKILL_DIR}/scripts/open_pr.py` pushes the branch and runs
    `gh pr create --fill`.
-3. **Review the PR.** Run `/code-review <pr>` in this session. Apply the findings worth
-   applying on the PR's branch, in the checkout step 1 made -- a commit made in any other
-   checkout is not in the PR -- and push
+3. **Review the PR.** Run `/code-review <pr>` in this session. Given a PR, the review may
+   check it out in this checkout, leaving it detached or on a branch of its own, so then run
+   `git switch <branch>` to put the checkout step 1 made back on the PR's branch. Apply the
+   findings worth applying there -- a commit made on any other branch or checkout is not in the
+   PR -- and push
    any fixes **as new commits -- the branch is already pushed and under
    review, so never amend, rebase, or force-push it; the squash-merge in step 4 collapses every
    commit into one on `main`, so branch commit count does not matter.** Dismiss the rest with a
