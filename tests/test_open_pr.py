@@ -86,6 +86,11 @@ class TestPrText:
         messages = ["Fix lint\n\nRuff flagged a line.", "Implement x\n\nWhy x.\n\nResolves #7"]
         assert open_pr.pr_text(messages, 7) == ("Implement x", "Why x.\n\nResolves #7")
 
+    def test_takes_the_oldest_of_several_closing_commits(self):
+        # `git log` lists the newest commit first.
+        messages = ["Fix lint\n\nResolves #7", "Implement x\n\nWhy x.\n\nResolves #7"]
+        assert open_pr.pr_text(messages, 7) == ("Implement x", "Why x.\n\nResolves #7")
+
 
 class TestPushBranch:
     def test_fixture_rejects_a_plain_push(self, stale_branch):

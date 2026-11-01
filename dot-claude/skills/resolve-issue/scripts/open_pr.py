@@ -54,8 +54,12 @@ def refusal(branch: str, messages: list[str]) -> str | None:
 
 
 def pr_text(messages: list[str], number: int) -> tuple[str, str]:
-    """The PR's title and description: the subject and body of the commit that closes the issue."""
-    closing = next(message for message in messages if closes_issue(message, number))
+    """The PR's title and description: the subject and body of the commit that closes the issue.
+
+    `messages` lists the newest commit first. Of several closing commits the oldest wins: it is the
+    implementation, and a later one a follow-up.
+    """
+    closing = next(message for message in reversed(messages) if closes_issue(message, number))
     title, _, body = closing.partition("\n")
     return title, body.strip()
 
