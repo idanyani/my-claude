@@ -87,8 +87,8 @@ For example:
 - Every `#N`, file, or term gets a few words the first time it appears, or is left out. Give
   background only where the reader needs it to follow the rest.
 - Each fact once. Leave out an empty line or section.
-- Only what the user must decide, check or do. Leave out what needs nothing from them:
-  housekeeping such as leftover worktrees or branches, work another session or process owns,
-  and a check that changed nothing. Never turn such an item into an offer ("delete them
-  now?"): do it if the session may, otherwise drop it.
+- Say where the work stands, such as the budget spent. Leave out what resolves without the
+  user: anything a script, process or later step will handle on its own. Raise a leftover that
+  stays until someone removes it. Report a failure the session worked around only as a pitfall
+  to fix, with how often the local transcripts show it.
 - One screen. Details only when the user asks for them.
