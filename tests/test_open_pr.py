@@ -45,6 +45,9 @@ class TestRefusal:
     def test_allows_an_issue_branch_whose_commit_closes_the_issue(self):
         assert open_pr.refusal(BRANCH, [CLOSING_MESSAGE]) is None
 
+    def test_allows_several_commits_when_one_closes_the_issue(self):
+        assert open_pr.refusal(BRANCH, ["Fix lint", CLOSING_MESSAGE]) is None
+
     @pytest.mark.parametrize(
         ("branch", "messages"),
         [
@@ -55,8 +58,7 @@ class TestRefusal:
             (BRANCH, ["Implement x"]),
             (BRANCH, [""]),
             ("8-y", [CLOSING_MESSAGE]),
-            # `gh pr create --fill` puts only the subjects of several commits in the PR body.
-            (BRANCH, ["Fix lint", CLOSING_MESSAGE]),
+            (BRANCH, ["Fix lint", "Implement x"]),
         ],
         ids=[
             "detached",
@@ -66,7 +68,7 @@ class TestRefusal:
             "no-closing-line",
             "empty-message",
             "closes-another-issue",
-            "several-commits",
+            "several-commits-none-closing",
         ],
     )
     def test_refuses(self, branch, messages):
@@ -77,6 +79,12 @@ class TestRefusal:
 
     def test_counts_an_empty_message_as_a_commit(self):
         assert "no commits" not in open_pr.refusal(BRANCH, [""])
+
+
+class TestPrText:
+    def test_takes_the_title_and_body_from_the_commit_that_closes_the_issue(self):
+        messages = ["Fix lint\n\nRuff flagged a line.", "Implement x\n\nWhy x.\n\nResolves #7"]
+        assert open_pr.pr_text(messages, 7) == ("Implement x", "Why x.\n\nResolves #7")
 
 
 class TestPushBranch:
@@ -109,7 +117,7 @@ class TestMain:
 
         monkeypatch.setattr(open_pr, "run_gh_text", run_gh_text)
         assert open_pr.main([]) == 0
-        assert gh_calls == [["pr", "create", "--fill"]]
+        assert gh_calls == [["pr", "create", "--title", "Implement x", "--body", "Resolves #7"]]
         assert capsys.readouterr().out.strip() == PR_URL
 
     def test_rejects_arguments(self):

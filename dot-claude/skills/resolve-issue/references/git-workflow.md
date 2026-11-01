@@ -36,13 +36,13 @@ and `gh` on PATH; they run against the current working directory's repo.
    never fired and reopens those whose CI never started (see Troubleshooting), then branches
    from a freshly fetched `main`. Never push to `main` directly -- branch protection rejects it
    for everyone, administrators included.
-2. **Open the PR.** `python3 ${CLAUDE_SKILL_DIR}/scripts/open_pr.py` pushes the branch and runs
-   `gh pr create --fill`.
+2. **Open the PR.** `python3 ${CLAUDE_SKILL_DIR}/scripts/open_pr.py` pushes the branch and opens
+   the PR, titled and described by the commit that closes the issue.
 3. **Review the PR.** Run `/code-review <pr>` in this session. Given a PR, the review may
    check it out in this checkout, leaving it detached or on a branch of its own, so then run
    `git switch <number>-<kebab-summary>` to put the checkout back on the branch step 1 made,
    and delete any branch the review made. Apply the findings worth applying there -- a commit
-   made on any other branch or checkout is not in the PR -- and push any fixes **as new commits
+   made on any other branch or checkout is not in the PR -- and push any fixes, and `git revert` of a rejected change, **as new commits
    -- the branch is already pushed and under review, so never amend, rebase, or force-push it;
    the squash-merge in step 4 collapses every commit into one on `main`, so branch commit count
    does not matter.** Dismiss the rest with a one-line reason. Review once -- do not loop on further advisory findings; record any
