@@ -5,8 +5,8 @@ Usage: python3 <skill-dir>/scripts/open_pr.py
 
 It refuses on `main`, on a detached HEAD, on a branch with no commits beyond `origin/main`, and
 when none of those commits closes the issue the branch is named for. Otherwise it pushes the branch
-with its upstream set, then runs `gh pr create --fill`, which turns the commit body into the PR
-description, and prints the PR's URL. Push review fixes afterwards with a
+with its upstream set, then creates the PR with the subject and body of the commit that closes the
+issue as its title and description, and prints the PR's URL. Push review fixes afterwards with a
 plain `git push`: once the branch is on the remote, its advertised tip already tells git what to
 leave out.
 """
@@ -45,16 +45,23 @@ def refusal(branch: str, messages: list[str]) -> str | None:
             f"{branch} is not named for an issue -- rename it with "
             "`git branch -m <number>-<summary>`, then re-run."
         )
-    if len(messages) > 1:
-        # `gh pr create --fill` turns one commit's body into the PR description, but only the
-        # subjects of several, so a closing line in any body would not reach the PR.
-        return f"{branch} has {len(messages)} commits -- squash them into one, then re-run."
-    if not closes_issue(messages[0], number):
+    if not any(closes_issue(message, number) for message in messages):
         return (
-            f"the commit on {branch} does not close #{number} -- amend its message to end with "
+            f"no commit on {branch} closes #{number} -- amend the last one's message to end with "
             f"`Resolves #{number}`, then re-run."
         )
     return None
+
+
+def pr_text(messages: list[str], number: int) -> tuple[str, str]:
+    """The PR's title and description: the subject and body of the commit that closes the issue.
+
+    `messages` lists the newest commit first. Of several closing commits the oldest wins: it is the
+    implementation, and a later one a follow-up.
+    """
+    closing = next(message for message in reversed(messages) if closes_issue(message, number))
+    title, _, body = closing.partition("\n")
+    return title, body.strip()
 
 
 def main(argv: list[str]) -> int:
@@ -69,7 +76,10 @@ def main(argv: list[str]) -> int:
     if reason:
         raise RuntimeError(reason)
     push_branch(branch)
-    print(run_gh_text(["pr", "create", "--fill"]).strip())
+    number = issue_number(branch)
+    assert number is not None  # refusal() rejects a branch not named for an issue
+    title, body = pr_text(messages, number)
+    print(run_gh_text(["pr", "create", "--title", title, "--body", body]).strip())
     return 0
 
 

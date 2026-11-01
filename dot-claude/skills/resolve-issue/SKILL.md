@@ -80,9 +80,9 @@ that output too; revert the edits that turn it red rather than fixing forward.
 
 ## Phase 9 -- Commit
 
-One commit for the implementation, message in the repo's commit style, ending with
-`Resolves #<number>`. The body becomes the PR description, so it states the chosen solution and
-the rejected alternatives with why; the problem stays in the issue.
+Commit the implementation, message in the repo's commit style, ending with `Resolves #<number>`.
+That commit's subject and body become the PR's title and description, so the body states the
+chosen solution and the rejected alternatives with why; the problem stays in the issue.
 
 ## Phase 10 -- Open the PR
 
