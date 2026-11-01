@@ -87,4 +87,8 @@ For example:
 - Every `#N`, file, or term gets a few words the first time it appears, or is left out. Give
   background only where the reader needs it to follow the rest.
 - Each fact once. Leave out an empty line or section.
+- Say where the work stands, such as the budget spent. Leave out what resolves without the
+  user: anything a script, process or later step will handle on its own. Raise a leftover that
+  stays until someone removes it. Report a failure the session worked around only as a pitfall
+  to fix, with how often the local transcripts show it.
 - One screen. Details only when the user asks for them.
