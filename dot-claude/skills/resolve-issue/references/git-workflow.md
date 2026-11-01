@@ -40,13 +40,12 @@ and `gh` on PATH; they run against the current working directory's repo.
    `gh pr create --fill`.
 3. **Review the PR.** Run `/code-review <pr>` in this session. Given a PR, the review may
    check it out in this checkout, leaving it detached or on a branch of its own, so then run
-   `git switch <branch>` to put the checkout step 1 made back on the PR's branch. Apply the
-   findings worth applying there -- a commit made on any other branch or checkout is not in the
-   PR -- and push
-   any fixes **as new commits -- the branch is already pushed and under
-   review, so never amend, rebase, or force-push it; the squash-merge in step 4 collapses every
-   commit into one on `main`, so branch commit count does not matter.** Dismiss the rest with a
-   one-line reason. Review once -- do not loop on further advisory findings; record any
+   `git switch <number>-<kebab-summary>` to put the checkout back on the branch step 1 made,
+   and delete any branch the review made. Apply the findings worth applying there -- a commit
+   made on any other branch or checkout is not in the PR -- and push any fixes **as new commits
+   -- the branch is already pushed and under review, so never amend, rebase, or force-push it;
+   the squash-merge in step 4 collapses every commit into one on `main`, so branch commit count
+   does not matter.** Dismiss the rest with a one-line reason. Review once -- do not loop on further advisory findings; record any
    leftover suggestion as a follow-up issue.
 4. **Merge and return to `main`.** Once the commit is final,
    `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` arms a squash auto-merge,
