@@ -124,6 +124,7 @@
   "tui": "fullscreen",
   "theme": "dark-daltonized",
   "agentPushNotifEnabled": true,
+  "idleCompaction": false,
   "voiceEnabled": true,
   "autoMode": {
     "environment": [
