@@ -26,6 +26,9 @@ fails on repos hit by the Projects-classic deprecation).
 An issue states one problem: symptom, impact, evidence -- never the fix. Two problems are two
 issues, each resolved by its own PR.
 
+A number, in the issue or in a comment on one, is measured or cited, and says by what: an
+estimate reads as a fact and misleads until someone measures.
+
 ## Step 3 -- File it
 
 Pass the body through a quoted heredoc, so the shell leaves its backticks and `$` alone:
