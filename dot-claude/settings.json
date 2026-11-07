@@ -65,6 +65,7 @@
     ]
   },
   "model": "opus",
+  "advisorModel": "fable",
   "hooks": {
     "PostToolUse": [
       {
