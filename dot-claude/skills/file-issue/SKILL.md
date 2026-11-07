@@ -24,7 +24,8 @@ fails on repos hit by the Projects-classic deprecation).
 ## Step 2 -- Write the issue
 
 An issue states one problem: symptom, impact, evidence -- never the fix. Two problems are two
-issues, each resolved by its own PR.
+issues, each resolved by its own PR. A cost or count is measured or left out: an estimate reads
+as a fact and misleads until someone measures.
 
 ## Step 3 -- File it
 
