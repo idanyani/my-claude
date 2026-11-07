@@ -20,11 +20,9 @@
 ## Issues, pull requests, and commits
 
 - Every change meant to land on `main` follows the resolve-issue skill's steps, through the
-  merge and local cleanup, even when the session did not start from an issue: first open an
-  issue that records the problem the session raised, then resolve it. So every PR links the
-  issue it resolves.
-- An issue states one problem: symptom, impact, evidence -- never the fix. Two problems are
-  two issues, each resolved by its own PR.
+  merge and local cleanup, even when the session did not start from an issue: first file an
+  issue with the file-issue skill that records the problem the session raised, then resolve
+  it. So every PR links the issue it resolves.
 - A PR states the chosen solution and the alternatives considered, each with why it was
   rejected. It links the problem with `Resolves #N` instead of restating it.
 - A commit message describes what the commit does to the repository's persistent state,

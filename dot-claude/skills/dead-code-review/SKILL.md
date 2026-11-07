@@ -58,4 +58,4 @@ higher severity. Rank by severity, group by concern, and print one markdown repo
 finding format. Delete any scratch copy. **Make no edits.**
 
 Close by offering the follow-up the user chooses: open a fix session for the items they pick, or
-file issues for them. Triage stays with the user.
+file issues for them with `/file-issue`. Triage stays with the user.
