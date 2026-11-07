@@ -47,7 +47,7 @@ and `gh` on PATH; they run against the current working directory's repo.
    never amend, rebase, or force-push it; the squash-merge in step 4 collapses every commit into
    one on `main`, so branch commit count does not matter.** Dismiss the rest with a one-line
    reason. Review once -- do not loop on further advisory findings; record any leftover
-   suggestion as a follow-up issue.
+   suggestion as a follow-up issue with `/file-issue`.
 4. **Merge and return to `main`.** Once the commit is final,
    `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` arms a squash auto-merge,
    confirms within seconds that GitHub will merge the PR without a person (it does not wait for

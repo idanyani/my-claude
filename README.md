@@ -28,6 +28,8 @@ any project, loaded into every Claude Code session on a machine that installs my
   Ships stdlib-only helper scripts (`python3`, `git`, `gh` are the only runtime requirements)
   and the canonical
   [git-workflow doc](dot-claude/skills/resolve-issue/references/git-workflow.md).
+- **[file-issue](dot-claude/skills/file-issue/SKILL.md)** -- record a problem as a GitHub
+  issue, after searching open and closed issues for one that already covers it.
 - **[docs-review](dot-claude/skills/docs-review/SKILL.md)** -- review docs, docstrings, and
   comments for stale or unbacked claims, broken links, prose-convention drift, and docs shaped
   wrong as a whole, and report ranked findings for triage, making no edits. Pairs with the

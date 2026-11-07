@@ -63,4 +63,4 @@ concern 3 finding that reports that fact's spread. Rank by severity, group by co
 markdown report in the rubric's finding format. **Make no edits.**
 
 Close by offering the follow-up the user chooses: open a fix session for the items they pick, or
-file issues for them. Triage stays with the user.
+file issues for them with `/file-issue`. Triage stays with the user.
