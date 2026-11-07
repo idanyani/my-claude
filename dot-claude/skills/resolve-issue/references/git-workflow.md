@@ -46,9 +46,12 @@ and `gh` on PATH; they run against the current working directory's repo.
    of a rejected change, **as new commits -- the branch is already pushed and under review, so
    never amend, rebase, or force-push it; the squash-merge in step 4 collapses every commit into
    one on `main`, so branch commit count does not matter.** Dismiss a finding that is wrong or
-   not worth a change with a one-line reason. Hold a finding that is right but outside the PR's
-   scope for the closing brief (Phase 15 of resolve-issue), where the user picks which become
-   issues; file none during the review. Review once -- do not loop on further advisory findings.
+   not worth a change with a one-line reason. Hold a finding that is right but not applied in
+   this PR for the closing report, where the user picks which become issues; file none during
+   the review. Record it when the hold is decided, as `[SEVERITY] what fails or costs --
+   file:line`: HIGH is a failure confirmed with a concrete input or a measurement, MEDIUM is
+   real debt or a failure that needs a condition nobody has seen, LOW is style or a call only
+   the user can make. Review once -- do not loop on further advisory findings.
 4. **Merge and return to `main`.** Once the commit is final,
    `python3 ${CLAUDE_SKILL_DIR}/scripts/finish_branch.py <pr>` arms a squash auto-merge,
    confirms within seconds that GitHub will merge the PR without a person (it does not wait for

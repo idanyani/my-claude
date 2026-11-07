@@ -108,8 +108,5 @@ Leave the worktree as the end of step 4 of the workflow doc says.
 
 Brief the user on the result in the brief skill's format: What I did says what is different now,
 with the test results and the review triage. The findings step 3 of the workflow doc held go
-under Your turn as one decision: which to file as issues, answered by letter. One line per
-finding, ranked: `[SEVERITY] what fails or costs -- file:line`. HIGH is a failure the review
-confirmed with a concrete input or a measurement; MEDIUM is real debt, or a failure that needs a
-condition nobody has seen; LOW is style, or a call only the user can make. File the ones the user
-picks with `/file-issue`.
+under Your turn as one decision, which to file as issues: the recorded lines ranked HIGH first,
+each prefixed with a letter to answer by. File the ones the user picks with `/file-issue`.
