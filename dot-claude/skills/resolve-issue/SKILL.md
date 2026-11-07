@@ -107,4 +107,6 @@ Leave the worktree as the end of step 4 of the workflow doc says.
 ## Phase 15 -- Report to the user
 
 Brief the user on the result in the brief skill's format: What I did says what is different now,
-with the test results and the review triage.
+with the test results and the review triage. The findings step 3 of the workflow doc held go
+under Your turn as one decision, which to file as issues: the recorded lines ranked HIGH first,
+each prefixed with a letter to answer by. File the ones the user picks with `/file-issue`.

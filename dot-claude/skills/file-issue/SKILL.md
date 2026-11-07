@@ -1,6 +1,6 @@
 ---
 name: file-issue
-description: Use when a problem is to be recorded as a GitHub issue -- the user says "file an issue", "open an issue", "/file-issue", or agrees to an offer to file one, or work calls for one (a review's follow-up, a leftover suggestion, the issue a change to `main` resolves). Do NOT use for implementing an issue (use resolve-issue).
+description: Use when a problem is to be recorded as a GitHub issue -- the user says "file an issue", "open an issue", "/file-issue", or agrees to an offer to file one, or work calls for one (a review finding the user picked, the issue a change to `main` resolves). Do NOT use for implementing an issue (use resolve-issue).
 ---
 
 # File a GitHub issue
