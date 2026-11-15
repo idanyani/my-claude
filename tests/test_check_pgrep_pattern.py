@@ -1,0 +1,315 @@
+"""Tests for the self-matching process-pattern hook.
+
+The bug being guarded: `pgrep -f` matches whole command lines, so a shell whose own argv
+contains the pattern always finds itself. A wait loop built on one can never exit -- the
+failure that motivated this hook left ten shells spinning for eleven hours.
+"""
+
+import time
+from pathlib import Path
+
+from check_pgrep_pattern import SelfMatch, bracket_escape, find_self_matches, format_denial
+
+HOOK = Path(__file__).parent.parent / "dot-claude" / "hooks" / "check_pgrep_pattern.py"
+
+
+class TestFindSelfMatches:
+    def test_flags_the_wait_loop_that_motivated_the_hook(self):
+        (match,) = find_self_matches('until ! pgrep -f "bin/pytest -q"; do sleep 15; done')
+        assert match.pattern == "bin/pytest -q"
+        assert match.suggestion == "[b]in/pytest -q"
+
+    def test_a_heredoc_body_is_data_not_command(self):
+        # Documenting the bug must not trip the check: text fed to a command on stdin is never
+        # executed. Caught when this hook blocked the pull request that introduces it.
+        command = (
+            "gh pr create --body-file - <<'BODYEOF'\n"
+            'until ! pgrep -f "bin/pytest -q"; do sleep 15; done\n'
+            "BODYEOF"
+        )
+        assert find_self_matches(command) == []
+
+    def test_a_real_invocation_after_a_heredoc_is_still_flagged(self):
+        command = "cat <<'EOF'\ndocs\nEOF\npgrep -f pytest"
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_a_quoted_heredoc_operator_hides_no_later_command(self):
+        # Inside quotes `<<EOF` is literal text, so the `EOF` line below is a command, not
+        # the end of a heredoc body.
+        command = 'echo "a <<EOF b"\npgrep -f pytest\nEOF\npgrep -f pytest'
+        assert [m.pattern for m in find_self_matches(command)] == ["pytest", "pytest"]
+
+    def test_a_quoted_heredoc_operator_without_a_closing_line_hides_nothing(self):
+        command = 'git commit -m "Explain\ncat <<EOF usage\n"\npgrep -f pytest'
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_a_heredoc_in_a_quoted_command_substitution_is_data(self):
+        # The `"$(cat <<'EOF' ... EOF\n)"` commit-message idiom: the substitution opens a
+        # fresh quoting context, so its heredoc is real even inside double quotes, and a
+        # stray double quote in the body does not unbalance the quoting around it.
+        command = (
+            'git commit -m "$(cat <<\'EOF\'\nA 5" display\npgrep -f pytest\nEOF\n)"\npgrep -f gamma'
+        )
+        assert [m.pattern for m in find_self_matches(command)] == ["gamma"]
+
+    def test_a_here_string_is_not_a_heredoc(self):
+        command = "cat <<<EOF\npgrep -f pytest\nEOF"
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_an_arithmetic_shift_is_not_a_heredoc(self):
+        for shift in ("echo $((1 << 4))", "(( x = y << 2 ))"):
+            (match,) = find_self_matches(f"{shift}\npgrep -f pytest\n4")
+            assert match.pattern == "pytest"
+
+    def test_an_ansi_c_quote_with_an_escaped_apostrophe_closes(self):
+        command = "echo $'it\\'s'\ncat <<EOF\npgrep -f pytest\nEOF"
+        assert find_self_matches(command) == []
+
+    def test_a_heredoc_inside_backticks_is_data(self):
+        command = 'x="`cat <<EOF\nA 5" display\npgrep -f pytest\nEOF\n`"\npgrep -f gamma'
+        assert [m.pattern for m in find_self_matches(command)] == ["gamma"]
+
+    def test_a_heredoc_left_open_by_closing_backticks_ends_there(self):
+        # Bash reads the substitution to its closing backtick first, so the heredoc in it ends
+        # at that backtick and the next line runs as a command.
+        command = 'x="`cat <<EOF`"\npgrep -f pytest\nEOF'
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_a_case_pattern_paren_does_not_close_a_command_substitution(self):
+        # The `)` after the pattern `a` ends the pattern, not the `$(`, so the `"<<EOF"` after
+        # it is quoted text inside the substitution.
+        command = 'echo "$(case $x in a) echo "<<EOF";; esac)"\npgrep -f pytest'
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_a_multiline_case_pattern_paren_does_not_close_a_command_substitution(self):
+        command = 'x="$(case $y in\na) echo "<<EOF";;\nesac)"\npgrep -f pytest'
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_the_paren_after_esac_closes_the_command_substitution(self):
+        command = 'echo "$(case $x in a) :;; esac) <<EOF"\npgrep -f pytest'
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_only_the_reserved_word_case_opens_a_case(self):
+        for substitution in ("echo case", "echo case a in b", "echo showcase a in b", "docase"):
+            command = f'x="$({substitution}) <<EOF"\npgrep -f pytest'
+            (match,) = find_self_matches(command)
+            assert match.pattern == "pytest", substitution
+
+    def test_a_stray_esac_hides_nothing(self):
+        (match,) = find_self_matches("esac\npgrep -f pytest")
+        assert match.pattern == "pytest"
+
+    def test_the_word_esac_as_an_argument_closes_no_case(self):
+        command = 'x="$(case $y in a) echo esac;; b) echo "<<EOF";; esac)"\npgrep -f pytest'
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_a_case_header_need_not_fit_one_plain_word_on_one_line(self):
+        for header in ('case "a b" in', "case $(f x) in", "case $y\nin"):
+            command = f'x="$({header} a) echo "<<EOF";; esac)"\npgrep -f pytest'
+            (match,) = find_self_matches(command)
+            assert match.pattern == "pytest", header
+
+    def test_a_case_after_a_reserved_word_is_a_case(self):
+        command = 'x="$(if :; then case $y in a) echo "<<EOF";; esac; fi)"\npgrep -f pytest'
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_a_heredoc_operator_without_a_delimiter_hides_nothing(self):
+        (match,) = find_self_matches("cat <<\npgrep -f pytest\n\nEOF")
+        assert match.pattern == "pytest"
+
+    def test_unbalanced_quoting_falls_back_to_heredocs_line_by_line(self):
+        # Bash rejects the unclosed quote, so nothing here runs. A quoting mistake must not
+        # leave every later heredoc body to be scanned as commands.
+        command = 'echo "unclosed\ncat <<EOF\npgrep -f pytest\nEOF'
+        assert find_self_matches(command) == []
+
+    def test_a_dash_heredoc_closes_on_a_tab_indented_delimiter(self):
+        command = "cat <<-EOF\n\tpgrep -f pytest\n\tEOF\npgrep -f gamma"
+        assert [m.pattern for m in find_self_matches(command)] == ["gamma"]
+
+    def test_a_plain_heredoc_does_not_close_on_an_indented_delimiter(self):
+        command = "cat <<EOF\n  EOF\npgrep -f pytest\nEOF\npgrep -f gamma"
+        assert [m.pattern for m in find_self_matches(command)] == ["gamma"]
+
+    def test_a_double_quoted_delimiter_is_unquoted_before_matching(self):
+        command = 'cat <<"EOF"\npgrep -f pytest\nEOF\npgrep -f gamma'
+        assert [m.pattern for m in find_self_matches(command)] == ["gamma"]
+
+    def test_a_heredoc_operator_in_a_comment_opens_nothing(self):
+        command = "echo hi # see <<EOF\npgrep -f pytest\nEOF\npgrep -f gamma"
+        assert [m.pattern for m in find_self_matches(command)] == ["pytest", "gamma"]
+
+    def test_a_heredoc_body_starts_after_an_escaped_newline(self):
+        command = "cat <<EOF \\\n&& pgrep -f pytest\nbody\nEOF"
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_a_heredoc_body_starts_after_a_quoted_newline(self):
+        command = 'cat <<EOF "a\nb" && pgrep -f pytest\nbody\nEOF'
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_a_redirection_target_is_not_mistaken_for_the_pattern(self):
+        # `>/dev/null` tokenizes as an operator plus a word; neither is a pgrep operand.
+        (match,) = find_self_matches(
+            'until ! pgrep -f "bin/pytest -q" >/dev/null; do sleep 15; done'
+        )
+        assert match.pattern == "bin/pytest -q"
+
+    def test_a_file_descriptor_prefix_is_not_mistaken_for_the_pattern(self):
+        # `2>/dev/null` puts the descriptor in a token of its own, ahead of the operator.
+        (match,) = find_self_matches("pgrep -f pytest 2>/dev/null")
+        assert match.pattern == "pytest"
+
+    def test_flags_pkill_the_same_way(self):
+        (match,) = find_self_matches("pkill -f 'until ! pgrep'")
+        assert match.pattern == "until ! pgrep"
+
+    def test_bracketed_pattern_is_allowed(self):
+        assert find_self_matches('pgrep -f "[b]in/pytest -q"') == []
+
+    def test_bracketed_pkill_pattern_is_allowed(self):
+        assert find_self_matches("pkill -f 'until ! [p]grep'") == []
+
+    def test_without_full_flag_there_is_no_self_match(self):
+        # Without -f, pgrep matches the process name only, never the caller's command line.
+        assert find_self_matches("pgrep -x pytest") == []
+        assert find_self_matches("pgrep pytest") == []
+
+    def test_long_form_full_flag_is_flagged(self):
+        (match,) = find_self_matches("pgrep --full pytest")
+        assert match.pattern == "pytest"
+
+    def test_combined_short_option_cluster_is_flagged(self):
+        (match,) = find_self_matches("pgrep -af pytest")
+        assert match.pattern == "pytest"
+
+    def test_an_option_value_is_never_mistaken_for_the_pattern(self):
+        # getopt permutes, so the value may sit on either side of the pattern operand.
+        (before,) = find_self_matches("pgrep -u root -f pytest")
+        (after,) = find_self_matches("pgrep -f pytest -u root")
+        assert before.pattern == after.pattern == "pytest"
+
+    def test_bare_unquoted_pattern_is_flagged(self):
+        (match,) = find_self_matches("pgrep -f pytest")
+        assert match.pattern == "pytest"
+
+    def test_an_invocation_does_not_reach_past_its_own_line(self):
+        # Multi-line commands are routine, and operands from a later line are not this one's.
+        assert find_self_matches('pgrep -c -f "[p]ytest"\nps aux') == []
+        (match,) = find_self_matches("pgrep -f pytest\necho hi")
+        assert match.pattern == "pytest"
+
+    def test_a_backslash_continued_invocation_is_flagged(self):
+        (match,) = find_self_matches("pgrep -f \\\n  pytest")
+        assert match.pattern == "pytest"
+
+    def test_a_continuation_inside_a_word_joins_it_as_the_shell_does(self):
+        # The shell removes backslash-newline before splitting words, quoted or not.
+        (unquoted,) = find_self_matches("pgrep -f pyt\\\nest")
+        (double_quoted,) = find_self_matches('pgrep -f "pyt\\\nest"')
+        assert unquoted.pattern == double_quoted.pattern == "pytest"
+
+    def test_a_backslash_newline_in_single_quotes_stays_literal(self):
+        (match,) = find_self_matches("pgrep -f 'pyt\\\nest'")
+        assert match.pattern == "pyt\\\nest"
+
+    def test_an_invocation_after_a_multiline_quoted_string_is_flagged(self):
+        (match,) = find_self_matches('echo "a\nb"; pgrep -f pytest')
+        assert match.pattern == "pytest"
+
+    def test_an_invocation_quoted_inside_a_multiline_argument_is_data(self):
+        # A commit message that mentions the bug is text, not a command the shell runs.
+        assert find_self_matches('git commit -m "Harden\npgrep -f pytest\nloops"') == []
+
+    def test_quoting_shlex_cannot_close_hides_no_later_line(self):
+        # Bash accepts ANSI-C quoting that shlex reads as an unclosed quote.
+        (match,) = find_self_matches("echo $'it\\'s'\npgrep -f pytest")
+        assert match.pattern == "pytest"
+
+    def test_a_long_multiline_quoted_argument_is_scanned_quickly(self):
+        # The hook runs before every Bash call, so a long `python3 -c "..."` must not stall it.
+        script = "\n".join(f"x{index} = {index}" for index in range(5000))
+        # CPU time, not wall clock: time spent waiting for a busy machine must not fail the test.
+        started = time.process_time()
+        (match,) = find_self_matches(f'python3 -c "{script}"\npgrep -f pytest')
+        assert match.pattern == "pytest"
+        assert time.process_time() - started < 2
+
+    def test_a_double_dash_operand_list_stops_at_the_separator(self):
+        assert find_self_matches('pgrep -f -- "[p]ytest" ; echo ok') == []
+        (match,) = find_self_matches("pgrep -f -- pytest && echo hi")
+        assert match.pattern == "pytest"
+
+    def test_an_invocation_after_a_double_dash_one_is_still_scanned(self):
+        matches = find_self_matches('pgrep -f -- "[p]ytest" ; pgrep -f gamma')
+        assert [m.pattern for m in matches] == ["gamma"]
+
+    def test_a_numeric_pattern_is_not_mistaken_for_a_file_descriptor(self):
+        (match,) = find_self_matches("pkill -f 8080 >/dev/null")
+        assert match.pattern == "8080"
+
+    def test_an_option_value_after_a_bracketed_pattern_is_not_flagged(self):
+        assert find_self_matches('pgrep -f "[p]ytest" -r R') == []
+
+    def test_an_apostrophe_in_a_heredoc_body_does_not_disable_the_check(self):
+        # The body is stripped as text, so its quoting never reaches the tokenizer.
+        command = "cat > n.md <<'EOF'\ndon't poll\nEOF\nuntil ! pgrep -f pytest; do sleep 5; done"
+        (match,) = find_self_matches(command)
+        assert match.pattern == "pytest"
+
+    def test_reports_every_offending_invocation(self):
+        matches = find_self_matches('pgrep -f alpha && pkill -f "[b]eta" ; pgrep -f gamma')
+        assert [m.pattern for m in matches] == ["alpha", "gamma"]
+
+    def test_a_shell_variable_pattern_is_not_statically_provable(self):
+        # The caller's argv holds `$PATTERN`, not its value, so this does not self-match.
+        assert find_self_matches('pgrep -f "$PATTERN"') == []
+
+    def test_unparsable_quoting_is_left_alone(self):
+        assert find_self_matches("pgrep -f 'unbalanced") == []
+
+    def test_unrelated_commands_are_silent(self):
+        assert find_self_matches("uv run pytest -q") == []
+        assert find_self_matches("grep -f patterns.txt file.txt") == []
+
+
+class TestBracketEscape:
+    def test_brackets_the_first_alphanumeric_character(self):
+        assert bracket_escape("pytest") == "[p]ytest"
+
+    def test_brackets_a_leading_digit(self):
+        assert bracket_escape("8080") == "[8]080"
+
+    def test_skips_leading_punctuation(self):
+        assert bracket_escape("^/usr/bin") == "^/[u]sr/bin"
+
+    def test_returns_the_pattern_unchanged_when_it_has_no_alphanumeric(self):
+        assert bracket_escape("---") == "---"
+
+
+class TestFormatDenial:
+    def test_names_the_pattern_and_its_bracketed_replacement(self):
+        reason = format_denial([SelfMatch("pytest", "[p]ytest")])
+        assert "pytest" in reason
+        assert "[p]ytest" in reason
+
+
+class TestHookFileContract:
+    def test_carries_a_python3_shebang(self):
+        assert HOOK.read_text().startswith("#!/usr/bin/env python3\n")
+
+    def test_is_executable(self):
+        assert HOOK.stat().st_mode & 0o111
+
+    def test_source_is_pure_ascii(self):
+        assert HOOK.read_bytes().isascii()
