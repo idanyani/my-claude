@@ -56,7 +56,8 @@ coverage run.
    with the repo's coverage tool when one is configured and by tracing callers from the tests when
    not, and missing edge cases for logic that clearly has them.
 3. **Test design** -- redundant tests and duplicated setup, coupling to implementation
-   detail, flakiness risks, and tests that assert on prompt prose.
+   detail, test data larger than the behavior needs, flakiness risks, and tests that assert on
+   prompt prose.
 
 ## Phase 3 -- Aggregate and report
 

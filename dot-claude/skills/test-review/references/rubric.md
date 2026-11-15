@@ -9,7 +9,8 @@ Each concern below maps to one Phase 2 subagent. Report every hit as
 `[SEVERITY] one-line finding -- file:line`, nothing else. Reserve HIGH for a test that gives false
 confidence or a change with no test at all (a test that survives a mutation of the code it covers,
 changed logic nothing exercises); MEDIUM for real debt (a flaky or implementation-coupled test, a
-missing edge case, a test that breaks on rewording); LOW for redundancy and polish.
+missing edge case, a test that breaks on rewording, test data larger than the behavior needs); LOW
+for redundancy and polish.
 
 Test support code -- fixtures, factories, helpers, `conftest` files, test configs, and the CI job
 that runs the suite -- is subject matter for every concern, not scenery.
@@ -36,6 +37,9 @@ that runs the suite -- is subject matter for every concern, not scenery.
 - Two tests covering the same behavior; duplicated setup that should be a fixture.
 - A test coupled to implementation detail rather than behavior or contract: it asserts on private
   state, call counts of internals, or exact log text, so a refactor that keeps behavior breaks it.
+- Test data that is not a minimal reproducible example: a fixture or inline input holding more
+  than the behavior under test depends on, such as a whole captured page, response, or log where
+  a few lines would do. Name the part the test needs.
 - Flakiness risks: sleeps and timeouts standing in for synchronization, wall-clock time or the
   current date, real network or external services, random values without a fixed seed, dependence
   on test order, shared global or filesystem state that one test leaves for the next.
