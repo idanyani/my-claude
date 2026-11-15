@@ -58,7 +58,7 @@ def merge_pull(clone: Path) -> None:
 
 
 def rebase_pull(clone: Path) -> None:
-    # With no local commit to replay, a rebase pull is a plain fast-forward.
+    # A local commit to replay makes the pull rebase rather than fast-forward.
     commit(clone, "local")
     git(clone, "pull", "-q", "--rebase")
 
@@ -90,5 +90,31 @@ def test_a_pull_in_a_worktree_keeps_the_install_linked_to_the_main_clone(
     commit(upstream, "more")
     git(upstream, "push", "-q")
     git(worktree, "pull", "-q")
+    assert git(worktree, "rev-parse", "HEAD") == git(upstream, "rev-parse", "HEAD")
     link = home / ".claude" / "hooks" / "x.py"
     assert link.resolve() == (installed / HOOK).resolve()
+
+
+def test_a_failing_step_fails_the_install(upstream: Path, home: Path):
+    (upstream / SETTINGS).write_text("not json")
+    run = subprocess.run([upstream / "install.sh"], capture_output=True)
+    assert run.returncode != 0
+
+
+def test_a_rebase_that_replays_a_local_drop_of_a_hook_unregisters_it(
+    upstream: Path, installed: Path, home: Path
+):
+    commit(upstream, "more")
+    git(upstream, "push", "-q")
+    git(installed, "rm", "-q", HOOK)
+    (installed / SETTINGS).write_text("{}")
+    git(installed, "commit", "-q", "-am", "drop the hook")
+    git(installed, "pull", "-q", "--rebase")
+    assert "hooks" not in live_settings(home)
+
+
+def test_a_failing_reinstall_does_not_fail_the_checkout(upstream: Path, installed: Path):
+    (upstream / SETTINGS).write_text("not json")
+    git(upstream, "commit", "-q", "-am", "break the settings")
+    git(upstream, "push", "-q")
+    checkout(installed)  # raises if git exits nonzero
