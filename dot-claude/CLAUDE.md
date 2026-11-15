@@ -59,6 +59,10 @@
   equivalents, confirm Red, implement to Green.
 - Reproduce every bug with a failing test before fixing it.
 - Before calling a test done, verify it would fail if the code broke.
+- Make test data a minimal reproducible example: only what the behavior under test depends
+  on. Cut a captured input (a saved page, an API response, a log) down to those parts, or
+  build it in the test, so the reader sees what matters. A whole capture is no more
+  thorough: it holds only the variation that happened when it was captured.
 - Never test a prompt (a skill, CLAUDE.md, an agent definition) by matching its prose:
   rewording breaks the test without changing behavior. Assert only on text a program
   consumes (script paths, frontmatter keys, tool rules); a prose edit has no test-first
