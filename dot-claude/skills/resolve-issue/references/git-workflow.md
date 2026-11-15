@@ -38,12 +38,13 @@ and `gh` on PATH; they run against the current working directory's repo.
    for everyone, administrators included.
 2. **Open the PR.** `python3 ${CLAUDE_SKILL_DIR}/scripts/open_pr.py` pushes the branch and opens
    the PR, titled and described by the commit that closes the issue.
-3. **Review the PR.** Run `/code-review high <pr>` in this session, and when the PR changes
-   tests, `/test-review` too, which checks that the tests can fail. Name the level: without
-   one, `/code-review` reuses the session's last, and at `low` it can return no findings
+3. **Review the PR.** Run `/code-review high --max-findings default <pr>` in this session,
+   and when the PR changes tests, `/test-review` too. Name both options: without them,
+   `/code-review` reuses the session's last choices, and at `low` it can return no findings
    without reading the change. A review that read none of the changed files reviewed nothing:
-   report it as not reviewed, never as no findings. Given a PR, the review may check it out in
-   this checkout, leaving it detached or on a branch of its own, so then run
+   run it once more, and if it again reads nothing, ask the user before step 4 and report it
+   as not reviewed, never as no findings. Given a PR, the review may check it out in this
+   checkout, leaving it detached or on a branch of its own, so then run
    `git switch <number>-<kebab-summary>` to put the checkout back on the branch step 1 made,
    and delete any branch the review made. Apply the findings worth applying there -- a commit
    made on any other branch or checkout is not in the PR -- and push any fixes, and `git revert`
