@@ -14,3 +14,8 @@ mkdir -p ~/.claude
 python3 "$REPO/scripts/merge_settings.py" "$SRC/$SETTINGS" ~/.claude/"$SETTINGS" "$RECORD"
 python3 "$REPO/scripts/install_links.py" "$SRC" ~/.claude "$RECORD" \
     --merged "$SETTINGS"
+HOOKS="$(git -C "$REPO" rev-parse --path-format=absolute --git-path hooks)"
+mkdir -p "$HOOKS"
+for hook in post-merge post-checkout post-rewrite; do
+    ln -sf "$REPO/scripts/reinstall-on-update" "$HOOKS/$hook"
+done
