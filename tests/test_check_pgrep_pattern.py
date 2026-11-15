@@ -239,10 +239,11 @@ class TestFindSelfMatches:
     def test_a_long_multiline_quoted_argument_is_scanned_quickly(self):
         # The hook runs before every Bash call, so a long `python3 -c "..."` must not stall it.
         script = "\n".join(f"x{index} = {index}" for index in range(5000))
-        started = time.perf_counter()
+        # CPU time, not wall clock: time spent waiting for a busy machine must not fail the test.
+        started = time.process_time()
         (match,) = find_self_matches(f'python3 -c "{script}"\npgrep -f pytest')
         assert match.pattern == "pytest"
-        assert time.perf_counter() - started < 2
+        assert time.process_time() - started < 2
 
     def test_a_double_dash_operand_list_stops_at_the_separator(self):
         assert find_self_matches('pgrep -f -- "[p]ytest" ; echo ok') == []
