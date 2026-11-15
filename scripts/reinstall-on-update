@@ -1,0 +1,9 @@
+#! /bin/bash
+# Git hook that install.sh links as post-merge and post-checkout: reinstall
+# whenever a pull, rebase, or checkout changes the clone, so the live settings never register a
+# hook file the change removed. Git shares hooks across worktrees, but ~/.claude links into the
+# main worktree only, so a change in any other worktree has nothing to reinstall.
+set -euo pipefail
+
+[ "$(git rev-parse --absolute-git-dir)" = "$(git rev-parse --path-format=absolute --git-common-dir)" ] || exit 0
+exec "$(git rev-parse --show-toplevel)/install.sh"

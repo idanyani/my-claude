@@ -59,7 +59,9 @@ Skills and `CLAUDE.md` are symlinked, so a `git pull` in the clone updates every
 live config at once -- one canonical source instead of divergence-by-duplication.
 `settings.json` is the deliberate exception: `install.sh` merges it into the live file
 instead of linking it, so settings added on the machine survive; the merge rules live in
-[`scripts/merge_settings.py`](scripts/merge_settings.py).
+[`scripts/merge_settings.py`](scripts/merge_settings.py). `install.sh` also installs git
+hooks that rerun it after every pull, rebase, and checkout, so the merged settings keep up with
+the linked files.
 
 ## Development
 
