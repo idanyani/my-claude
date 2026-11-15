@@ -44,8 +44,12 @@ rubric's format, no prose, no preamble.
    unreachable branches, and abandoned scaffolding. If the repo configures a dead-code tool (vulture,
    knip, deadcode, a compiler's unused-code warnings, ...), run it first and judge its hits, since
    such tools report false positives for code reached by reflection, registration, or a framework.
-   A tool that writes caches or needs installing runs in a scratch copy of the repo (`cp -a`, `.git`
-   included), never in the checkout.
+   A tool that writes caches or needs installing runs in a scratch copy of the repo, never in the
+   checkout. Make the copy a clone with git data of its own, topped up with every working file:
+   `git clone -q --shared --no-checkout <checkout> <copy>`, then
+   `tar -C <checkout> --exclude=./.git -cf - . | tar -C <copy> -xf -` and
+   `git -C <copy> reset -q`. A copied `.git` of a worktree names the shared git data, so a git
+   command in the copy would move the user's branch.
 2. **Dead entry points** -- scripts, configs, CI jobs, hooks, and package-manager scripts with no
    invoker but their own definition, and entry points that cannot work if invoked.
 3. **Dead data and modes** -- data and config files nothing reads, and CLI modes, flags, or
