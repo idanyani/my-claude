@@ -78,17 +78,6 @@
         ]
       }
     ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/check_pgrep_pattern.py\""
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "hooks": [
