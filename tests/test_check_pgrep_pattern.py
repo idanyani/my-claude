@@ -286,6 +286,9 @@ class TestBracketEscape:
     def test_brackets_the_first_alphanumeric_character(self):
         assert bracket_escape("pytest") == "[p]ytest"
 
+    def test_brackets_a_leading_digit(self):
+        assert bracket_escape("8080") == "[8]080"
+
     def test_skips_leading_punctuation(self):
         assert bracket_escape("^/usr/bin") == "^/[u]sr/bin"
 
