@@ -1,6 +1,6 @@
 ---
 name: test-review
-description: Use when the user wants the tests of recent work reviewed -- says "test-review", "/test-review", "review the tests", or "check for tests that cannot fail / untested changes / flaky tests / redundant tests". Proves whether tests can fail, finds changed code no test exercises, and reports ranked findings for triage; makes NO edits to the checkout. Do NOT use for line-level bug review (use /code-review), docs and comments (use /docs-review), or simplifying live code (use /simplify).
+description: Use when the user wants the tests of recent work reviewed -- says "test-review", "/test-review", "review the tests", or "check for tests that cannot fail / untested changes / flaky tests / redundant tests / oversized test data". Proves whether tests can fail, finds changed code no test exercises, and reports ranked findings for triage; makes NO edits to the checkout. Do NOT use for line-level bug review (use /code-review), docs and comments (use /docs-review), or simplifying live code (use /simplify).
 ---
 
 # Test review: find tests that do not pull their weight
@@ -26,19 +26,19 @@ absent:
 - `git diff --name-only HEAD` -- uncommitted changes;
 - `git ls-files --others --exclude-standard` -- new untracked files.
 
-Sort the union into **changed tests** (test files and their support code), **changed production
-code** (source the tests exercise), and everything else -- docs, prompts, configs, lockfiles,
-generated or vendored files -- which is out of scope. Pair each changed production file with the
-tests that exercise it (grep the test tree for the changed modules and symbols). When the user asks
-for a full review, take every tracked file instead. If the first two lists are empty, say so and
-stop.
+Sort the union into **changed tests** (test files and their support code, fixtures and other
+test data included), **changed production code** (source the tests exercise), and everything else
+-- docs, prompts, configs, lockfiles, generated or vendored files -- which is out of scope. Pair
+each changed production file with the tests that exercise it (grep the test tree for the changed
+modules and symbols). When the user asks for a full review, take every tracked file instead. If the
+first two lists are empty, say so and stop.
 
 ## Phase 2 -- Parallel review
 
 Dispatch one `general-purpose` subagent per concern below, in parallel -- each must read whole test
-files, and the first two run code. Hand each the two lists, the test command, and the
-[rubric](references/rubric.md), and require it to return **only** a finding list in the rubric's
-format, no prose, no preamble.
+files and the data files they load, and the first two run code. Hand each the two lists, the test
+command, and the [rubric](references/rubric.md), and require it to return **only** a finding list
+in the rubric's format, no prose, no preamble.
 
 A subagent that runs anything first copies the whole repo directory -- ignored files and `.git`
 included (`cp -a`), so installed dependencies and git-aware tools work -- into its own temporary
