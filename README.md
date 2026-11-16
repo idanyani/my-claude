@@ -75,6 +75,10 @@ any project, loaded into every Claude Code session on a machine that installs my
   - **[hindsight-review](dot-claude/skills/hindsight-review/SKILL.md)** -- read the history for
     lessons, search for tools released since, design the project afresh from its goals, and
     report the redesigns worth their cost.
+- **[lessons-review](dot-claude/skills/lessons-review/SKILL.md)** -- find the kinds of mistake
+  agents keep repeating, in session transcripts, PR reviews, issues, and fix commits, and propose
+  for each the check a program runs, or else the rule, that would stop it; report findings,
+  making no edits.
 - **[brief](dot-claude/skills/brief/SKILL.md)** -- fill the user in on a session's work so they
   can review and steer it: one screen of short, plain bullets saying where the work stands,
   what to check (each claim tagged by how well it is backed, and the choices made without the
