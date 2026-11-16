@@ -10,6 +10,14 @@ SRC="$REPO/dot-claude"
 SETTINGS="settings.json"
 RECORD=~/.claude/my-claude-install-record.json
 
+# ~/.claude and the clone's shared git hooks link into the checkout that runs this; a linked
+# worktree is deleted once its branch merges, which would leave every link dangling.
+if [ "$(git -C "$REPO" rev-parse --absolute-git-dir)" != \
+    "$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)" ]; then
+    echo "install.sh: run it from the main clone, not from a linked worktree" >&2
+    exit 1
+fi
+
 mkdir -p ~/.claude
 python3 "$REPO/scripts/merge_settings.py" "$SRC/$SETTINGS" ~/.claude/"$SETTINGS" "$RECORD"
 python3 "$REPO/scripts/install_links.py" "$SRC" ~/.claude "$RECORD" \
