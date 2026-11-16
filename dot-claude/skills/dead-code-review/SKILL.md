@@ -44,8 +44,11 @@ rubric's format, no prose, no preamble.
    unreachable branches, and abandoned scaffolding. If the repo configures a dead-code tool (vulture,
    knip, deadcode, a compiler's unused-code warnings, ...), run it first and judge its hits, since
    such tools report false positives for code reached by reflection, registration, or a framework.
-   A tool that writes caches or needs installing runs in a scratch copy of the repo (`cp -a`, `.git`
-   included), never in the checkout.
+   A tool that writes caches or needs installing runs in a scratch copy of the files git lists,
+   with no git data, never in the checkout: into a `mktemp -d` directory, unpack (`<top>` is the
+   checkout's top level)
+   `git -C <top> ls-files -z -co --exclude-standard | tar -C <top> --null --no-recursion --ignore-failed-read -T - -cf -`,
+   install the repo's dependencies there, and delete the copy when done.
 2. **Dead entry points** -- scripts, configs, CI jobs, hooks, and package-manager scripts with no
    invoker but their own definition, and entry points that cannot work if invoked.
 3. **Dead data and modes** -- data and config files nothing reads, and CLI modes, flags, or

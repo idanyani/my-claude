@@ -40,12 +40,20 @@ files and the data files they load, and the first two run code. Hand each the tw
 command, and the [rubric](references/rubric.md), and require it to return **only** a finding list
 in the rubric's format, no prose, no preamble.
 
-A subagent that runs anything first copies the whole repo directory -- ignored files and `.git`
-included (`cp -a`), so installed dependencies and git-aware tools work -- into its own temporary
-directory and works only there, so mutations, coverage data, and caches never touch the user's
-checkout. If the test tools fail to start in the copy, it runs the repo's dependency-install step
-there first. Each runner keeps its own copy: a mutation in a shared one would corrupt the other's
-coverage run.
+A subagent that runs anything works only in a scratch copy of its own, so mutations, coverage data,
+and caches never touch the user's checkout. The copy holds the files git lists -- tracked and
+untracked-but-not-ignored, as they stand in the working tree -- and no git data, so no command run
+there can reach the user's repository. It installs the repo's dependencies in the copy and deletes
+the copy when done:
+
+```sh
+copy=$(mktemp -d)
+top=$(git -C <checkout> rev-parse --show-toplevel)
+git -C "$top" ls-files -z -co --exclude-standard |
+    tar -C "$top" --null --no-recursion --ignore-failed-read -T - -cf - | tar -C "$copy" -xf -
+```
+
+Each runner keeps its own copy: a mutation in a shared one would corrupt the other's coverage run.
 
 1. **Can the tests fail** (runs code) -- for each changed test, and each test
    covering changed production code, prove it would catch a regression: if the repo configures a
