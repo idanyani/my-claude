@@ -1,9 +1,27 @@
 # my-claude
 
-Personal global [Claude Code](https://docs.claude.com/en/docs/claude-code) configuration --
-settings and [skills](https://docs.claude.com/en/docs/claude-code/skills) -- with one
-organizing principle: **`dot-claude/` is an exact image of `~/.claude`**. Whatever should
-exist under `~/.claude` lives at the same relative path under `dot-claude/`, and
+My global [Claude Code](https://docs.claude.com/en/docs/claude-code) configuration -- settings,
+hooks, [skills](https://docs.claude.com/en/docs/claude-code/skills), and working conventions --
+for the agents I run across all my repos. It aims to:
+
+- keep one source for that configuration, installed on every machine I use;
+- have agents in every repo work the same way: issue first, test first, a PR the agent reviews
+  before it merges, and less is more;
+- keep repos healthy, with reviews that find the debris and drift fast agent-driven work leaves
+  behind;
+- drive projects forward, with reviews that settle a project's purpose, names, and design and
+  plan its next large changes;
+- merge without anyone watching: an agent arms its PR's auto-merge and moves on.
+
+It does not aim to:
+
+- support installs by other people -- the repo is public, but it serves my machines;
+- hold rules for one project's code -- those live in that project's own `CLAUDE.md`;
+- tie the conventions to Claude Code -- they are plain prose any agent tool can read, while the
+  skills, hooks, and settings target Claude Code.
+
+One organizing principle shapes the repo: **`dot-claude/` is an exact image of `~/.claude`**.
+Whatever should exist under `~/.claude` lives at the same relative path under `dot-claude/`, and
 `install.sh` mirrors the tree generically, so adding a new file or directory (`agents/`,
 `commands/`, ...) never requires touching the script.
 
@@ -11,8 +29,9 @@ exist under `~/.claude` lives at the same relative path under `dot-claude/`, and
 dot-claude/
   CLAUDE.md            symlinked into ~/.claude (edits flow straight back to the repo)
   settings.json        merged (Claude Code rewrites it at runtime, which would sever a link)
+  hooks/               symlinked; settings.json registers them
   skills/
-    resolve-issue/     symlinked; one `git pull` here updates every machine's live skill
+    resolve-issue/     symlinked; a `git pull` in the clone updates the machine's live skill
 ```
 
 ## Working conventions
@@ -71,7 +90,7 @@ cd my-claude && ./install.sh                      # idempotent; heals moved link
 Run `install.sh` in the clone itself, not in a linked worktree of it: everything it installs links
 into the checkout that runs it.
 
-Skills and `CLAUDE.md` are symlinked, so a `git pull` in the clone updates every machine's
+Skills, hooks, and `CLAUDE.md` are symlinked, so a `git pull` in a machine's clone updates its
 live config at once -- one canonical source instead of divergence-by-duplication.
 `settings.json` is the deliberate exception: `install.sh` merges it into the live file
 instead of linking it, so settings added on the machine survive; the merge rules live in
