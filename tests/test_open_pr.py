@@ -91,6 +91,19 @@ class TestPrText:
         messages = ["Fix lint\n\nResolves #7", "Implement x\n\nWhy x.\n\nResolves #7"]
         assert open_pr.pr_text(messages, 7) == ("Implement x", "Why x.\n\nResolves #7")
 
+    def test_leaves_out_the_trailers(self):
+        messages = ["Implement x\n\nWhy x.\n\nResolves #7\n\nCo-Authored-By: A <a@b>"]
+        assert open_pr.pr_text(messages, 7) == ("Implement x", "Why x.\n\nResolves #7")
+
+    def test_keeps_a_last_paragraph_that_is_not_trailers(self):
+        messages = ["Implement x\n\nResolves #7\n\nx is slow: y waits."]
+        body = "Resolves #7\n\nx is slow: y waits."
+        assert open_pr.pr_text(messages, 7) == ("Implement x", body)
+
+    def test_keeps_a_closing_line_shaped_like_a_trailer(self):
+        messages = ["Implement x\n\nWhy x.\n\nResolves: #7"]
+        assert open_pr.pr_text(messages, 7) == ("Implement x", "Why x.\n\nResolves: #7")
+
 
 class TestPushBranch:
     def test_fixture_rejects_a_plain_push(self, stale_branch):
@@ -125,7 +138,13 @@ class TestMain:
         assert gh_calls == [["pr", "create", "--title", "Implement x", "--body", "Resolves #7"]]
         assert capsys.readouterr().out.strip() == PR_URL
 
-    def test_rejects_arguments(self):
+    def test_ends_the_description_with_the_footer(self, stale_branch, monkeypatch):
+        gh_calls = []
+        monkeypatch.setattr(open_pr, "run_gh_text", lambda args: gh_calls.append(args) or PR_URL)
+        assert open_pr.main(["--footer", "Made by F"]) == 0
+        assert gh_calls[0][-1] == "Resolves #7\n\nMade by F"
+
+    def test_rejects_other_arguments(self):
         with pytest.raises(ValueError):
             open_pr.main(["7"])
 

@@ -1,22 +1,27 @@
 #!/usr/bin/env python3
 """Open the pull request for the current branch: push it to `origin`, then create the PR.
 
-Usage: python3 <skill-dir>/scripts/open_pr.py
+Usage: python3 <skill-dir>/scripts/open_pr.py [--footer TEXT]
 
 It refuses on `main`, on a detached HEAD, on a branch with no commits beyond `origin/main`, and
 when none of those commits closes the issue the branch is named for. Otherwise it pushes the branch
 with its upstream set, then creates the PR with the subject and body of the commit that closes the
-issue as its title and description, and prints the PR's URL. Push review fixes afterwards with a
+issue as its title and description, without the commit's trailers and ending with TEXT when given,
+and prints the PR's URL. Push review fixes afterwards with a
 plain `git push`: once the branch is on the remote, its advertised tip already tells git what to
 leave out.
 """
 
+import re
 import sys
 
 from lib.branch import closes_issue, issue_number
 from lib.gh import current_branch, run_gh_text, run_git
 
-USAGE = "usage: open_pr.py"
+USAGE = "usage: open_pr.py [--footer TEXT]"
+
+# A paragraph of `Token: value` lines, as git writes trailers (`Co-Authored-By: ...`).
+TRAILERS = re.compile(r"\n\n(?:[\w-]+: .*\n?)+$")
 
 
 def push_branch(branch: str) -> None:
@@ -61,12 +66,18 @@ def pr_text(messages: list[str], number: int) -> tuple[str, str]:
     """
     closing = next(message for message in reversed(messages) if closes_issue(message, number))
     title, _, body = closing.partition("\n")
-    return title, body.strip()
+    body = body.strip()
+    trailers = TRAILERS.search(body)
+    # `Resolves: #N` has a trailer's shape, and the PR needs it to close the issue.
+    if trailers and not closes_issue(trailers.group(), number):
+        body = body[: trailers.start()]
+    return title, body
 
 
 def main(argv: list[str]) -> int:
-    if argv:
+    if argv and (len(argv) != 2 or argv[0] != "--footer"):
         raise ValueError(USAGE)
+    footer = argv[1] if argv else None
     branch = current_branch()
     # Checked before pushing: a branch pushed for a PR that cannot open lingers on the remote, and
     # start_branch.py's sweep keeps it because no merged PR holds it.
@@ -79,6 +90,8 @@ def main(argv: list[str]) -> int:
     number = issue_number(branch)
     assert number is not None  # refusal() rejects a branch not named for an issue
     title, body = pr_text(messages, number)
+    if footer:
+        body = f"{body}\n\n{footer}"
     print(run_gh_text(["pr", "create", "--title", title, "--body", body]).strip())
     return 0
 
