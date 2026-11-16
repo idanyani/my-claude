@@ -17,9 +17,8 @@ the rules -- read it.
 
 ## Phase 1 -- Ground
 
-1. **Goals.** Take the goals and non-goals confirmed with the user in this session. Failing that,
-   take `README.md`'s, if it states both clearly. Failing both, ask the user, or stop and suggest
-   `/purpose-review`: a name fits a concept only relative to what the project is for.
+1. **Goals.** Unless this session already settled the goals and non-goals with `/purpose-review`,
+   run it first: a name fits a concept only relative to what the project is for.
 2. **Decision records.** Read them, as `CLAUDE.md` says; a finding that raises a rejected rename
    again says why its reason no longer holds.
 
@@ -29,11 +28,13 @@ Dispatch one `general-purpose` subagent, handing it the goals, to return only:
 
 - **Core concepts:** the few things every part of the system reads, writes, or passes on -- what
   its data is about, and the states those things are in. For each, one sentence in plain domain
-  language, written before looking at what the code calls it.
+  language, describing what the code does with it rather than echoing what the code calls it.
 - **Their names, everywhere:** for each concept, every name it goes by -- type and module names,
   stored keys and values, CLI and output fields, docs, docstrings, comments, and test names -- with
-  `git grep -c -w -i` counts per name and per layer (code, docs, tests, stored format), and the
-  consumers outside the repo that read it, where the docs name them.
+  counts per name and per layer (code, docs, tests, stored format) from `git grep -c -i` -- not
+  `-w`, which misses the name inside compound identifiers, where it spreads most; check the
+  matches for unrelated words -- and the consumers outside the repo that read it, where the docs
+  name them.
 
 ## Phase 3 -- Judge
 

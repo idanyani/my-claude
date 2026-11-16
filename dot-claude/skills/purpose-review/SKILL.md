@@ -24,8 +24,9 @@ Read, citing each source by path, commit, issue, or PR:
   (`git log --reverse --format='%h %ad %s' --date=short | head -30`, then
   `git show <sha>:README.md`), and how the README's opening changed
   (`git log --format='%h %ad %s' --date=short -- README.md`).
-- **What the work went into:** issue and PR titles over time (`gh issue list --state all --limit
-  200 --json number,title,createdAt`, likewise `gh pr list`), and where commits landed
+- **What the work went into:** issue and PR titles over time, the earliest as well as the latest
+  (`gh issue list --state all --limit 100 --json number,title,createdAt`, once more with
+  `--search sort:created-asc`, likewise `gh pr list`), and where commits landed
   (`git log --since=<a recent window> --name-only --format=` counted by top-level directory).
 - **What the project serves:** its entry points, outputs, and consumers as the code shows them;
   run results and consumer repos when the user points to them.

@@ -1,6 +1,6 @@
 ---
 name: hindsight-review
-description: Use when the user wants a repo's design judged in hindsight -- says "hindsight-review", "/hindsight-review", "would we build it this way today", "is there a simpler approach now", "has a tool replaced our custom code", or "plan a major refactor". Reads the repo's history for lessons, searches for tools released since, designs the project afresh from its goals, and reports the few redesigns worth their cost -- or that the design holds; makes NO edits. Do NOT use for unreached code (use /dead-code-review), line-level bugs (use /code-review), or simplifying a diff (use /simplify).
+description: Use when the user wants a repo's design judged in hindsight -- says "hindsight-review", "/hindsight-review", "would we build it this way today", "is there a simpler approach now", or "has a tool replaced our custom code". Reads the repo's history for lessons, searches for tools released since, designs the project afresh from its goals, and reports the few redesigns worth their cost -- or that the design holds; makes NO edits. Do NOT use for unreached code (use /dead-code-review), line-level bugs (use /code-review), or simplifying a diff (use /simplify).
 ---
 
 # Hindsight review: would we choose this design today?
@@ -17,19 +17,21 @@ the rules -- read it.
 
 ## Phase 1 -- Ground
 
-1. **Goals.** Take the goals and non-goals confirmed with the user in this session. Failing that,
-   take `README.md`'s, if it states both clearly. Failing both, ask the user, or stop and suggest
-   `/purpose-review`: a design is right only relative to what the project is for.
+1. **Goals.** Unless this session already settled the goals and non-goals with `/purpose-review`,
+   run it first: a design is right only relative to what the project is for.
 2. **Decision records.** Read them, as `CLAUDE.md` says; a finding that raises a rejected design
    again says why its reason no longer holds.
 3. **Map the design:** the parts, what each is for, how data moves between them, and what the
    project builds itself versus takes off the shelf -- enough to brief the subagents.
+4. **Design mismatches already flagged,** such as a concept a naming review found resisting one
+   name: take them as leads for Phase 3.
 
 ## Phase 2 -- Parallel evidence
 
-Dispatch three `general-purpose` subagents in parallel, handing each the goals and the design map,
-and require each to return only its list, every item citing a file, commit, issue, PR, or URL,
-plus one `NOT RUN: <what> -- <why>` line for anything it could not check:
+Dispatch three `general-purpose` subagents in parallel, handing each the goals -- and the design
+map to the first two only -- and require each to return only its list, plus one
+`NOT RUN: <what> -- <why>` line for anything it could not check. Every item of the first two cites
+a file, commit, issue, PR, or URL; the fresh design cites the goal each choice serves:
 
 1. **History.** Where the repo's own record shows the design straining: areas changed far more than
    their size explains (`git log --name-only`), the same kind of fix landing again in one area,

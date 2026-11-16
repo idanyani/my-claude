@@ -8,7 +8,9 @@ description: Use when the user wants a repo reviewed from a bird's eye view and 
 A repo's largest gains sit where its goals, its names, and its design no longer fit what the project
 has become. Each question depends on the one before: a name fits a concept, and a design fits a
 goal, only once the goals are settled; and a rename is wasted on a part a redesign removes. This
-skill answers them in order and turns the findings into one ordered plan -- **it makes no edits.**
+skill answers them in order and turns the findings into one ordered plan -- **the review makes no
+edits.** Each of the three reviews it runs holds its report for the plan, skipping its own closing
+follow-up offer: the plan makes one offer for all of them.
 
 It reports only changes worth their cost, never the minor issues the other reviews cover, and
 **"the project is good as it stands" is a full answer.** Knowing when to leave a repo alone is part
@@ -22,10 +24,8 @@ until the user has settled the goals and non-goals**; every later phase judges a
 ## Phase 2 -- Names, then design
 
 Run `/naming-review`, then `/hindsight-review`, with the Skill tool, in this session -- each
-against the goals Phase 1 settled, and each dispatching its own subagents.
-
-Hold each of the three reviews' reports for Phase 3, skipping its closing follow-up offer: the plan
-makes one offer for all of them.
+against the goals Phase 1 settled, and each dispatching its own subagents. In that order, the
+concepts naming found resisting one name reach the design review as leads.
 
 ## Phase 3 -- Plan
 
@@ -52,6 +52,7 @@ private artifact and give the link.
 If no review found a change worth its cost, say so plainly, with each review's evidence that its
 part holds.
 
-Close by asking which steps to take. File each picked step with `/file-issue`, then resolve it with
-`/resolve-issue`, in the plan's order. Collect the candidates the user rejects for a reason that
-will still hold, and offer their decision records as one issue and PR.
+Close by asking which steps to take. File each picked step with `/file-issue`; once the user asks
+for them to be resolved, resolve them with `/resolve-issue` in the plan's order. Collect the
+candidates the user rejects for a reason that will still hold, and offer their decision records as
+one issue and PR.
