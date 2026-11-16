@@ -19,10 +19,13 @@ the rules -- read it, since a recurring mistake that breaks a stated rule shows 
 
 The default scope is the current repo, over the window the user names, else its last month of
 work. Find the repo's session transcripts: Claude Code keeps one `.jsonl` per session under
-`~/.claude/projects/`, in a directory named after the directory the session started in, with every
-`/` and `.` turned into `-` -- so sessions started in the repo's worktrees have directories of their
-own beginning with the same prefix -- and its subagents' transcripts in a `subagents/` directory
-beside it. They exist only on the machine that ran the sessions; say when none are found.
+`~/.claude/projects/`, in a directory named after the directory the session started in, its
+separators and punctuation turned into `-`. List `~/.claude/projects/` and take the directory of
+the repo's main checkout and those of its worktrees (the same name, then `--claude-worktrees-`),
+not a sibling repo whose name merely starts the same. A session's subagents' transcripts are in
+`<session-id>/subagents/` beside its `.jsonl`. Transcripts exist only on the machine that ran the
+sessions, and Claude Code deletes them after `cleanupPeriodDays` (30 by default): state the date
+of the oldest one read, and say when the window reaches past it.
 
 ## Phase 2 -- Parallel evidence
 
@@ -31,19 +34,24 @@ Dispatch two `general-purpose` subagents in parallel, handing each the scope and
 wrong, where (transcript and timestamp, PR, commit, or issue), and what corrected it -- plus a
 `NOT RUN: <what> -- <why>` line for anything it could not read:
 
-1. **Sessions.** In the transcripts: the user's messages that correct the agent (a "no", a
-   reverted change, a repeated instruction, a rule quoted back), tool calls a hook or the user
-   denied, and work the agent redid after a failure it caused. Read the user's own text, not the
-   tool output or system reminders around it. Quote only what the finding needs: transcripts are
-   private.
-2. **History.** On GitHub and in git: review findings a PR applied (the commits after its first,
-   `gh pr view <n> --json commits,reviews,comments`), issues whose problem is how an agent behaved
-   rather than a defect in the code, and fix commits that undo an agent's earlier change.
+1. **Sessions.** Transcripts run to megabytes, mostly tool output, so filter them rather than read
+   them whole. The user's own messages are the `"type":"user"` entries whose `message.content` is
+   a string and that are not `isMeta`, minus the system reminders and command output inside them:
+   find there the corrections (a "no", a reverted change, a repeated instruction, a rule quoted
+   back). In the `tool_result` entries, find only the tool calls a hook or the user denied. And
+   find work the agent redid after a failure it caused. Describe what was said; quote only the
+   words a finding cannot do without, since transcripts are private.
+2. **History.** On GitHub and in git: review findings a PR applied -- its review bodies and
+   comments (`gh pr view <n> --json commits,reviews,comments`), its inline review comments
+   (`gh api repos/<owner>/<repo>/pulls/<n>/comments`), and the later commits whose message or
+   review says they fix one, not every later commit -- issues whose problem is how an agent
+   behaved rather than a defect in the code, and fix commits that undo an agent's earlier change.
 
 ## Phase 3 -- Group and weigh
 
-Group the mistakes into kinds -- the same wrong move, whatever file or session it hit. A kind is a
-finding only when it **recurs**: in more than one session or PR. Weigh each by how often it
+First merge the two lists' reports of one incident -- a session and the PR it pushed to -- into
+one. Then group the incidents into kinds: the same wrong move, whatever file or session it hit. A
+kind is a finding only when it **recurs**: in more than one incident. Weigh each by how often it
 recurred, what each recurrence cost (a review round, a broken merge, the user's time), and whether
 a stated rule already forbids it.
 
@@ -57,12 +65,12 @@ For each kind, the first of these that fits:
    not run is the finding, not a new one.
 2. **A script that makes the right way the only way** -- when the mistake is a step done by hand
    that a skill's script could do.
-3. **A rule** -- only for a judgment no program can make. Say where it belongs: the global
-   conventions when it holds in every repo, the repo's `CLAUDE.md` when only there, a skill when
-   only in its workflow.
-4. **A rule fixed or removed** -- when a stated rule already forbids the mistake and it recurs:
-   say why the rule failed (buried, ambiguous, contradicted by another, or asking for what only a
-   check can enforce) and whether rule 1 replaces it.
+3. **A stated rule fixed or removed** -- when a rule already forbids the mistake and it recurs:
+   say why the rule failed -- buried, ambiguous, contradicted by another, or placed where it is
+   not read when the mistake is made -- and what fixes it.
+4. **A new rule** -- for a judgment no program can make and no rule covers. Say where it belongs:
+   the global conventions when it holds in every repo, the repo's `CLAUDE.md` when only there, a
+   skill when only in its workflow.
 
 ## Phase 5 -- Report
 
@@ -73,4 +81,5 @@ If no kind of mistake recurs, say so plainly: **nothing recurs** is a full answe
 and the sources read as its evidence.
 
 Close by offering the follow-up the user chooses: file issues for the picked findings with
-`/file-issue`. Triage stays with the user.
+`/file-issue`, describing each recurrence without quoting the transcripts. Triage stays with the
+user.
