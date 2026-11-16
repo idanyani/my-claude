@@ -144,6 +144,21 @@
   wait loop built on one can never exit.
 - Give every poll loop a bound, so a wrong condition ends the loop rather than the session.
 
+## Scratch copies
+
+- Run a tool that changes files -- a mutation run, coverage data, a cache -- in a scratch copy,
+  never in a checkout someone works in. The copy holds the files git lists, as they stand in the
+  working tree, and no git data, so no command run there can reach the repository:
+
+  ```sh
+  copy=$(mktemp -d)
+  top=$(git rev-parse --show-toplevel)
+  git -C "$top" ls-files -z -co --exclude-standard |
+      tar -C "$top" --null --no-recursion --ignore-failed-read -T - -cf - | tar -C "$copy" -xf -
+  ```
+
+- Install the repo's dependencies in the copy, and delete the copy when done.
+
 ## Memory discipline
 
 - An assistant's auto-memory is machine-local and invisible to teammates. Use it only for

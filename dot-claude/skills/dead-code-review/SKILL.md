@@ -44,9 +44,8 @@ rubric's format, no prose, no preamble.
    unreachable branches, and abandoned scaffolding. If the repo configures a dead-code tool (vulture,
    knip, deadcode, a compiler's unused-code warnings, ...), run it first and judge its hits, since
    such tools report false positives for code reached by reflection, registration, or a framework.
-   A tool that writes caches or needs installing runs never in the checkout but in a scratch copy
-   made as [test-review's Phase 2](../test-review/SKILL.md#phase-2----parallel-review) makes one,
-   deleted when done.
+   A tool that writes caches or needs installing never runs in the checkout, only in a scratch
+   copy.
 2. **Dead entry points** -- scripts, configs, CI jobs, hooks, and package-manager scripts with no
    invoker but their own definition, and entry points that cannot work if invoked.
 3. **Dead data and modes** -- data and config files nothing reads, and CLI modes, flags, or
