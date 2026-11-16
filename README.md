@@ -55,6 +55,9 @@ git clone git@github.com:idanyani/my-claude.git   # any location works
 cd my-claude && ./install.sh                      # idempotent; heals moved links, retires dropped ones
 ```
 
+Run `install.sh` in the clone itself, not in a linked worktree of it: everything it installs links
+into the checkout that runs it.
+
 Skills and `CLAUDE.md` are symlinked, so a `git pull` in the clone updates every machine's
 live config at once -- one canonical source instead of divergence-by-duplication.
 `settings.json` is the deliberate exception: `install.sh` merges it into the live file
