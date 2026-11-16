@@ -111,3 +111,6 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy . && uv run p
 
 Tests live in `tests/` at the repo root, outside the mirrored `dot-claude/` tree, so they are
 not installed into `~/.claude`.
+
+Designs weighed and rejected, with what would reopen them, are recorded in
+[`docs/decisions/`](docs/decisions/).
