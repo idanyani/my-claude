@@ -128,6 +128,10 @@
 - Don't coin vocabulary the repo doesn't use: name a thing the way the code (or the
   page that defines it) names it, or don't name it. An invented distinction reads as
   precision and cannot be checked against anything.
+- A design rejected for a reason that will still hold gets a decision record, so no one
+  proposes it again: `docs/decisions/<slug>.md`, one paragraph -- context, decision, why, and
+  what would reopen it. Read a repo's decision records before proposing a redesign or a rename,
+  and raise a rejected one again only once its reason no longer holds.
 - Before deleting a page, restructure from the code and give every fact on it a home;
   after deleting it, search the whole repo for links to it, code comments and data
   files included.
