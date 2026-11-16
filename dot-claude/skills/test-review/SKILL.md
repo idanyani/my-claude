@@ -38,7 +38,9 @@ first two lists are empty, say so and stop.
 Dispatch one `general-purpose` subagent per concern below, in parallel -- each must read whole test
 files and the data files they load, and the first two run code. Hand each the two lists, the test
 command, and the [rubric](references/rubric.md), and require it to return **only** a finding list
-in the rubric's format, no prose, no preamble.
+in the rubric's format, no prose, no preamble -- plus one `NOT RUN: <what> -- <why>` line for
+anything it could not run, which the report then states, so a clean result never hides a skipped
+check.
 
 A subagent that runs anything works only in a scratch copy of its own, so mutations, coverage data,
 and caches never touch the user's checkout. Each runner keeps its own copy: a mutation in a shared

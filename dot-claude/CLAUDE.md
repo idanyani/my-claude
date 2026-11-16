@@ -157,7 +157,13 @@
       tar -C "$top" --null --no-recursion --ignore-failed-read -T - -cf - | tar -C "$copy" -xf -
   ```
 
-- Install the repo's dependencies in the copy, and delete the copy when done.
+- Install the repo's dependencies into an environment inside the copy, with the repo's own
+  install command (`uv sync` --> `.venv`, `pnpm install` --> `node_modules`), or into one created
+  there (`python -m venv .venv`, then `pip install` with its `pip`). Never install into an
+  environment outside the copy, such as an active virtualenv or conda environment or a global
+  `npm link`: parallel copies would overwrite each other's install, and deleting a copy would
+  break the environment. If no install fits, skip it and say what could not run.
+- Delete the copy when done.
 
 ## Memory discipline
 

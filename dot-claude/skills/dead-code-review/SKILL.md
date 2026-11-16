@@ -38,7 +38,8 @@ readers are searched for across the whole repo. If the candidate set is empty, s
 
 Dispatch one `general-purpose` subagent per concern below, in parallel. Hand each the candidate set
 and the [rubric](references/rubric.md), and require it to return **only** a finding list in the
-rubric's format, no prose, no preamble.
+rubric's format, no prose, no preamble -- plus one `NOT RUN: <what> -- <why>` line for anything it
+could not run, which the report then states, so a clean result never hides a skipped check.
 
 1. **Dead code** -- unused functions, classes, modules, and constants, commented-out code,
    unreachable branches, and abandoned scaffolding. If the repo configures a dead-code tool (vulture,
