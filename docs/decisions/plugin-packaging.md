@@ -14,3 +14,5 @@ A plugin loaded in place, such as one under `~/.claude/skills/`, is worse still.
 only at session start or `/reload-plugins`, so after a pull removes a hook script, running sessions
 keep calling the missing file. Reopen this once a plugin can carry `settings.json` keys and context
 instructions, so that one mechanism could replace `install.sh` entirely.
+The manifest at the repo root, `.claude-plugin/plugin.json`, only lets `claude plugin eval` load
+the skills; nothing installs it.
