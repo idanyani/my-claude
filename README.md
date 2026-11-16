@@ -1,9 +1,28 @@
 # my-claude
 
-Personal global [Claude Code](https://docs.claude.com/en/docs/claude-code) configuration --
-settings and [skills](https://docs.claude.com/en/docs/claude-code/skills) -- with one
-organizing principle: **`dot-claude/` is an exact image of `~/.claude`**. Whatever should
-exist under `~/.claude` lives at the same relative path under `dot-claude/`, and
+My global [Claude Code](https://docs.claude.com/en/docs/claude-code) configuration -- settings,
+hooks, [skills](https://docs.claude.com/en/docs/claude-code/skills), and working conventions --
+for the agents I run across all my repos. It aims to:
+
+- keep **one source** for that configuration, installed on every machine I use and kept current
+  by a `git pull`;
+- give agents in every repo **one working method**: issue first, test first, reviewed PRs, and
+  less is more;
+- **keep repos healthy**, with reviews that find the debris and drift fast agent-driven work
+  leaves behind;
+- **drive projects forward**, with reviews that settle a project's purpose, names, and design and
+  plan its next large changes;
+- **merge without anyone watching**: an agent arms its PR's auto-merge and moves on.
+
+It does not aim to:
+
+- support installs by other people -- the repo is public, but it serves my machines;
+- hold rules specific to one project -- those live in that project's own `CLAUDE.md`;
+- be Claude-only -- Claude Code is the target, but the conventions and skills are plain prose any
+  agent tool can read.
+
+One organizing principle shapes the repo: **`dot-claude/` is an exact image of `~/.claude`**.
+Whatever should exist under `~/.claude` lives at the same relative path under `dot-claude/`, and
 `install.sh` mirrors the tree generically, so adding a new file or directory (`agents/`,
 `commands/`, ...) never requires touching the script.
 
