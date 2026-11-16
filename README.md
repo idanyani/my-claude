@@ -31,7 +31,7 @@ dot-claude/
   settings.json        merged (Claude Code rewrites it at runtime, which would sever a link)
   hooks/               symlinked; settings.json registers them
   skills/
-    resolve-issue/     symlinked; a `git pull` in the clone updates the machine's live skill
+    resolve-issue/     symlinked; a `git pull` in the main checkout updates the live skill
 ```
 
 ## Working conventions
@@ -87,16 +87,16 @@ git clone git@github.com:idanyani/my-claude.git   # any location works
 cd my-claude && ./install.sh                      # idempotent; heals moved links, retires dropped ones
 ```
 
-Run `install.sh` in the clone itself, not in a linked worktree of it: everything it installs links
-into the checkout that runs it.
+Run `install.sh` in the main checkout -- the directory `git clone` created -- not in a linked
+worktree: everything it installs links into the checkout that runs it.
 
-Skills, hooks, and `CLAUDE.md` are symlinked, so a `git pull` in a machine's clone updates its
-live config at once -- one canonical source instead of divergence-by-duplication.
+Skills, hooks, and `CLAUDE.md` are symlinked, so a `git pull` in a machine's main checkout updates
+its live config at once -- one canonical source instead of divergence-by-duplication.
 `settings.json` is the deliberate exception: `install.sh` merges it into the live file
 instead of linking it, so settings added on the machine survive; the merge rules live in
 [`scripts/merge_settings.py`](scripts/merge_settings.py). `install.sh` also installs git
-hooks that rerun it after a pull, checkout, or rebase updates the clone, so the merged settings
-keep up with the linked files. A commit, a `git reset`, or resolving a merge conflict fires none
+hooks that rerun it after a pull, checkout, or rebase updates the main checkout, so the merged
+settings keep up with the linked files. A commit, a `git reset`, or resolving a merge conflict fires none
 of them: run `./install.sh` after those.
 
 ## Development

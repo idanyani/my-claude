@@ -17,7 +17,7 @@ from lib.sweep import (
     adds_nothing_to_main,
     is_ancestor,
     parse_gone_branches,
-    parse_main_worktree,
+    parse_main_checkout,
     parse_worktree_for_branch,
 )
 
@@ -373,13 +373,13 @@ PORCELAIN = "\n".join(
 )
 
 
-class TestParseMainWorktree:
+class TestParseMainCheckout:
     def test_returns_the_first_worktrees_path(self):
-        assert parse_main_worktree(PORCELAIN) == "/home/dev/repo"
+        assert parse_main_checkout(PORCELAIN) == "/home/dev/repo"
 
     def test_raises_when_there_is_no_worktree_entry(self):
         with pytest.raises(ValueError):
-            parse_main_worktree("")
+            parse_main_checkout("")
 
 
 class TestParseWorktreeForBranch:

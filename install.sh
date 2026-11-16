@@ -15,7 +15,7 @@ RECORD=~/.claude/my-claude-install-record.json
 GIT_DIR_OF_REPO="$(git -C "$REPO" rev-parse --absolute-git-dir)"
 COMMON_GIT_DIR="$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)"
 if [ "$GIT_DIR_OF_REPO" != "$COMMON_GIT_DIR" ]; then
-    echo "install.sh: run it from the main clone, $(dirname "$COMMON_GIT_DIR")," \
+    echo "install.sh: run it from the main checkout, $(dirname "$COMMON_GIT_DIR")," \
         "not from a linked worktree" >&2
     exit 1
 fi

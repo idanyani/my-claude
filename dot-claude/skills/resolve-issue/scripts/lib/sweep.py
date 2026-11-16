@@ -33,14 +33,14 @@ def parse_gone_branches(for_each_ref: str) -> list[str]:
     return gone
 
 
-def parse_main_worktree(porcelain: str) -> str:
+def parse_main_checkout(porcelain: str) -> str:
     """The main checkout's path from `git worktree list --porcelain`.
 
-    Its first entry is always the main worktree.
+    Its first entry is always the main checkout.
     """
     first = porcelain.split("\n")[0]
     if not first.startswith("worktree "):
-        raise ValueError("could not determine the main worktree")
+        raise ValueError("could not determine the main checkout")
     return first[len("worktree ") :]
 
 
@@ -162,7 +162,7 @@ def _sweep_branch(branch: str, porcelain: str, here: str) -> str:
     worktree = parse_worktree_for_branch(porcelain, branch)
     # git cannot remove the main checkout, and removing the sweep's own worktree would delete the
     # caller's cwd.
-    if worktree in (here, parse_main_worktree(porcelain)):
+    if worktree in (here, parse_main_checkout(porcelain)):
         return f"checked out in {worktree}"
     heads = merged_pr_heads(branch)
     if not heads:
