@@ -118,3 +118,13 @@ def test_a_failing_reinstall_does_not_fail_the_checkout(upstream: Path, installe
     git(upstream, "commit", "-q", "-am", "break the settings")
     git(upstream, "push", "-q")
     checkout(installed)  # raises if git exits nonzero
+
+
+def test_an_install_from_a_linked_worktree_is_refused(tmp_path: Path, installed: Path, home: Path):
+    worktree = tmp_path / "worktree"
+    git(installed, "worktree", "add", "-q", "--detach", str(worktree))
+    (worktree / SETTINGS).write_text("{}")
+    run = subprocess.run([worktree / "install.sh"], capture_output=True)
+    assert run.returncode != 0
+    assert "hooks" in live_settings(home)
+    assert (home / ".claude" / "hooks" / "x.py").resolve() == (installed / HOOK).resolve()
