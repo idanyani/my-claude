@@ -1,0 +1,5 @@
+{
+  "name": "my-claude",
+  "description": "The shipped skills, loaded so claude plugin eval can test when each one triggers",
+  "skills": ["./dot-claude/skills/"]
+}
