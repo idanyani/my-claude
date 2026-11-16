@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Open the pull request for the current branch: push it to `origin`, then create the PR.
 
-Usage: python3 <skill-dir>/scripts/open_pr.py
+Usage: python3 <skill-dir>/scripts/open_pr.py [--footer TEXT]
 
 It refuses on `main`, on a detached HEAD, on a branch with no commits beyond `origin/main`, and
 when none of those commits closes the issue the branch is named for. Otherwise it pushes the branch
 with its upstream set, then creates the PR with the subject and body of the commit that closes the
-issue as its title and description, and prints the PR's URL. Push review fixes afterwards with a
-plain `git push`: once the branch is on the remote, its advertised tip already tells git what to
-leave out.
+issue as its title and description, without the commit's trailers and ending with TEXT when given,
+and prints the PR's URL. Push review fixes afterwards with a plain `git push`: once the branch is
+on the remote, its advertised tip already tells git what to leave out.
 """
 
 import sys
@@ -16,7 +16,7 @@ import sys
 from lib.branch import closes_issue, issue_number
 from lib.gh import current_branch, run_gh_text, run_git
 
-USAGE = "usage: open_pr.py"
+USAGE = "usage: open_pr.py [--footer TEXT]"
 
 
 def push_branch(branch: str) -> None:
@@ -53,32 +53,47 @@ def refusal(branch: str, messages: list[str]) -> str | None:
     return None
 
 
-def pr_text(messages: list[str], number: int) -> tuple[str, str]:
+def pr_text(messages: list[str], trailers: list[str], number: int) -> tuple[str, str]:
     """The PR's title and description: the subject and body of the commit that closes the issue.
 
-    `messages` lists the newest commit first. Of several closing commits the oldest wins: it is the
-    implementation, and a later one a follow-up.
+    `messages` lists the newest commit first, and `trailers` holds the trailers git reads in each.
+    Of several closing commits the oldest wins: it is the implementation, and a later one a
+    follow-up. Git's trailer block is the message's last paragraph, so it is left out whenever git
+    reads one; a closing line it held is restored, so the PR still closes the issue.
     """
-    closing = next(message for message in reversed(messages) if closes_issue(message, number))
-    title, _, body = closing.partition("\n")
-    return title, body.strip()
+    index = next(i for i in reversed(range(len(messages))) if closes_issue(messages[i], number))
+    title, _, body = messages[index].partition("\n")
+    body = body.strip()
+    if trailers[index]:
+        body = body.rpartition("\n\n")[0]
+    if not closes_issue(body, number):
+        body = f"{body}\n\nResolves #{number}".strip()
+    return title, body
+
+
+def commit_fields(placeholder: str) -> list[str]:
+    """One `git log` format field per commit of the branch beyond `origin/main`, newest first."""
+    log = run_git(["log", "-z", f"--format={placeholder}", "origin/main..HEAD"])
+    return log.split("\0")[:-1] if log else []
 
 
 def main(argv: list[str]) -> int:
-    if argv:
+    if argv and (len(argv) != 2 or argv[0] != "--footer"):
         raise ValueError(USAGE)
+    footer = argv[1] if argv else None
     branch = current_branch()
     # Checked before pushing: a branch pushed for a PR that cannot open lingers on the remote, and
     # start_branch.py's sweep keeps it because no merged PR holds it.
-    log = run_git(["log", "-z", "--format=%B", "origin/main..HEAD"])
-    messages = log.split("\0")[:-1] if log else []
+    messages = commit_fields("%B")
     reason = refusal(branch, messages)
     if reason:
         raise RuntimeError(reason)
     push_branch(branch)
     number = issue_number(branch)
     assert number is not None  # refusal() rejects a branch not named for an issue
-    title, body = pr_text(messages, number)
+    title, body = pr_text(messages, commit_fields("%(trailers:only)"), number)
+    if footer:
+        body = f"{body}\n\n{footer}"
     print(run_gh_text(["pr", "create", "--title", title, "--body", body]).strip())
     return 0
 

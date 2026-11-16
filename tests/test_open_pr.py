@@ -84,12 +84,27 @@ class TestRefusal:
 class TestPrText:
     def test_takes_the_title_and_body_from_the_commit_that_closes_the_issue(self):
         messages = ["Fix lint\n\nRuff flagged a line.", "Implement x\n\nWhy x.\n\nResolves #7"]
-        assert open_pr.pr_text(messages, 7) == ("Implement x", "Why x.\n\nResolves #7")
+        assert open_pr.pr_text(messages, ["", ""], 7) == ("Implement x", "Why x.\n\nResolves #7")
 
     def test_takes_the_oldest_of_several_closing_commits(self):
         # `git log` lists the newest commit first.
         messages = ["Fix lint\n\nResolves #7", "Implement x\n\nWhy x.\n\nResolves #7"]
-        assert open_pr.pr_text(messages, 7) == ("Implement x", "Why x.\n\nResolves #7")
+        assert open_pr.pr_text(messages, ["", ""], 7) == ("Implement x", "Why x.\n\nResolves #7")
+
+    def test_leaves_out_the_paragraph_git_reads_as_trailers(self):
+        messages = ["Implement x\n\nWhy x.\n\nResolves #7\n\nCo-Authored-By: A <a@b>"]
+        trailers = ["Co-Authored-By: A <a@b>\n"]
+        assert open_pr.pr_text(messages, trailers, 7) == ("Implement x", "Why x.\n\nResolves #7")
+
+    def test_keeps_a_last_paragraph_when_git_reads_no_trailers(self):
+        messages = ["Implement x\n\nResolves #7\n\nNote: see the docs."]
+        body = "Resolves #7\n\nNote: see the docs."
+        assert open_pr.pr_text(messages, [""], 7) == ("Implement x", body)
+
+    def test_restores_a_closing_line_held_among_the_trailers(self):
+        messages = ["Implement x\n\nWhy x.\n\nResolves: #7\nCo-Authored-By: A <a@b>"]
+        trailers = ["Resolves: #7\nCo-Authored-By: A <a@b>\n"]
+        assert open_pr.pr_text(messages, trailers, 7) == ("Implement x", "Why x.\n\nResolves #7")
 
 
 class TestPushBranch:
@@ -125,9 +140,31 @@ class TestMain:
         assert gh_calls == [["pr", "create", "--title", "Implement x", "--body", "Resolves #7"]]
         assert capsys.readouterr().out.strip() == PR_URL
 
-    def test_rejects_arguments(self):
+    def test_leaves_out_a_real_commit_s_trailers(self, stale_branch, monkeypatch):
+        git(
+            stale_branch,
+            "commit",
+            "-q",
+            "--amend",
+            "--allow-empty",
+            "-m",
+            f"{CLOSING_MESSAGE}\n\nCo-Authored-By: A <a@b>",
+        )
+        gh_calls = []
+        monkeypatch.setattr(open_pr, "run_gh_text", lambda args: gh_calls.append(args) or PR_URL)
+        assert open_pr.main([]) == 0
+        assert gh_calls[0][-1] == "Resolves #7"
+
+    def test_ends_the_description_with_the_footer(self, stale_branch, monkeypatch):
+        gh_calls = []
+        monkeypatch.setattr(open_pr, "run_gh_text", lambda args: gh_calls.append(args) or PR_URL)
+        assert open_pr.main(["--footer", "Made by F"]) == 0
+        assert gh_calls[0][-1] == "Resolves #7\n\nMade by F"
+
+    @pytest.mark.parametrize("argv", [["7"], ["--footer"], ["7", "x"], ["--footer", "x", "y"]])
+    def test_rejects_other_arguments(self, argv):
         with pytest.raises(ValueError):
-            open_pr.main(["7"])
+            open_pr.main(argv)
 
     def test_refuses_on_main_without_pushing(self, clone, tmp_path):
         commit(clone, "unpublished")
