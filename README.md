@@ -43,6 +43,19 @@ any project, loaded into every Claude Code session on a machine that installs my
   jobs, hooks, data files, and modes that nothing calls, invokes, or reads, searching the whole
   repo rather than only the diff, including targets a change orphaned by dropping their last
   reference; report ranked findings, making no edits.
+- **[project-review](dot-claude/skills/project-review/SKILL.md)** -- review a repo from a bird's
+  eye view: settle its purpose with the user, review its names and its design in hindsight, and
+  return one ordered plan of the few changes worth their cost, or say it is good as it stands.
+  Runs these three, each also usable alone, making no edits:
+  - **[purpose-review](dot-claude/skills/purpose-review/SKILL.md)** -- infer the goals and
+    non-goals from the docs, code, and history, have the user settle them, and report docs that
+    do not state them and parts that serve none.
+  - **[naming-review](dot-claude/skills/naming-review/SKILL.md)** -- find the core concepts,
+    inventory their names across code, docs, tests, and stored formats, and report the renames
+    worth their cost.
+  - **[hindsight-review](dot-claude/skills/hindsight-review/SKILL.md)** -- read the history for
+    lessons, search for tools released since, design the project afresh from its goals, and
+    report the redesigns worth their cost.
 - **[brief](dot-claude/skills/brief/SKILL.md)** -- fill the user in on a session's work so they
   can review and steer it: one screen of short, plain bullets saying where the work stands,
   what to check (each claim tagged by how well it is backed, and the choices made without the
