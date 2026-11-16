@@ -36,11 +36,11 @@ def parse_gone_branches(for_each_ref: str) -> list[str]:
 def parse_main_worktree(porcelain: str) -> str:
     """The main checkout's path from `git worktree list --porcelain`.
 
-    Its first entry is always the main worktree.
+    Its first entry is always the main checkout.
     """
     first = porcelain.split("\n")[0]
     if not first.startswith("worktree "):
-        raise ValueError("could not determine the main worktree")
+        raise ValueError("could not determine the main checkout")
     return first[len("worktree ") :]
 
 

@@ -87,7 +87,7 @@ git clone git@github.com:idanyani/my-claude.git   # any location works
 cd my-claude && ./install.sh                      # idempotent; heals moved links, retires dropped ones
 ```
 
-Run `install.sh` in the clone itself, not in a linked worktree of it: everything it installs links
+Run `install.sh` in the main checkout, not in a linked worktree: everything it installs links
 into the checkout that runs it.
 
 Skills, hooks, and `CLAUDE.md` are symlinked, so a `git pull` in a machine's clone updates its
