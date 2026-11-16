@@ -157,7 +157,11 @@
       tar -C "$top" --null --no-recursion --ignore-failed-read -T - -cf - | tar -C "$copy" -xf -
   ```
 
-- Install the repo's dependencies in the copy, and delete the copy when done.
+- Install the repo's dependencies only into an environment inside the copy, such as the `.venv`
+  of `uv sync` or the `node_modules` of `npm ci`. An install that writes outside the copy, such
+  as `pip install -e .` into an active environment or `npm link`, would leave that environment
+  pointing at the copy once it is deleted: skip it, and report what could not run without it.
+- Delete the copy when done.
 
 ## Memory discipline
 
