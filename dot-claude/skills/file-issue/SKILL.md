@@ -26,6 +26,11 @@ fails on repos hit by the Projects-classic deprecation).
 An issue states one problem: symptom, impact, evidence -- never the fix. Two problems are two
 issues, each resolved by its own PR.
 
+Evidence, in an issue or in a comment on one, shows the problem exists: for a failure, a run that
+showed it -- a failing test, a log line, a measurement; for anything else, where to see it, such
+as a `file:line`. A failure no run has shown is not an issue yet: file nothing, and name the run
+that would show it -- the logs to read, the test to write.
+
 A number, in the issue or in a comment on one, is measured or cited, and says by what: an
 estimate reads as a fact and misleads until someone measures.
 
@@ -41,4 +46,5 @@ gh issue create --title "<title>" --body-file <file>
 ## Step 4 -- Report
 
 Give the issue's number and link -- the one filed or the one that already covered it, with
-whether you commented -- and say what Step 1 searched.
+whether you commented -- and say what Step 1 searched. For a failure no run has shown, say that
+nothing was filed, and name the run that would show it.
