@@ -29,6 +29,7 @@ Write markdown, which the terminal renders: three sections, in this order.
 - **\<repo\>@\<branch\>** (PR \<ref\>)
 - \<the big picture: what the project is for, and the larger plan, if any\>
 - \<the problem this issue solves\>
+- \<a caveat about what the whole brief rests on, such as what could not be checked, if any\>
 - \<decisions waiting for a later brief, a few words each, if any\>
 
 **What I did**
@@ -71,8 +72,8 @@ For example:
   word. A fact recalled, not looked up, is guessed. List every choice made without the user, so they catch one they would reject before
   work builds on it. When a number replaces one the user has seen, give both and why it
   changed. End with the few spots worth reading first and a command that shows the work runs.
-- **Your turn:** always the last lines, so the last thing read is what the user must answer;
-  a caveat about what the whole brief rests on goes in Where we are. At most three decisions,
+- **Your turn:** always the last lines, so the last thing read is what the user must answer:
+  nothing follows it, neither a caveat nor a sign-off. At most three decisions,
   those that block work first, unless the user asks for all of them; the rest wait for a later
   brief, named in a closing line of Where we are, a few words each. Each decision stands on its
   own: the question, its options and where each leads, and the recommendation. Each fact the
