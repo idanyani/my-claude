@@ -3,4 +3,4 @@ max_turns: 5
 allowed_tools: [Skill, Read, Glob, Grep]
 ---
 
-I lost track of this session. Bring me up to speed: where are we?
+Remind me what we were solving in this session, and re-ask your questions.

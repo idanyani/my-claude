@@ -2,4 +2,4 @@
 type: llm
 ---
 
-PASS if the last part of the reply asks whether a deleted recipe should leave search right away or at the next release, gives what each choice leads to, and recommends one -- with nothing after it. FAIL if that decision is missing, lacks a recommendation, or is followed by more text.
+PASS if the reply ends with the decisions it asks for, with nothing after them, and one of them asks whether a deleted recipe should leave search right away or at the next release, gives what each choice leads to, and recommends one. Formatting does not decide: a decision may span several lines, bullets, or sub-bullets. FAIL if that decision is missing or lacks a recommendation, or if text that is not a decision follows the last one.
