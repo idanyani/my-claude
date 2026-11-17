@@ -63,11 +63,13 @@ items, so they can reject a choice before work builds on it; otherwise carry on.
 Unless `--in-place` was given or the session is already in a worktree, call
 `EnterWorktree(name="<number>-<kebab-summary>")`. Then branch as step 1 of the workflow doc says.
 
-To resolve several issues in parallel, spawn one subagent per issue with `isolation: "worktree"`,
-but only once Phase 4 ran for that issue in this session and the user answered what it asked: the
-user, not the spawning session or the subagent, settles the design. Pass the user's decisions in the subagent's
-prompt, and tell it to stop and return any design choice they leave open rather than make it;
-bring that choice to the user before it goes on.
+To resolve several issues in parallel, spawn one subagent per issue with `isolation: "worktree"`
+instead, without entering a worktree here. The user, not this session or the subagent, settles
+each design: spawn it only once Phase 4 ran for that issue in this session, its brief stating the
+planned design as "Chose" lines, and the user answered. Pass the user's decisions in the prompt
+as the answer to the subagent's own Phase 4, and tell it to stop and return any design choice
+they leave open, at any phase, review included, rather than make it. Bring that choice to the
+user, then continue the subagent with their answer (`SendMessage`).
 
 ## Phase 6 -- Implement test-first
 
