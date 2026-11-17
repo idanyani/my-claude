@@ -38,7 +38,8 @@ Write markdown, which the terminal renders: three sections, in this order.
 - Read first: `<file:line>`; verify with `<command>`
 
 **Your turn**
-1. \<decision\>? A: \<result\>. B: \<result\>. **I recommend A**: \<reason\>.
+1. \<decision\>? A: \<result\>. B: \<result\>. **I recommend A**: \<reason\>. Checked by
+   \<evidence\> | guessed from \<what\> | assumed, please confirm
 
 For example:
 
@@ -56,7 +57,7 @@ For example:
 >
 > **Your turn**
 > 1. Also retry on timeout? Yes: fewer failures, slower errors. No: as now. **I recommend
->    yes**: timeouts are the most common failure.
+>    yes**: timeouts are the most common failure. Checked by last month's upload log.
 
 - **Where we are:** gets the reader back into the work from the top down: the big picture,
   then the problem at hand, in a few lines. Introduce here the terms the rest of the brief
@@ -74,8 +75,10 @@ For example:
   a caveat about what the whole brief rests on goes in Where we are. At most three decisions,
   those that block work first, unless the user asks for all of them; the rest wait for a later
   brief, named in a closing line of Where we are, a few words each. Each decision stands on its
-  own: the question, its options and where each leads, and the recommendation. Numbered, so the user can answer by number. With nothing to decide, it is one
-  line saying what happens next without the user and what it waits on (CI, another PR):
+  own: the question, its options and where each leads, and the recommendation. Each fact the
+  recommendation rests on carries the tag What I did uses: a fact recalled, not looked up, is
+  guessed. Numbered, so the user can answer by number. With nothing to decide, it is one line
+  saying what happens next without the user and what it waits on (CI, another PR):
   `**Your turn:** nothing. <next step>, once <what it waits on>.`
 
 ## Rules
