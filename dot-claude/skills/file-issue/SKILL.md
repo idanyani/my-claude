@@ -26,6 +26,11 @@ fails on repos hit by the Projects-classic deprecation).
 An issue states one problem: symptom, impact, evidence -- never the fix. Two problems are two
 issues, each resolved by its own PR.
 
+The evidence shows the problem exists: for a failure, a run that showed it -- a failing test, a
+log line, a measurement; for anything else, where to see it, such as a `file:line`. A failure no
+run has shown is not an issue yet: "whether it happens is unknown" calls for that run -- read the
+logs, or write the test that would show it -- and filing only once it shows the failure.
+
 A number, in the issue or in a comment on one, is measured or cited, and says by what: an
 estimate reads as a fact and misleads until someone measures.
 
