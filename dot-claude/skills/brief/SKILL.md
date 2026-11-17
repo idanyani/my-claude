@@ -69,7 +69,8 @@ For example:
   word. List every choice made without the user, so they catch one they would reject before
   work builds on it. When a number replaces one the user has seen, give both and why it
   changed. End with the few spots worth reading first and a command that shows the work runs.
-- **Your turn:** always last, so the last thing read is what the user must answer. Each
+- **Your turn:** always the last lines, so the last thing read is what the user must answer;
+  a caveat about what the whole brief rests on goes in Where we are. Each
   decision stands on its own: the question, its options and where each leads, and the
   recommendation. Numbered, so the user can answer by number. With nothing to decide, it is one
   line saying what happens next without the user and what it waits on (CI, another PR):
