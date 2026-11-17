@@ -29,6 +29,7 @@ Write markdown, which the terminal renders: three sections, in this order.
 - **\<repo\>@\<branch\>** (PR \<ref\>)
 - \<the big picture: what the project is for, and the larger plan, if any\>
 - \<the problem this issue solves\>
+- \<a caveat about what the whole brief rests on, such as what could not be checked, if any\>
 - \<decisions waiting for a later brief, a few words each, if any\>
 
 **What I did**
@@ -60,24 +61,26 @@ For example:
 >    yes**: timeouts are the most common failure, guessed from users' error reports.
 
 - **Where we are:** gets the reader back into the work from the top down: the big picture,
-  then the problem at hand, in a few lines. Introduce here the terms the rest of the brief
-  uses. An issue branch names the issue, so it stands in for a link. When the branch does not
+  then the problem at hand, in a few lines, and a caveat about what the whole brief rests on.
+  Introduce here the terms the rest of the brief uses. An issue branch names the issue, so it stands in for a link. When the branch does not
   name it (still on `main`, or the issue lives in another repo), add the issue as
   `#<N> <a few words>`. Add the PR once one exists: `#<N>`, or `<repo>#<N>` in another repo.
 - **What I did:** everything the reviewer should confirm or reject, findings included. Each
   bullet starts with a past-tense verb (Implemented, Scanned, Reviewed, Found) and ends on its
   result, not the steps that led there. The tag says where to look: its evidence (a test, a
   log line, a source), what it was guessed from, or that it is assumed and needs the user's
-  word. A fact recalled, not looked up, is guessed. List every choice made without the user, so they catch one they would reject before
-  work builds on it. When a number replaces one the user has seen, give both and why it
-  changed. End with the few spots worth reading first and a command that shows the work runs.
-- **Your turn:** always the last lines, so the last thing read is what the user must answer;
-  a caveat about what the whole brief rests on goes in Where we are. At most three decisions,
-  those that block work first, unless the user asks for all of them; the rest wait for a later
-  brief, named in a closing line of Where we are, a few words each. Each decision stands on its
-  own: the question, its options and where each leads, and the recommendation. Each fact the
-  recommendation rests on carries the tag What I did uses. Numbered, so the user can answer by number. With nothing to decide, it is one line
-  saying what happens next without the user and what it waits on (CI, another PR):
+  word. A fact recalled, not looked up, is guessed. List every choice made without the user, so
+  they catch one they would reject before work builds on it. When a number replaces one the user
+  has seen, give both and why it changed. End with the few spots worth reading first and a
+  command that shows the work runs.
+- **Your turn:** always the last lines, so the last thing read is what the user must answer:
+  nothing follows it, neither a caveat nor a sign-off. At most three decisions, those that block
+  work first, unless the user asks for all of them; the rest wait for a later brief, named in a
+  closing line of Where we are, a few words each. Each decision stands on its own: the
+  question, its options and where each leads, and the recommendation. Each fact the
+  recommendation rests on carries the tag What I did uses. Numbered, so the user can answer by
+  number. With nothing to decide, it is one line saying what happens next without the user and
+  what it waits on (CI, another PR):
   `**Your turn:** nothing. <next step>, once <what it waits on>.`
 
 ## Rules
