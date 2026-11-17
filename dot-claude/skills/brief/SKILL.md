@@ -29,6 +29,7 @@ Write markdown, which the terminal renders: three sections, in this order.
 - **\<repo\>@\<branch\>** (PR \<ref\>)
 - \<the big picture: what the project is for, and the larger plan, if any\>
 - \<the problem this issue solves\>
+- \<decisions waiting for a later brief, a few words each, if any\>
 
 **What I did**
 - \<Verb\>ed \<what\>: \<result\>. Checked by \<evidence\> | guessed from \<what\> | assumed,
@@ -70,9 +71,10 @@ For example:
   work builds on it. When a number replaces one the user has seen, give both and why it
   changed. End with the few spots worth reading first and a command that shows the work runs.
 - **Your turn:** always the last lines, so the last thing read is what the user must answer;
-  a caveat about what the whole brief rests on goes in Where we are. Each
-  decision stands on its own: the question, its options and where each leads, and the
-  recommendation. Numbered, so the user can answer by number. With nothing to decide, it is one
+  a caveat about what the whole brief rests on goes in Where we are. At most three decisions,
+  those that block work first, unless the user asks for all of them; the rest wait for a later
+  brief, named in a closing line of Where we are, a few words each. Each decision stands on its
+  own: the question, its options and where each leads, and the recommendation. Numbered, so the user can answer by number. With nothing to decide, it is one
   line saying what happens next without the user and what it waits on (CI, another PR):
   `**Your turn:** nothing. <next step>, once <what it waits on>.`
 
@@ -85,8 +87,9 @@ For example:
 - Bold only the section labels, the branch, and the recommendation; leave a blank line between
   sections.
 - Read linearly: each line uses only terms introduced above it, never a forward reference.
-- Every `#N`, file, or term gets a few words the first time it appears, or is left out. Give
-  background only where the reader needs it to follow the rest.
+- Every `#N`, file, or term gets a few words the first time it appears in the brief, a label
+  from an earlier message included, or is left out. Give background only where the reader needs
+  it to follow the rest.
 - Each fact once. Leave out an empty line or section.
 - Say where the work stands, such as the budget spent. Leave out what resolves without the
   user: anything a script, process or later step will handle on its own. Raise a leftover that
