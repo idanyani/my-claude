@@ -31,8 +31,9 @@ Read context proportional to the issue, always including `README.md` (the canoni
 description) and recent commit subjects (`git log --oneline -10`) -- the issue may already be
 addressed, superseded, or in tension with fresh changes. `git show <sha>` only when a subject
 looks related. Read the repo docs relevant to the issue's area (the repo's `CLAUDE.md` and
-`docs/` index point to them), and the decision records in `docs/decisions/`: a design one
-rejects is raised again only once its reason no longer holds.
+`docs/` index point to them), and the decision records in `docs/decisions/` on the issue's
+area. A design the issue needs that a record rejects goes in Phase 4's brief as a "Chose" line,
+with whether the record's reason still holds.
 
 ## Phase 2 -- Read the issue
 
@@ -97,9 +98,9 @@ that output too; revert the edits that turn it red rather than fixing forward.
 Commit the implementation, message in the repo's commit style, ending with `Resolves #<number>`.
 That commit's subject and body become the PR's title and description, so the body states the
 chosen solution and the rejected alternatives with why; the problem stays in the issue. The same
-commit adds a decision record to `docs/decisions/` for each alternative rejected for a reason that
-will still hold, so the next change does not adopt it: the commit body is not read before a
-redesign, the records are.
+commit adds a decision record for each alternative a brief showed the user rejected for a reason
+that will still hold, since the next change reads the records, not this commit; a review fix that
+adopts a recorded alternative deletes its record.
 
 ## Phase 10 -- Open the PR
 
