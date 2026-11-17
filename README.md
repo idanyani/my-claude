@@ -64,17 +64,17 @@ any project, loaded into every Claude Code session on a machine that installs my
   reference; report ranked findings, making no edits.
 - **[project-review](dot-claude/skills/project-review/SKILL.md)** -- review a repo from a bird's
   eye view: settle its purpose with the user, review its names and its design in hindsight, and
-  return one ordered plan of the few changes worth their cost, or say it is good as it stands.
+  return one ordered plan of the changes it needs, or say it is good as it stands.
   Runs these three, each also usable alone, making no edits:
   - **[purpose-review](dot-claude/skills/purpose-review/SKILL.md)** -- infer the goals and
     non-goals from the docs, code, and history, have the user settle them, and check the docs,
     code, and tests against them: goals unstated, unmet, or unguarded, and parts that serve none.
   - **[naming-review](dot-claude/skills/naming-review/SKILL.md)** -- find the core concepts,
     inventory their names across code, docs, tests, and stored formats, and report the renames
-    worth their cost.
+    the core concepts need.
   - **[hindsight-review](dot-claude/skills/hindsight-review/SKILL.md)** -- read the history for
     lessons, search for tools released since, design the project afresh from its goals, and
-    report the redesigns worth their cost.
+    report the redesigns it would make today.
 - **[lessons-review](dot-claude/skills/lessons-review/SKILL.md)** -- find the kinds of mistake
   agents keep repeating, in session transcripts, PR reviews, issues, and fix commits, and propose
   for each the check a program runs, or else the rule, that would stop it; report findings,
