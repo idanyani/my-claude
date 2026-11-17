@@ -136,7 +136,7 @@ class TestMain:
             return PR_URL + "\n"
 
         monkeypatch.setattr(open_pr, "run_gh_text", run_gh_text)
-        assert open_pr.main([]) == 0
+        assert open_pr.main(["--no-footer"]) == 0
         assert gh_calls == [["pr", "create", "--title", "Implement x", "--body", "Resolves #7"]]
         assert capsys.readouterr().out.strip() == PR_URL
 
@@ -152,7 +152,7 @@ class TestMain:
         )
         gh_calls = []
         monkeypatch.setattr(open_pr, "run_gh_text", lambda args: gh_calls.append(args) or PR_URL)
-        assert open_pr.main([]) == 0
+        assert open_pr.main(["--no-footer"]) == 0
         assert gh_calls[0][-1] == "Resolves #7"
 
     def test_ends_the_description_with_the_footer(self, stale_branch, monkeypatch):
@@ -161,7 +161,18 @@ class TestMain:
         assert open_pr.main(["--footer", "Made by F"]) == 0
         assert gh_calls[0][-1] == "Resolves #7\n\nMade by F"
 
-    @pytest.mark.parametrize("argv", [["7"], ["--footer"], ["7", "x"], ["--footer", "x", "y"]])
+    @pytest.mark.parametrize(
+        "argv",
+        [
+            [],
+            ["7"],
+            ["--footer"],
+            ["7", "x"],
+            ["--footer", "x", "y"],
+            ["--no-footer", "x"],
+            ["--footer", "x", "--no-footer"],
+        ],
+    )
     def test_rejects_other_arguments(self, argv):
         with pytest.raises(ValueError):
             open_pr.main(argv)
@@ -169,7 +180,7 @@ class TestMain:
     def test_refuses_on_main_without_pushing(self, clone, tmp_path):
         commit(clone, "unpublished")
         with pytest.raises(RuntimeError):
-            open_pr.main([])
+            open_pr.main(["--no-footer"])
         assert git(tmp_path / "origin.git", "rev-parse", "main") != git(clone, "rev-parse", "HEAD")
 
     def test_refuses_commits_that_do_not_close_the_issue_without_pushing(
@@ -177,6 +188,6 @@ class TestMain:
     ):
         git(stale_branch, "commit", "-q", "--amend", "--allow-empty", "-m", "Implement x")
         with pytest.raises(RuntimeError, match="#7"):
-            open_pr.main([])
+            open_pr.main(["--no-footer"])
         branches = git(tmp_path / "origin.git", "branch", "--list", BRANCH)
         assert branches == ""

@@ -36,9 +36,10 @@ and `gh` on PATH; they run against the current working directory's repo.
    never fired and reopens those whose CI never started (see Troubleshooting), then branches
    from a freshly fetched `main`. Never push to `main` directly -- branch protection rejects it
    for everyone, administrators included.
-2. **Open the PR.** `python3 ${CLAUDE_SKILL_DIR}/scripts/open_pr.py` pushes the branch and opens
-   the PR, titled and described by the commit that closes the issue, without its trailers. When
-   the session's instructions give a line to end PR descriptions with, pass it as `--footer`.
+2. **Open the PR.** `python3 ${CLAUDE_SKILL_DIR}/scripts/open_pr.py --footer TEXT` pushes the
+   branch and opens the PR, titled and described by the commit that closes the issue, without its
+   trailers and ending with TEXT: the line the session's instructions give to end PR descriptions
+   with. When they give none, pass `--no-footer` instead.
 3. **Review the PR.** Run `/code-review high --max-findings default <pr>` in this session,
    and when the PR changes tests, `/test-review` too. Name both options: without them,
    `/code-review` reuses the session's last choices, and at `low` it can return no findings

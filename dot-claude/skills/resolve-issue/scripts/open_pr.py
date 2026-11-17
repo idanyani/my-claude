@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Open the pull request for the current branch: push it to `origin`, then create the PR.
 
-Usage: python3 <skill-dir>/scripts/open_pr.py [--footer TEXT]
+Usage: python3 <skill-dir>/scripts/open_pr.py --footer TEXT | --no-footer
 
 It refuses on `main`, on a detached HEAD, on a branch with no commits beyond `origin/main`, and
 when none of those commits closes the issue the branch is named for. Otherwise it pushes the branch
 with its upstream set, then creates the PR with the subject and body of the commit that closes the
-issue as its title and description, without the commit's trailers and ending with TEXT when given,
-and prints the PR's URL. Push review fixes afterwards with a plain `git push`: once the branch is
-on the remote, its advertised tip already tells git what to leave out.
+issue as its title and description, without the commit's trailers and ending with TEXT, and prints
+the PR's URL. The footer is required, or declined with --no-footer, so whether the session's
+instructions ask for one is decided at every call rather than forgotten. Push review fixes
+afterwards with a plain `git push`: once the branch is on the remote, its advertised tip already
+tells git what to leave out.
 """
 
 import sys
@@ -16,7 +18,7 @@ import sys
 from lib.branch import closes_issue, issue_number
 from lib.gh import current_branch, run_gh_text, run_git
 
-USAGE = "usage: open_pr.py [--footer TEXT]"
+USAGE = "usage: open_pr.py --footer TEXT | --no-footer"
 
 
 def push_branch(branch: str) -> None:
@@ -78,9 +80,12 @@ def commit_fields(placeholder: str) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
-    if argv and (len(argv) != 2 or argv[0] != "--footer"):
+    if argv == ["--no-footer"]:
+        footer = None
+    elif len(argv) == 2 and argv[0] == "--footer":
+        footer = argv[1]
+    else:
         raise ValueError(USAGE)
-    footer = argv[1] if argv else None
     branch = current_branch()
     # Checked before pushing: a branch pushed for a PR that cannot open lingers on the remote, and
     # start_branch.py's sweep keeps it because no merged PR holds it.
