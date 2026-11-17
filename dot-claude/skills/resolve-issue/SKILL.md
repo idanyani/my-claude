@@ -49,8 +49,12 @@ If a duplicate or in-flight PR exists, stop and surface it -- do not start paral
 
 Brief the user on the issue in the brief skill's format, so they can steer before any work
 starts. For an issue filed a while ago, say what has happened since: its comments, and the
-related PRs and commits Phases 1 and 3 found. If the issue is vague or criteria-less, ask in the
-brief's Your turn. Wait for the user's answer when the brief has a "Chose" line or Your turn
+related PRs and commits Phases 1 and 3 found. Before choosing a fix, find what causes the problem
+the issue reports -- an issue describes a symptom, and the cause often sits a layer below -- and
+say in the brief what it is, with its evidence, and whether the fix removes it. When the trouble
+is with something the repo built (a script, a hook, a rule), first ask whether that thing should
+exist at all. A fix that works around the cause instead of removing it is a "Chose" line. If the
+issue is vague or criteria-less, ask in the brief's Your turn. Wait for the user's answer when the brief has a "Chose" line or Your turn
 items, so they can reject a choice before work builds on it; otherwise carry on.
 
 ## Phase 5 -- Set up an isolated workspace
