@@ -70,8 +70,9 @@ For example:
   work builds on it. When a number replaces one the user has seen, give both and why it
   changed. End with the few spots worth reading first and a command that shows the work runs.
 - **Your turn:** always the last lines, so the last thing read is what the user must answer;
-  a caveat about what the whole brief rests on goes in Where we are. Each
-  decision stands on its own: the question, its options and where each leads, and the
+  a caveat about what the whole brief rests on goes in Where we are. At most three decisions,
+  those that block work first; the rest wait for a later brief, named in a closing line of Where
+  we are, a few words each. Each decision stands on its own: the question, its options and where each leads, and the
   recommendation. Numbered, so the user can answer by number. With nothing to decide, it is one
   line saying what happens next without the user and what it waits on (CI, another PR):
   `**Your turn:** nothing. <next step>, once <what it waits on>.`
@@ -85,7 +86,8 @@ For example:
 - Bold only the section labels, the branch, and the recommendation; leave a blank line between
   sections.
 - Read linearly: each line uses only terms introduced above it, never a forward reference.
-- Every `#N`, file, or term gets a few words the first time it appears, or is left out. Give
+- Every `#N`, file, or term gets a few words the first time it appears, or is left out. A label
+  made up earlier in the session is new to this brief: say plainly what it means instead. Give
   background only where the reader needs it to follow the rest.
 - Each fact once. Leave out an empty line or section.
 - Say where the work stands, such as the budget spent. Leave out what resolves without the
