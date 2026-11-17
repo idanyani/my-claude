@@ -28,7 +28,12 @@ and `gh` on PATH; they run against the current working directory's repo.
 
 1. **Branch from `main`.** Work in a Claude Code worktree (`EnterWorktree`, subagent
    `isolation: "worktree"`, or `claude --worktree`) unless branching in place on purpose, so
-   other sessions sharing the main checkout never run against this one's uncommitted work. Then
+   other sessions sharing the main checkout never run against this one's uncommitted work. A
+   worktree session refuses a git or gh command it cannot verify stays inside the worktree, so
+   run each as its own plain call from the worktree: no pipe, loop, or `cd` around it, no
+   `git -C` to another path, and a multi-line message given with `-m` or `-F <file>` rather than
+   a heredoc. After a refusal, split the command; resending it unchanged fails
+   again. Then
    run `python3 ${CLAUDE_SKILL_DIR}/scripts/start_branch.py <number> <kebab-summary>`; it names
    any dependency-install command the fresh worktree needs. It refuses a dirty tree (it never
    stashes silently -- surface that and ask), deletes the local and remote branches whose PR
