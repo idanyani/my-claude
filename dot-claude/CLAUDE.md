@@ -32,6 +32,11 @@
 - Stage only the files the change touched, each by its path: never a directory, a glob, or
   an all-files flag (`-A`, `-u`, `commit -a`), which sweep in scratch output, local config,
   or edits another session left in the same tree.
+- A session in a Claude Code worktree refuses a git or gh command it cannot verify stays
+  inside the worktree: one joined with `cd`, `git -C`, a pipe, or a loop, one fed a heredoc,
+  or one naming `eval`. Run each as its own plain call from the worktree, pass long text by
+  `-m` or by a file outside the repo (`-F`, `--body-file`), and put a pipeline in a script
+  file and run that. Split a refused command; resending it fails again.
 
 ## Problem-solving
 

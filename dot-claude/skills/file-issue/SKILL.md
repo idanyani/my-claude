@@ -31,12 +31,11 @@ estimate reads as a fact and misleads until someone measures.
 
 ## Step 3 -- File it
 
-Pass the body through a quoted heredoc, so the shell leaves its backticks and `$` alone:
+Write the body to a file outside the repo (the session's scratchpad, or a `mktemp` file), so
+the shell never reads its backticks and `$`, and pass it by path:
 
 ```sh
-gh issue create --title "<title>" --body-file - <<'EOF'
-<body>
-EOF
+gh issue create --title "<title>" --body-file <file>
 ```
 
 ## Step 4 -- Report
