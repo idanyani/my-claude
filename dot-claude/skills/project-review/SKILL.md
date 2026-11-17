@@ -39,6 +39,9 @@ Merge the three reports into one plan:
 2. **Order** by what each change makes easier or wasted:
    - stating the purpose in the docs comes first: every later change is argued from it;
    - removals next: they shrink what the rest must touch;
+   - a check for an unguarded goal before any change that touches what it guards, written against
+     the goal's behavior so a redesign keeps it; code for an unmet goal after the redesign it
+     would live in;
    - renames before the redesigns that keep the renamed concepts, so new code is written in the
      right words;
    - a change whose cost drops at a coming moment (a data reset, a major version) is placed at it.
