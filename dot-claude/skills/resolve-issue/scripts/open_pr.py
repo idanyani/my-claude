@@ -7,18 +7,16 @@ It refuses on `main`, on a detached HEAD, on a branch with no commits beyond `or
 when none of those commits closes the issue the branch is named for. Otherwise it pushes the branch
 with its upstream set, then creates the PR with the subject and body of the commit that closes the
 issue as its title and description, without the commit's trailers and ending with TEXT, and prints
-the PR's URL. The footer is required, or declined with --no-footer, so whether the session's
-instructions ask for one is decided at every call rather than forgotten. Push review fixes
-afterwards with a plain `git push`: once the branch is on the remote, its advertised tip already
-tells git what to leave out.
+the PR's URL. One of --footer and --no-footer is required, and TEXT must not be blank. Push
+review fixes afterwards with a plain `git push`: once the branch is on the remote, its advertised
+tip already tells git what to leave out.
 """
 
+import argparse
 import sys
 
 from lib.branch import closes_issue, issue_number
 from lib.gh import current_branch, run_gh_text, run_git
-
-USAGE = "usage: open_pr.py --footer TEXT | --no-footer"
 
 
 def push_branch(branch: str) -> None:
@@ -79,13 +77,23 @@ def commit_fields(placeholder: str) -> list[str]:
     return log.split("\0")[:-1] if log else []
 
 
+def nonblank(text: str) -> str:
+    if not text.strip():
+        raise argparse.ArgumentTypeError("must not be blank")
+    return text
+
+
+def parse_footer(argv: list[str]) -> str | None:
+    parser = argparse.ArgumentParser(prog="open_pr.py")
+    choice = parser.add_mutually_exclusive_group(required=True)
+    choice.add_argument("--footer", type=nonblank, metavar="TEXT")
+    choice.add_argument("--no-footer", action="store_true")
+    footer: str | None = parser.parse_args(argv).footer
+    return footer
+
+
 def main(argv: list[str]) -> int:
-    if argv == ["--no-footer"]:
-        footer = None
-    elif len(argv) == 2 and argv[0] == "--footer":
-        footer = argv[1]
-    else:
-        raise ValueError(USAGE)
+    footer = parse_footer(argv)
     branch = current_branch()
     # Checked before pushing: a branch pushed for a PR that cannot open lingers on the remote, and
     # start_branch.py's sweep keeps it because no merged PR holds it.
@@ -97,7 +105,7 @@ def main(argv: list[str]) -> int:
     number = issue_number(branch)
     assert number is not None  # refusal() rejects a branch not named for an issue
     title, body = pr_text(messages, commit_fields("%(trailers:only)"), number)
-    if footer:
+    if footer is not None:
         body = f"{body}\n\n{footer}"
     print(run_gh_text(["pr", "create", "--title", title, "--body", body]).strip())
     return 0

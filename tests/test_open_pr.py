@@ -171,10 +171,13 @@ class TestMain:
             ["--footer", "x", "y"],
             ["--no-footer", "x"],
             ["--footer", "x", "--no-footer"],
+            ["--footer", "--no-footer"],
+            ["--footer", ""],
+            ["--footer", "  "],
         ],
     )
     def test_rejects_other_arguments(self, argv):
-        with pytest.raises(ValueError):
+        with pytest.raises(SystemExit):
             open_pr.main(argv)
 
     def test_refuses_on_main_without_pushing(self, clone, tmp_path):
