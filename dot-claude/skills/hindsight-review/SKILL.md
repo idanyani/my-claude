@@ -1,16 +1,16 @@
 ---
 name: hindsight-review
-description: Use when the user wants a repo's design judged in hindsight -- says "hindsight-review", "/hindsight-review", "would we build it this way today", "is there a simpler approach now", or "has a tool replaced our custom code". Reads the repo's history for lessons, searches for tools released since, designs the project afresh from its goals, and reports the few redesigns worth their cost -- or that the design holds; makes NO edits. Do NOT use for unreached code (use /dead-code-review), line-level bugs (use /code-review), or simplifying a diff (use /simplify).
+description: Use when the user wants a repo's design judged in hindsight -- says "hindsight-review", "/hindsight-review", "would we build it this way today", "is there a simpler approach now", or "has a tool replaced our custom code". Reads the repo's history for lessons, searches for tools released since, designs the project afresh from its goals, and reports the redesigns it would make today -- or that the design holds; makes NO edits. Do NOT use for unreached code (use /dead-code-review), line-level bugs (use /code-review), or simplifying a diff (use /simplify).
 ---
 
 # Hindsight review: would we choose this design today?
 
 A design is chosen with what is known when it is chosen. Later, a simpler approach becomes visible
 once the problem is understood, a tool or platform feature released since does what custom code
-does, or a constraint a decision rested on stops holding. Most repos carry such legacy; few
-designs are worth replacing. This skill finds the redesigns whose gain outweighs their cost, or
-says the design holds, and **reports them -- it makes no edits.** The current code is the spec of
-what a redesign must keep: it handles needs a fresh design forgets.
+does, or a constraint a decision rested on stops holding. Most repos carry such legacy, and it
+is technical debt to clear, however costly the change. This skill finds the redesigns the project
+needs, or says the design holds, and **reports them -- it makes no edits.** The current code is
+the spec of what a redesign must keep: it handles needs a fresh design forgets.
 
 This skill is repo-agnostic. The repo's `CLAUDE.md` (and the global conventions it inherits) sets
 the rules -- read it.
@@ -56,20 +56,21 @@ Each real difference is a candidate, stating:
   edge cases, fixes the history shows were needed, needs a consumer relies on. A candidate whose
   kept behavior swallows its gain is dropped;
 - **the gain:** what gets simpler, what code and upkeep go away, what stops recurring;
-- **the cost to undo:** code and docs are cheap; stored formats, public interfaces, and what other
-  projects consume cost a migration -- unless a moment makes it cheap (stored data about to be
-  reset, a major version). Name such a moment when one is near;
+- **the cost:** code and docs are cheap to change; stored formats, public interfaces, and what
+  other projects consume cost a migration. The cost shapes the path and its timing -- name a
+  moment that makes it cheap (stored data about to be reset, a major version) -- never whether the
+  candidate is reported;
 - **the path:** how to get there in steps that each leave the project working, rather than a
   rewrite.
 
 ## Phase 4 -- Report
 
-Report only redesigns worth their cost -- **a finding changes the structure or the main tools**:
+Report every redesign the comparison found -- **a finding changes the structure or the main tools**:
 a part replaced, merged, split, or removed, or a data flow rebuilt. Local cleanups belong to
 `/simplify`, `/code-review`, and `/dead-code-review`: name them in one line, not as findings.
 
-Rank the candidates as **Strong** (the evidence is clear and the gain outweighs the cost now) or
-**Worth exploring** (the payoff depends on where the project goes next); drop the rest. Then name
+Rank the candidates as **Strong** (the evidence is clear) or **Worth exploring** (the payoff
+depends on where the project goes next), most gain first. Then name
 the **top recommendation** and why.
 
 If no candidate clears the bar, say so plainly: **the design holds** is a full answer, with the

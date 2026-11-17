@@ -1,6 +1,6 @@
 ---
 name: project-review
-description: Use when the user wants a repo reviewed from a bird's eye view and its next major steps planned -- says "project-review", "/project-review", "zoom out", "review the whole project", "what should we change if we started over", or "plan the next big refactor". Settles the project's purpose with the user, then reviews its names and its design in hindsight, and returns one ordered plan of the few changes worth their cost -- or says the project is good as it stands; makes NO edits. Do NOT use for one aspect alone (use /purpose-review, /naming-review, or /hindsight-review) or for reviewing a diff (use /code-review).
+description: Use when the user wants a repo reviewed from a bird's eye view and its next major steps planned -- says "project-review", "/project-review", "zoom out", "review the whole project", "what should we change if we started over", or "plan the next big refactor". Settles the project's purpose with the user, then reviews its names and its design in hindsight, and returns one ordered plan of the changes it needs -- or says the project is good as it stands; makes NO edits. Do NOT use for one aspect alone (use /purpose-review, /naming-review, or /hindsight-review) or for reviewing a diff (use /code-review).
 ---
 
 # Project review: settle the purpose, then plan the large changes
@@ -12,7 +12,8 @@ skill answers them in order and turns the findings into one ordered plan -- **th
 edits.** Each of the three reviews it runs holds its report for the plan, skipping its own closing
 follow-up offer: the plan makes one offer for all of them.
 
-It reports only changes worth their cost, never the minor issues the other reviews cover, and
+It reports changes to the goals, the core names, and the structure -- however costly, since they
+are the technical debt it exists to clear -- never the minor issues the other reviews cover, and
 **"the project is good as it stands" is a full answer.** Knowing when to leave a repo alone is part
 of the review.
 
@@ -41,7 +42,8 @@ Merge the three reports into one plan:
    - renames before the redesigns that keep the renamed concepts, so new code is written in the
      right words;
    - a change whose cost drops at a coming moment (a data reset, a major version) is placed at it.
-3. For each step: what changes, the finding it comes from, its cost to undo, and what it unblocks.
+3. For each step: what changes, the finding it comes from, its cost and how to pay it, and what it
+   unblocks.
 
 ## Phase 4 -- Report
 
@@ -49,7 +51,7 @@ Print the purpose settled in Phase 1, then the plan, then one line each for the 
 reviews routed to other skills. Report in chat; when it is long or needs diagrams, publish it as a
 private artifact and give the link.
 
-If no review found a change worth its cost, say so plainly, with each review's evidence that its
+If no review found a change, say so plainly, with each review's evidence that its
 part holds.
 
 Close by asking which steps to take. File each picked step with `/file-issue`; once the user asks

@@ -1,6 +1,6 @@
 ---
 name: naming-review
-description: Use when the user wants a repo's core concepts checked for fitting names -- says "naming-review", "/naming-review", "are our names right", "find a rename worth making", or "check for vague / misleading / inconsistent terms". Finds the concepts the system is built around, inventories their names across code, docs, tests, and stored formats, and reports the renames worth their cost, each with rejected alternatives; makes NO edits. Do NOT use for prose conventions in docs and comments (use /docs-review) or line-level naming nits in a diff (use /code-review).
+description: Use when the user wants a repo's core concepts checked for fitting names -- says "naming-review", "/naming-review", "are our names right", "find a rename worth making", or "check for vague / misleading / inconsistent terms". Finds the concepts the system is built around, inventories their names across code, docs, tests, and stored formats, and reports the renames they need, each with rejected alternatives; makes NO edits. Do NOT use for prose conventions in docs and comments (use /docs-review) or line-level naming nits in a diff (use /code-review).
 ---
 
 # Naming review: give each core concept one fitting name
@@ -9,8 +9,9 @@ A reader who knows the domain but not the repo should understand any sentence in
 learning words the project made up. Names chosen early stop fitting as the concepts sharpen, and
 they spread -- into code, docs, tests, stored formats, and every consumer that reads them. Prose
 built on a bad name comes out roundabout, and a concept split across modules stays hidden behind
-it. This skill finds the few names whose fix is worth its cost and **reports them -- it makes no
-edits.**
+it. A misleading name is technical debt, worth clearing even at the
+cost of a migration. This skill finds the core concepts whose names need fixing and **reports
+them -- it makes no edits.**
 
 This skill is repo-agnostic. The repo's `CLAUDE.md` (and the global conventions it inherits) sets
 the rules -- read it.
@@ -60,14 +61,15 @@ document has versions). Record each option rejected and why.
 
 ## Phase 4 -- Weigh
 
-Report only renames worth their cost -- **a finding renames a core concept or its states**, not a
-local variable or a one-off field, which `/code-review` and `/docs-review` cover. Weigh:
+Report every rename of a core concept or its states -- **that is the bar**, not a local variable
+or a one-off field, which `/code-review` and `/docs-review` cover. Cost never drops a finding; it
+shapes the plan. Weigh, to rank them and plan each:
 
 - **Spread:** the counts, the layers, and above all whether the name reached a stored format or a
   consumer: each consumer inherits the vocabulary, so the cost of the bad name grows with them.
-- **Cost to undo:** renaming code and docs is cheap; renaming a stored format or a public
-  interface costs a migration or a breaking change -- unless a moment makes it cheap (stored data
-  about to be reset, a major version). Name such a moment when one is near.
+- **Cost:** renaming code and docs is cheap; renaming a stored format or a public interface costs
+  a migration or a breaking change. Say what the migration takes, and name a moment that makes it
+  cheap (stored data about to be reset, a major version) when one is near.
 - **What it exposes:** a concept that resists one good name is often two concepts, or one split
   across modules. Flag it as a likely design mismatch rather than forcing a name.
 
@@ -82,7 +84,7 @@ Rank the findings, most valuable first, and print for each:
 - the reach: core types, stored keys, and states take the domain names; low-level fields (a URL,
   a checksum) may keep technical ones; one doc owns the definitions and every other layer uses
   them;
-- the cost to undo, and the moment that makes it cheap, if any.
+- the migration it takes, and the moment that makes it cheap, if any.
 
 If every core concept already has one fitting name, say so plainly: **the names fit** is a full
 answer, with the concept list as its evidence.
