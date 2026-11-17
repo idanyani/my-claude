@@ -13,6 +13,5 @@ Where are we? I lost track. My notes from the last few days:
 - open: build "per-host order" in this PR or the next?
 - open: should a skipped host be retried first the next night?
 - open: alert someone when more than 5 hosts are skipped?
-- earlier we named the old crawl mode "level by level" (all pages one link from the start page, then all pages two links away, and so on)
 - open: keep the old "level by level" crawl mode as a fallback, or delete it?
 - open: rename the budget setting from host_budget to host_time_budget_s?
