@@ -1,6 +1,6 @@
 ---
 name: purpose-review
-description: Use when the user wants to settle what a repo is for now -- says "purpose-review", "/purpose-review", "what is this project for", "have our goals changed", "check the README states the goals", or "surface implicit assumptions / non-goals". Infers goals and non-goals from the docs, code, and history, has the user confirm them, then reports docs that do not state them and parts that serve no confirmed goal; makes NO edits. Do NOT use for code nothing reaches (use /dead-code-review) or for stale doc claims (use /docs-review).
+description: Use when the user wants to settle what a repo is for now -- says "purpose-review", "/purpose-review", "what is this project for", "have our goals changed", "check the README states the goals", or "surface implicit assumptions / non-goals". Infers goals and non-goals from the docs, code, and history, has the user confirm them, then checks the docs, code, and tests against them -- goals unstated, unmet, or unguarded, and parts that serve no goal; makes NO edits. Do NOT use for code nothing reaches (use /dead-code-review) or for stale doc claims (use /docs-review).
 ---
 
 # Purpose review: settle what the project is for, now
@@ -30,6 +30,8 @@ Read, citing each source by path, commit, issue, or PR:
   (`git log --since=<a recent window> --name-only --format=` counted by top-level directory).
 - **What the project serves:** its entry points, outputs, and consumers as the code shows them;
   run results and consumer repos when the user points to them.
+- **What the tests guard:** the behaviors the test suite pins, read from its test names and
+  assertions, grouped by the part of the project they exercise.
 
 ## Phase 2 -- Infer
 
@@ -53,7 +55,8 @@ the current code before stating it.
 Present the hypotheses and ask the user to confirm, correct, or complete them (AskUserQuestion:
 one question per goal or assumption in doubt, the inferred answer first). The user's answers are
 the purpose -- a free-text answer as written, not the nearest option; where they contradict the
-evidence, they win, and the contradiction becomes a finding. **Do not report before the user has settled the goals.**
+evidence, they win, and the contradiction becomes a finding. **Do not report before the user has
+settled the goals.**
 
 ## Phase 4 -- Report
 
@@ -64,12 +67,16 @@ to `/docs-review` and `/dead-code-review`: name them in one line, not as finding
 1. **Purpose:** the settled goals and non-goals, a few lines each, ready to go into the README.
 2. **Docs gap:** whether `README.md` states that purpose -- missing, stated vaguely, or stating an
    old one -- citing the lines.
-3. **Parts that serve no goal:** features, modes, options, or components that still run but serve
+3. **Goals unmet or unguarded:** a goal no code serves, and a goal the code serves but no test
+   guards, so a change could break it unnoticed -- each citing what was searched.
+4. **Parts that serve no goal:** features, modes, options, or components that still run but serve
    no settled goal, or serve a non-goal -- each with what it costs to keep (code, tests, CI time,
    dependencies) and what removing it would break. These are not dead code: something still
-   reaches them.
+   reaches them. Tests that pin a non-goal belong here too: they hold in place what the project
+   no longer wants.
 
-If the docs already state the settled purpose and every part serves it, say so plainly: **the
+If the docs state the settled purpose, every goal is served and guarded, and every part serves
+a goal, say so plainly: **the
 purpose is clear and current** is a full answer.
 
 Close by offering the follow-up the user chooses: file issues for the picked findings with

@@ -67,8 +67,8 @@ any project, loaded into every Claude Code session on a machine that installs my
   return one ordered plan of the few changes worth their cost, or say it is good as it stands.
   Runs these three, each also usable alone, making no edits:
   - **[purpose-review](dot-claude/skills/purpose-review/SKILL.md)** -- infer the goals and
-    non-goals from the docs, code, and history, have the user settle them, and report docs that
-    do not state them and parts that serve none.
+    non-goals from the docs, code, and history, have the user settle them, and check the docs,
+    code, and tests against them: goals unstated, unmet, or unguarded, and parts that serve none.
   - **[naming-review](dot-claude/skills/naming-review/SKILL.md)** -- find the core concepts,
     inventory their names across code, docs, tests, and stored formats, and report the renames
     worth their cost.
