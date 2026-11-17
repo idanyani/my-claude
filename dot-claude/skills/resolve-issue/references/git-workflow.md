@@ -40,10 +40,11 @@ and `gh` on PATH; they run against the current working directory's repo.
    branch and opens the PR, titled and described by the commit that closes the issue, without its
    trailers and ending with TEXT: the text the session's instructions give to end PR descriptions
    with, all its lines as one argument. When they give none, pass `--no-footer` instead.
-3. **Review the PR.** Run `/code-review high --max-findings default <pr>` in this session,
-   and when the PR changes tests, `/test-review` too. Name both options: without them,
-   `/code-review` reuses the session's last choices, and at `low` it can return no findings
-   without reading the change. A review that read none of the changed files reviewed nothing:
+3. **Review the PR.** Run `/code-review high --max-findings default <pr>` and `/test-review` in
+   this session; `/test-review` stops by itself when the PR changes no code or tests, and its
+   findings take this step's triage, not its own offer to file them. Name both `/code-review`
+   options: without them, it reuses the session's last choices, and at `low` it can return no
+   findings without reading the change. A review that read none of the changed files reviewed nothing:
    run it once more, and if it again reads nothing, ask the user before step 4 and report it
    as not reviewed, never as no findings. Given a PR, the review may check it out in this
    checkout, leaving it detached or on a branch of its own, so then run
@@ -53,8 +54,10 @@ and `gh` on PATH; they run against the current working directory's repo.
    of a rejected change, **as new commits -- the branch is already pushed and under review, so
    never amend, rebase, or force-push it; the squash-merge in step 4 collapses every commit into
    one on `main`, so branch commit count does not matter.** Dismiss a finding that is wrong or
-   not worth a change with a one-line reason. A finding not applied about a failure no run has
-   shown -- one that needs a condition nobody has seen -- is not an issue: add it to a
+   not worth a change with a one-line reason. A mutation of the changed code that the tests
+   survive, unless it leaves behavior the same, and changed code no test runs are failures a run
+   showed: fix the tests in this PR, never hold them. A finding not applied about a failure no
+   run has shown -- one that needs a condition nobody has seen -- is not an issue: add it to a
    `## Known limits` section of the PR description, before its footer, as `what would fail --
    file:line -- the run that would show it` (`gh pr edit <pr> --body-file <file>`, the file
    outside the repo). Hold any other finding that is right but not applied in this PR for the
