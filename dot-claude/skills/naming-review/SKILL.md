@@ -9,9 +9,8 @@ A reader who knows the domain but not the repo should understand any sentence in
 learning words the project made up. Names chosen early stop fitting as the concepts sharpen, and
 they spread -- into code, docs, tests, stored formats, and every consumer that reads them. Prose
 built on a bad name comes out roundabout, and a concept split across modules stays hidden behind
-it. A misleading name is technical debt, worth clearing even at the
-cost of a migration. This skill finds the core concepts whose names need fixing and **reports
-them -- it makes no edits.**
+it. Such a name is technical debt. This skill finds the core concepts whose names need fixing
+and **reports them -- it makes no edits.**
 
 This skill is repo-agnostic. The repo's `CLAUDE.md` (and the global conventions it inherits) sets
 the rules -- read it.
@@ -75,7 +74,7 @@ shapes the plan. Weigh, to rank them and plan each:
 
 ## Phase 5 -- Report
 
-Rank the findings, most valuable first, and print for each:
+Rank the findings by spread and what they expose, not by cost, and print for each:
 
 - the concept and its one-sentence definition;
 - its current names, with counts per layer and the consumers they reach;

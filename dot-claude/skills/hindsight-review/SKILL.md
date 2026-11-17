@@ -53,9 +53,10 @@ Each real difference is a candidate, stating:
 
 - **the change**, in a sentence, and the evidence that points to it;
 - **what it must keep:** the behavior the current code handles that the fresh design missed --
-  edge cases, fixes the history shows were needed, needs a consumer relies on. A candidate whose
-  kept behavior swallows its gain is dropped;
-- **the gain:** what gets simpler, what code and upkeep go away, what stops recurring;
+  edge cases, fixes the history shows were needed, needs a consumer relies on;
+- **the gain:** what gets simpler, what code and upkeep go away, what stops recurring. Drop a
+  candidate whose gain the evidence does not show, or whose kept behavior swallows it -- a
+  lateral move is no finding;
 - **the cost:** code and docs are cheap to change; stored formats, public interfaces, and what
   other projects consume cost a migration. The cost shapes the path and its timing -- name a
   moment that makes it cheap (stored data about to be reset, a major version) -- never whether the
@@ -65,15 +66,15 @@ Each real difference is a candidate, stating:
 
 ## Phase 4 -- Report
 
-Report every redesign the comparison found -- **a finding changes the structure or the main tools**:
+Report every candidate left -- **a finding changes the structure or the main tools**:
 a part replaced, merged, split, or removed, or a data flow rebuilt. Local cleanups belong to
 `/simplify`, `/code-review`, and `/dead-code-review`: name them in one line, not as findings.
 
-Rank the candidates as **Strong** (the evidence is clear) or **Worth exploring** (the payoff
-depends on where the project goes next), most gain first. Then name
-the **top recommendation** and why.
+Rank the candidates as **Strong** (the gain is clear now) or **Worth exploring** (the gain
+depends on where the project goes next), most gain first. Then name the **top recommendation**,
+and when to make it: now, or at the moment its cost is lowest.
 
-If no candidate clears the bar, say so plainly: **the design holds** is a full answer, with the
+If no candidate is left, say so plainly: **the design holds** is a full answer, with the
 evidence that it holds -- the history shows no strain, nothing off the shelf does its custom parts
 better, and the fresh design matches it.
 

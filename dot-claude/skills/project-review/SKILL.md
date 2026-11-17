@@ -51,8 +51,8 @@ Print the purpose settled in Phase 1, then the plan, then one line each for the 
 reviews routed to other skills. Report in chat; when it is long or needs diagrams, publish it as a
 private artifact and give the link.
 
-If no review found a change, say so plainly, with each review's evidence that its
-part holds.
+If no review found a change to the goals, the core names, or the structure, say so plainly, with
+each review's evidence that its part holds.
 
 Close by asking which steps to take. File each picked step with `/file-issue`; once the user asks
 for them to be resolved, resolve them with `/resolve-issue` in the plan's order. Collect the
