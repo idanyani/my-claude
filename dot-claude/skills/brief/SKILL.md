@@ -38,8 +38,8 @@ Write markdown, which the terminal renders: three sections, in this order.
 - Read first: `<file:line>`; verify with `<command>`
 
 **Your turn**
-1. \<decision\>? A: \<result\>. B: \<result\>. **I recommend A**: \<reason\>. Checked by
-   \<evidence\> | guessed from \<what\> | assumed, please confirm
+1. \<decision\>? A: \<result\>. B: \<result\>. **I recommend A**: \<reason\>, each fact in it
+   tagged as in What I did.
 
 For example:
 
@@ -57,7 +57,7 @@ For example:
 >
 > **Your turn**
 > 1. Also retry on timeout? Yes: fewer failures, slower errors. No: as now. **I recommend
->    yes**: timeouts are the most common failure. Checked by last month's upload log.
+>    yes**: timeouts are the most common failure, guessed from users' error reports.
 
 - **Where we are:** gets the reader back into the work from the top down: the big picture,
   then the problem at hand, in a few lines. Introduce here the terms the rest of the brief
@@ -68,7 +68,7 @@ For example:
   bullet starts with a past-tense verb (Implemented, Scanned, Reviewed, Found) and ends on its
   result, not the steps that led there. The tag says where to look: its evidence (a test, a
   log line, a source), what it was guessed from, or that it is assumed and needs the user's
-  word. List every choice made without the user, so they catch one they would reject before
+  word. A fact recalled, not looked up, is guessed. List every choice made without the user, so they catch one they would reject before
   work builds on it. When a number replaces one the user has seen, give both and why it
   changed. End with the few spots worth reading first and a command that shows the work runs.
 - **Your turn:** always the last lines, so the last thing read is what the user must answer;
@@ -76,8 +76,7 @@ For example:
   those that block work first, unless the user asks for all of them; the rest wait for a later
   brief, named in a closing line of Where we are, a few words each. Each decision stands on its
   own: the question, its options and where each leads, and the recommendation. Each fact the
-  recommendation rests on carries the tag What I did uses: a fact recalled, not looked up, is
-  guessed. Numbered, so the user can answer by number. With nothing to decide, it is one line
+  recommendation rests on carries the tag What I did uses. Numbered, so the user can answer by number. With nothing to decide, it is one line
   saying what happens next without the user and what it waits on (CI, another PR):
   `**Your turn:** nothing. <next step>, once <what it waits on>.`
 
