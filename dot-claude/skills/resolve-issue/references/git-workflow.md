@@ -41,7 +41,8 @@ and `gh` on PATH; they run against the current working directory's repo.
    trailers and ending with TEXT: the text the session's instructions give to end PR descriptions
    with, all its lines as one argument. When they give none, pass `--no-footer` instead.
 3. **Review the PR.** Run `/code-review high --max-findings default <pr>` in this session,
-   and when the PR changes tests, `/test-review` too. Name both options: without them,
+   and when the PR changes code or tests, not just prose (docs, skills, `CLAUDE.md`),
+   `/test-review` too. Name both options: without them,
    `/code-review` reuses the session's last choices, and at `low` it can return no findings
    without reading the change. A review that read none of the changed files reviewed nothing:
    run it once more, and if it again reads nothing, ask the user before step 4 and report it
@@ -53,7 +54,8 @@ and `gh` on PATH; they run against the current working directory's repo.
    of a rejected change, **as new commits -- the branch is already pushed and under review, so
    never amend, rebase, or force-push it; the squash-merge in step 4 collapses every commit into
    one on `main`, so branch commit count does not matter.** Dismiss a finding that is wrong or
-   not worth a change with a one-line reason. A finding not applied about a failure no run has
+   not worth a change with a one-line reason. A mutation the tests survive is a failure a run
+   showed: tighten the tests in this PR, never hold it. A finding not applied about a failure no run has
    shown -- one that needs a condition nobody has seen -- is not an issue: add it to a
    `## Known limits` section of the PR description, before its footer, as `what would fail --
    file:line -- the run that would show it` (`gh pr edit <pr> --body-file <file>`, the file
