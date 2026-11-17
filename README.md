@@ -11,8 +11,8 @@ for the agents I run across all my repos. It aims to:
   behind;
 - drive projects forward, with reviews that settle a project's purpose, names, and design and
   plan its next large changes;
-- let agents carry a development task end to end and merge it to `main` on their own -- safe
-  because tests written first and CI checks gate every merge.
+- let agents carry a development task end-to-end and merge it to `main` with no one watching:
+  the tests and a required CI check, not a person, guard what merges.
 
 It does not aim to:
 
