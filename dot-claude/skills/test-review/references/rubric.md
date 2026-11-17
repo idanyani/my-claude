@@ -9,7 +9,8 @@ Each concern below maps to one Phase 2 subagent. Report every hit as
 `[SEVERITY] one-line finding -- file:line`, nothing else. Reserve HIGH for a test that gives false
 confidence or a change with no test at all (a test that survives a mutation of the code it covers,
 changed logic nothing exercises); MEDIUM for real debt (a flaky or implementation-coupled test, a
-missing edge case, a test that breaks on rewording, test data larger than the behavior needs); LOW
+missing edge case, a test that breaks on rewording, test data larger than the behavior needs, an
+expected value derived from the code's constants); LOW
 for redundancy and polish.
 
 Test support code -- fixtures, factories, helpers, `conftest` files, test configs, and the CI job
@@ -43,6 +44,9 @@ that runs the suite -- is subject matter for every concern, not scenery.
 - Flakiness risks: sleeps and timeouts standing in for synchronization, wall-clock time or the
   current date, real network or external services, random values without a fixed seed, dependence
   on test order, shared global or filesystem state that one test leaves for the next.
+- An expected value computed from the code's own constants or logic instead of written as a
+  literal, or an input written as a literal where the behavior under test is defined by a
+  constant.
 - A test that asserts on the prose of a prompt (a skill, `CLAUDE.md`, an agent definition) rather
   than on text a program consumes (script paths, frontmatter keys, tool rules): rewording breaks it
   without changing behavior.

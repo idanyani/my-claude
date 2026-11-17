@@ -68,6 +68,11 @@
   on. Cut a captured input (a saved page, an API response, a log) down to those parts, or
   build it in the test, so the reader sees what matters. A whole capture is no more
   thorough: it holds only the variation that happened when it was captured.
+- Write a test's expected values as literals, never computed from the code's own constants or
+  logic: a derived value agrees with whatever the code says, so a wrong constant still passes. A
+  named marker whose value means nothing (an enum member, a sentinel) is compared by name. Derive
+  an input from a constant only when the behavior under test is defined by it (one past a cap),
+  so the input follows the constant.
 - Never test a prompt (a skill, CLAUDE.md, an agent definition) by matching its prose:
   rewording breaks the test without changing behavior. Assert only on text a program
   consumes (script paths, frontmatter keys, tool rules); a prose edit has no test-first
@@ -78,8 +83,8 @@
 
 ## Small and neat code
 
-- DRY: define each constant/fact once and reference it everywhere; extract repeated
-  expressions.
+- DRY: define each constant/fact once and reference it everywhere but in a test's expected
+  values; extract repeated expressions.
 - A copied comment means the information belongs in docs or a constant.
 - Match naming across layers (DB column = code field).
 - Name things for what they represent, not how they are used; units in numeric names

@@ -50,13 +50,13 @@ one would corrupt the other's coverage run.
    covering changed production code, prove it would catch a regression: if the repo configures a
    mutation tool (mutmut, Stryker, cargo-mutants, ...), run it scoped to the changed files;
    otherwise apply one minimal fault at a time to the code under test (invert a condition, return a
-   constant, drop a call) and run the covering tests. A mutation every test survives is a finding.
+   constant, drop a call, change a named constant's value) and run the covering tests. A mutation every test survives is a finding.
 2. **Gaps** (runs code) -- changed production code no test exercises, measured
    with the repo's coverage tool when one is configured and by tracing callers from the tests when
    not, and missing edge cases for logic that clearly has them.
 3. **Test design** -- redundant tests and duplicated setup, coupling to implementation
-   detail, test data larger than the behavior needs, flakiness risks, and tests that assert on
-   prompt prose.
+   detail, test data larger than the behavior needs, expected values derived from the code's
+   constants, flakiness risks, and tests that assert on prompt prose.
 
 ## Phase 3 -- Aggregate and report
 
