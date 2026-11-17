@@ -21,7 +21,7 @@ Read, citing each source by path, commit, issue, or PR:
 
 - **Stated purpose now:** `README.md`, the repo's `CLAUDE.md`, and the docs they link.
 - **Stated purpose then:** the first README and the early commits
-  (`git log --reverse --format='%h %ad %s' --date=short | head -30`, then
+  (the first lines of `git log --reverse --format='%h %ad %s' --date=short`, then
   `git show <sha>:README.md`), and how the README's opening changed
   (`git log --format='%h %ad %s' --date=short -- README.md`).
 - **What the work went into:** issue and PR titles over time, the earliest as well as the latest
