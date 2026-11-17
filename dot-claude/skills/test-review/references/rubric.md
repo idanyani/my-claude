@@ -9,7 +9,8 @@ Each concern below maps to one Phase 2 subagent. Report every hit as
 `[SEVERITY] one-line finding -- file:line`, nothing else. Reserve HIGH for a test that gives false
 confidence or a change with no test at all (a test that survives a mutation of the code it covers,
 changed logic nothing exercises); MEDIUM for real debt (a flaky or implementation-coupled test, a
-missing edge case, a test that breaks on rewording, test data larger than the behavior needs); LOW
+missing edge case, a test that breaks on rewording, test data larger than the behavior needs, an
+expected value derived from the code's constants); LOW
 for redundancy and polish.
 
 Test support code -- fixtures, factories, helpers, `conftest` files, test configs, and the CI job
