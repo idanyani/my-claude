@@ -49,12 +49,13 @@ If a duplicate or in-flight PR exists, stop and surface it -- do not start paral
 
 Brief the user on the issue in the brief skill's format, so they can steer before any work
 starts. For an issue filed a while ago, say what has happened since: its comments, and the
-related PRs and commits Phases 1 and 3 found. Before choosing a fix, find what causes the problem
-the issue reports -- an issue describes a symptom, and the cause often sits a layer below -- and
-say in the brief what it is, with its evidence, and whether the fix removes it. When the trouble
-is with something the repo built (a script, a hook, a rule), first ask whether that thing should
-exist at all. A fix that works around the cause instead of removing it is a "Chose" line. If the
-issue is vague or criteria-less, ask in the brief's Your turn. Wait for the user's answer when the brief has a "Chose" line or Your turn
+related PRs and commits Phases 1 and 3 found. For an issue that reports a defect, apply
+CLAUDE.md's problem-solving rules before choosing a fix: from reading the code and history, say
+what causes it, with the evidence -- or that the cause is unknown, and what was checked -- and
+whether the fix removes the cause or works around it; when the defect is in something the repo
+built, say whether that thing should exist at all. These are "Chose" lines: a cause is a claim
+the user can reject before work builds on it. If the issue is vague or criteria-less, ask in the
+brief's Your turn. Wait for the user's answer when the brief has a "Chose" line or Your turn
 items, so they can reject a choice before work builds on it; otherwise carry on.
 
 ## Phase 5 -- Set up an isolated workspace
@@ -66,7 +67,8 @@ subagent per issue with `isolation: "worktree"`.
 ## Phase 6 -- Implement test-first
 
 Follow CLAUDE.md's TDD rules; a failing test must fail for the right reason. Test behavior and
-contracts, not implementation detail.
+contracts, not implementation detail. When an approach fails or the user redirects it, go back to
+the cause before trying another, and tell the user if it differs from the one the brief named.
 
 ## Phase 7 -- Run the test pipeline
 
