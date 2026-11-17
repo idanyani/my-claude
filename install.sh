@@ -15,11 +15,7 @@ RECORD=~/.claude/my-claude-install-record.json
 GIT_DIR_OF_REPO="$(git -C "$REPO" rev-parse --absolute-git-dir)"
 COMMON_GIT_DIR="$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)"
 if [ "$GIT_DIR_OF_REPO" != "$COMMON_GIT_DIR" ]; then
-    # The main checkout is known only when it holds the git directory: git data kept elsewhere
-    # (clone --separate-git-dir, a submodule) records no path back to its checkout.
-    MAIN_CHECKOUT=""
-    [ "$(basename "$COMMON_GIT_DIR")" = .git ] && MAIN_CHECKOUT=", $(dirname "$COMMON_GIT_DIR"),"
-    echo "install.sh: run it from the main checkout$MAIN_CHECKOUT not from a linked worktree" >&2
+    echo "install.sh: run it from the clone's main checkout, not from a linked worktree" >&2
     exit 1
 fi
 

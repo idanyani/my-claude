@@ -124,28 +124,7 @@ def test_an_install_from_a_linked_worktree_is_refused(tmp_path: Path, installed:
     worktree = tmp_path / "worktree"
     git(installed, "worktree", "add", "-q", "--detach", str(worktree))
     (worktree / SETTINGS).write_text("{}")
-    run = subprocess.run([worktree / "install.sh"], capture_output=True, text=True)
+    run = subprocess.run([worktree / "install.sh"], capture_output=True)
     assert run.returncode != 0
-    assert f"main checkout, {installed}," in run.stderr
     assert "hooks" in live_settings(home)
     assert (home / ".claude" / "hooks" / "x.py").resolve() == (installed / HOOK).resolve()
-
-
-def test_a_refused_install_names_no_path_when_git_data_lives_outside_the_checkout(
-    tmp_path: Path, upstream: Path, home: Path
-):
-    checkout = tmp_path / "checkout"
-    git(
-        tmp_path,
-        "clone",
-        "-q",
-        "--separate-git-dir",
-        str(tmp_path / "git-data"),
-        str(tmp_path / "origin.git"),
-        str(checkout),
-    )
-    worktree = tmp_path / "worktree"
-    git(checkout, "worktree", "add", "-q", "--detach", str(worktree))
-    run = subprocess.run([worktree / "install.sh"], capture_output=True, text=True)
-    assert run.returncode != 0
-    assert "run it from the main checkout not from a linked worktree" in run.stderr
