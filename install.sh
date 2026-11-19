@@ -20,9 +20,11 @@ if [ "$GIT_DIR_OF_REPO" != "$COMMON_GIT_DIR" ]; then
 fi
 
 mkdir -p ~/.claude
-python3 "$REPO/scripts/merge_settings.py" "$SRC/$SETTINGS" ~/.claude/"$SETTINGS" "$RECORD"
+# Links first: settings that register a hook before its file is linked make every matching tool
+# call fail on the missing file.
 python3 "$REPO/scripts/install_links.py" "$SRC" ~/.claude "$RECORD" \
     --merged "$SETTINGS"
+python3 "$REPO/scripts/merge_settings.py" "$SRC/$SETTINGS" ~/.claude/"$SETTINGS" "$RECORD"
 HOOKS="$(git -C "$REPO" rev-parse --path-format=absolute --git-path hooks)"
 mkdir -p "$HOOKS"
 for hook in post-merge post-checkout post-rewrite; do

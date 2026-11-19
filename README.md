@@ -86,6 +86,10 @@ any project, loaded into every Claude Code session on a machine that installs my
   what to check (each claim tagged by how well it is backed, and the choices made without the
   user), and, last, the decisions waiting on them with a recommendation.
 
+The [`require_fresh_skill`](dot-claude/hooks/require_fresh_skill.py) hook refuses to file an issue
+or open or merge a PR until the session has loaded file-issue or resolve-issue since the skill
+last changed.
+
 ## Install
 
 ```sh
