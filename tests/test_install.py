@@ -128,3 +128,23 @@ def test_an_install_from_a_linked_worktree_is_refused(tmp_path: Path, installed:
     assert run.returncode != 0
     assert "hooks" in live_settings(home)
     assert (home / ".claude" / "hooks" / "x.py").resolve() == (installed / HOOK).resolve()
+
+
+def test_a_hook_is_registered_only_once_its_file_is_linked(
+    upstream: Path, installed: Path, home: Path
+):
+    # A registered PreToolUse hook whose file is missing blocks every tool call it matches.
+    (upstream / "dot-claude/hooks/y.py").write_text("")
+    hook = {"type": "command", "command": 'python3 "$HOME/.claude/hooks/y.py"'}
+    settings = {"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [hook]}]}}
+    (upstream / SETTINGS).write_text(json.dumps(settings))
+    git(upstream, "add", ".")
+    git(upstream, "commit", "-q", "-m", "ship another hook")
+    git(upstream, "push", "-q")
+    hooks_dir = home / ".claude" / "hooks"
+    hooks_dir.chmod(0o500)  # linking fails
+    try:
+        merge_pull(installed)
+    finally:
+        hooks_dir.chmod(0o700)
+    assert "y.py" not in json.dumps(live_settings(home))

@@ -101,3 +101,14 @@ class TestPlugins:
         plugins = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))["enabledPlugins"]
         names = [key.split("@")[0] for key, enabled in plugins.items() if enabled]
         assert not {name for name in names if names.count(name) > 1}
+
+
+class TestHooks:
+    def test_bash_commands_pass_the_fresh_skill_check(self):
+        hooks = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
+        handlers = [h for group in hooks if group["matcher"] == "Bash" for h in group["hooks"]]
+        expected = {
+            "type": "command",
+            "command": 'python3 "$HOME/.claude/hooks/require_fresh_skill.py"',
+        }
+        assert expected in handlers
