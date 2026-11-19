@@ -45,6 +45,7 @@ def test_copies_the_working_tree_as_git_lists_it_without_git_data(repo: Path):
     (repo / "un\ntracked").write_text("new")
     (repo / "ignored").write_text("cache")
     git(repo, "init", "-q", "nested")
+    (repo / "nested" / "file").write_text("nested")
 
     copy = scratch_copy(repo)
 
@@ -55,12 +56,22 @@ def test_copies_the_working_tree_as_git_lists_it_without_git_data(repo: Path):
     }
 
 
-def make_repo_with_file(parent: Path, name: str, file: str) -> Path:
-    git(parent, "init", "-q", name)
-    (parent / name / file).write_text("committed")
-    git(parent / name, "add", file)
-    commit(parent / name, file)
-    return parent / name
+@pytest.fixture
+def source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Return a factory for repos holding one committed file, to add as submodules."""
+    # Git refuses submodules from a local path unless the file protocol is allowed.
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "protocol.file.allow")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "always")
+
+    def make(name: str) -> Path:
+        git(tmp_path, "init", "-q", name)
+        (tmp_path / name / "file").write_text(name)
+        git(tmp_path / name, "add", "file")
+        commit(tmp_path / name, name)
+        return tmp_path / name
+
+    return make
 
 
 def add_submodule(repo: Path, source: Path, path: str) -> None:
@@ -68,34 +79,58 @@ def add_submodule(repo: Path, source: Path, path: str) -> None:
     commit(repo, path)
 
 
-def test_copies_submodules_as_their_working_trees_stand(
-    tmp_path: Path, repo: Path, monkeypatch: pytest.MonkeyPatch
-):
-    # Git refuses submodules from a local path unless the file protocol is allowed.
-    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
-    monkeypatch.setenv("GIT_CONFIG_KEY_0", "protocol.file.allow")
-    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "always")
-    deep = make_repo_with_file(tmp_path, "deep-source", "deep_file")
-    sub = make_repo_with_file(tmp_path, "sub-source", "edited")
-    (sub / ".gitignore").write_text("ignored\n")
-    git(sub, "add", ".gitignore")
+def test_copies_submodules_as_their_working_trees_stand(repo: Path, source):
+    deep = source("deep-source")
+    sub = source("sub-source")
     add_submodule(sub, deep, "deep")
-    add_submodule(repo, sub, "sub")
+    add_submodule(repo, sub, "my sub")
     git(repo, "submodule", "update", "-q", "--init", "--recursive")
-    (repo / "sub" / "edited").write_text("uncommitted")
-    (repo / "sub" / "untracked").write_text("new")
-    (repo / "sub" / "ignored").write_text("cache")
+    (repo / "my sub" / "file").write_text("uncommitted")
+    (repo / "my sub" / "untracked").write_text("new")
+    (repo / "dir").mkdir()
+
+    copy = scratch_copy(repo / "dir")
+
+    assert files_in(copy) == {
+        ".gitmodules": f'[submodule "my sub"]\n\tpath = my sub\n\turl = {sub}\n',
+        "my sub/.gitmodules": f'[submodule "deep"]\n\tpath = deep\n\turl = {deep}\n',
+        "my sub/file": "uncommitted",
+        "my sub/untracked": "new",
+        "my sub/deep/file": "deep-source",
+    }
+
+
+def test_copies_a_repo_tracked_without_a_gitmodules_entry(repo: Path, source):
+    git(repo.parent, "clone", "-q", str(source("embedded-source")), str(repo / "embedded"))
+    git(repo, "add", "embedded")
+    commit(repo, "embedded")
 
     copy = scratch_copy(repo)
 
-    assert files_in(copy) == {
-        ".gitmodules": (repo / ".gitmodules").read_text(),
-        "sub/.gitignore": "ignored\n",
-        "sub/.gitmodules": (repo / "sub" / ".gitmodules").read_text(),
-        "sub/edited": "uncommitted",
-        "sub/untracked": "new",
-        "sub/deep/deep_file": "committed",
-    }
+    assert files_in(copy) == {"embedded/file": "embedded-source"}
+
+
+def test_leaves_a_submodule_that_is_not_checked_out_empty(repo: Path, source):
+    sub = source("sub-source")
+    add_submodule(repo, sub, "sub")
+    git(repo, "submodule", "deinit", "-q", "-f", "sub")
+
+    copy = scratch_copy(repo)
+
+    assert files_in(copy) == {".gitmodules": f'[submodule "sub"]\n\tpath = sub\n\turl = {sub}\n'}
+
+
+def test_fails_when_git_cannot_list_a_submodules_files_leaving_no_copy(
+    tmp_path: Path, repo: Path, source
+):
+    add_submodule(repo, source("sub-source"), "sub")
+    (repo / ".git" / "modules" / "sub" / "index").write_text("corrupt")
+    before = set(tmp_path.iterdir())
+
+    result = subprocess.run([SCRIPT], cwd=repo, capture_output=True, text=True)
+
+    assert result.returncode != 0
+    assert set(tmp_path.iterdir()) == before
 
 
 def test_copies_the_whole_repo_from_a_subdirectory(repo: Path):
@@ -108,12 +143,14 @@ def test_copies_the_whole_repo_from_a_subdirectory(repo: Path):
     assert files_in(copy) == {"sub/inner": "in", "top": "top"}
 
 
-def test_fails_when_git_cannot_list_the_files(repo: Path):
+def test_fails_when_git_cannot_list_the_files_leaving_no_copy(tmp_path: Path, repo: Path):
     (repo / ".git" / "index").write_text("corrupt")
+    before = set(tmp_path.iterdir())
 
     result = subprocess.run([SCRIPT], cwd=repo, capture_output=True, text=True)
 
     assert result.returncode != 0
+    assert set(tmp_path.iterdir()) == before
 
 
 def test_fails_outside_a_repo_leaving_no_copy(tmp_path: Path, repo: Path):

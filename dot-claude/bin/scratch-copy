@@ -2,20 +2,26 @@
 # Copy the files git lists in the repo holding the current directory, and in each of its checked-out
 # submodules -- tracked and untracked but not ignored, as they stand in the working tree -- into a
 # new temporary directory, and print its path. --ignore-failed-read skips a tracked file deleted
-# from the working tree.
+# from the working tree. A checked-out submodule is a tracked path holding a .git; it is found that
+# way rather than by `git submodule foreach`, which fails on a tracked repo .gitmodules does not name.
 set -euo pipefail
 
 top="$(git rev-parse --show-toplevel)"
 copy="$(mktemp -d)"
+trap 'rm -rf "$copy"' EXIT
 cd "$top"
 
+# $1: the path of a repo or submodule, relative to $top.
 copy_tree() {
     git -C "$1" ls-files -z -co --exclude-standard |
         tar -C "$1" --null --no-recursion --ignore-failed-read -T - -cf - |
         tar -C "$copy/$1" -xf -
+    git -C "$1" ls-files -z |
+        while IFS= read -r -d '' tracked; do
+            if [[ -e $1/$tracked/.git ]]; then copy_tree "$1/$tracked"; fi
+        done
 }
 
 copy_tree .
-git submodule foreach --quiet --recursive 'printf "%s\0" "$displaypath"' |
-    while IFS= read -r -d '' submodule; do copy_tree "$submodule"; done
+trap - EXIT
 echo "$copy"
