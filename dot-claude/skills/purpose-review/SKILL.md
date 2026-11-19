@@ -17,6 +17,10 @@ the rules -- read it.
 
 ## Phase 1 -- Gather
 
+Unless this session already ran it, run `~/.claude/bin/github-discussion`: it prints a directory
+of JSON Lines files holding every issue and PR with its whole discussion. Delete the directory
+once the session's reviews are done.
+
 Read, citing each source by path, commit, issue, or PR:
 
 - **Stated purpose now:** `README.md`, the repo's `CLAUDE.md`, and the docs they link.
@@ -24,10 +28,15 @@ Read, citing each source by path, commit, issue, or PR:
   (the first lines of `git log --reverse --format='%h %ad %s' --date=short`, then
   `git show <sha>:README.md`), and how the README's opening changed
   (`git log --format='%h %ad %s' --date=short -- README.md`).
-- **What the work went into:** issue and PR titles over time, the earliest as well as the latest
-  (`gh issue list --state all --limit 100 --json number,title,createdAt`, once more with
-  `--search sort:created-asc`, likewise `gh pr list`), and where commits landed
+- **What the work went into:** issue and PR titles over time, from the earliest to the latest
+  (`jq -r '[.number, .created_at[:10], .title] | @tsv' <dir>/issues.jsonl`), and where commits
+  landed
   (`git log --since=<a recent window> --name-only --format=` counted by top-level directory).
+- **What was argued and declined:** where goals are argued and scope is turned down -- an issue
+  closed as not planned, a PR closed unmerged, an alternative a review rejected. Dispatch one
+  `general-purpose` subagent to search the directory and the commit messages
+  (`git log --format='%h %ad %s%n%b' --date=short`), and to return only the goals, non-goals, and
+  declined scope they state, each cited by number or commit.
 - **What the project serves:** its entry points, outputs, and consumers as the code shows them;
   run results and consumer repos when the user points to them.
 - **What guards it:** the behaviors the repo's checks pin -- its tests, and also eval cases, CI

@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Write the GitHub discussion of the repo holding the current directory -- every issue and PR with
+# its body and close reason, every comment, review, and inline review comment -- as JSON Lines files
+# into a new temporary directory, and print its path. Every record carries the number of its issue
+# or PR. Each listing is paged to its end through `gh api --paginate`: `gh issue list --json
+# comments` returns at most 100 comments per issue.
+set -euo pipefail
+
+out="$(mktemp -d)"
+trap 'rm -rf "$out"' EXIT
+
+# $1: endpoint under the repo; $2: jq filter applied to each element; output on stdout.
+fetch() {
+    gh api --paginate "repos/{owner}/{repo}/$1" --jq ".[] | $2"
+}
+
+number_from_url='(split("/") | last | tonumber)'
+
+fetch 'issues?state=all&per_page=100' \
+    '{number, is_pr: has("pull_request"), title, author: .user.login, body, state, state_reason,
+      created_at, closed_at, merged_at: .pull_request.merged_at}' >"$out/issues.jsonl"
+fetch 'issues/comments?per_page=100' \
+    "{number: (.issue_url | $number_from_url), author: .user.login, created_at, body}" \
+    >"$out/comments.jsonl"
+# GitHub sets `line` to null once a later push outdates the comment.
+fetch 'pulls/comments?per_page=100' \
+    "{number: (.pull_request_url | $number_from_url), id, in_reply_to_id, author: .user.login,
+      path, line: (.line // .original_line), created_at, body}" >"$out/review-comments.jsonl"
+
+# REST lists reviews only per PR, one request each; GraphQL lists them for 100 PRs a request, but
+# only the first 100 reviews of each, so a PR with more is fetched again over REST.
+gh api graphql --paginate -F owner='{owner}' -F name='{repo}' -f query='
+    query($owner: String!, $name: String!, $endCursor: String) {
+      repository(owner: $owner, name: $name) {
+        pullRequests(first: 100, after: $endCursor) {
+          pageInfo { hasNextPage endCursor }
+          nodes { number reviews(first: 100) {
+            totalCount nodes { author { login } state submittedAt body } } }
+        }
+      }
+    }' --jq '.data.repository.pullRequests.nodes[]' >"$out/pr-reviews.jsonl"
+{
+    jq -c "select(.reviews.totalCount <= 100) | .number as \$number | .reviews.nodes[]
+           | {number: \$number, author: .author.login, state, submitted_at: .submittedAt, body}" \
+        "$out/pr-reviews.jsonl"
+    for pr in $(jq 'select(.reviews.totalCount > 100) | .number' "$out/pr-reviews.jsonl"); do
+        fetch "pulls/$pr/reviews?per_page=100" \
+            "{number: $pr, author: .user.login, state, submitted_at, body}"
+    done
+} >"$out/reviews.jsonl"
+rm "$out/pr-reviews.jsonl"
+
+trap - EXIT
+echo "$out"
