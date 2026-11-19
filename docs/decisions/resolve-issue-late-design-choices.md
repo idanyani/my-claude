@@ -7,6 +7,6 @@ approved design nor a stated intent settles, because the user cannot reject it b
 on `main`; reopen this if a merged change can be held back from taking effect until the user
 accepts it. Briefing the user and waiting before every merge gives up merging with no one
 watching, a goal the README states; reopen this if that goal is dropped. Instead, before arming
-auto-merge, the session checks each test expectation the branch adds or changes: a choice the
+auto-merge, the session checks the branch's whole diff, test expectations first: a choice the
 approved design or a stated intent settles is made and cited in the PR, and only one no source
 settles waits for the user.

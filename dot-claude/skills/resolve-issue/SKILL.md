@@ -129,14 +129,14 @@ Handle the review's findings as the rest of step 3 of the workflow doc says.
 
 ## Phase 13 -- Arm auto-merge
 
-First review every test expectation the branch adds or changes against the fetched
-`origin/main`, review fixes included, for design choices (see Design choices). Make one the
-approved design or an intent the issue or the repo's docs state settles, as CLAUDE.md's
-problem-solving rules say, and add it to the PR description, before its footer, as `Chose <X>:
-settled by <source>` (`gh pr edit <pr> --body-file <file>`, the file outside the repo). For one no
-source settles, brief the user with a "Chose" line and wait for their answer before arming
-auto-merge; a subagent returns it instead, as Phase 5 says. Then run `finish_branch.py` as step 4
-of the workflow doc says.
+First review the branch's whole diff against the fetched `origin/main` -- code, prose, and tests,
+review fixes included -- for design choices (see Design choices), starting with every test
+expectation it adds or changes. Make one the approved design or an intent the issue or the repo's
+docs state settles, as CLAUDE.md's problem-solving rules say, and add it to the PR description,
+before its footer, as `Chose <X>: settled by <source>` (`gh pr edit <pr> --body-file <file>`, the
+file outside the repo). For one no source settles, brief the user with a "Chose" line and wait
+for their answer before arming auto-merge; a subagent returns it instead, as Phase 5 says. Then
+run `finish_branch.py` as step 4 of the workflow doc says.
 
 ## Phase 14 -- Exit the worktree
 
