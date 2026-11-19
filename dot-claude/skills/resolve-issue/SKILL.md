@@ -84,7 +84,10 @@ planned design as "Chose" lines, and the user answered. Pass the user's decision
 as the answer to the subagent's own Phase 4, and tell it to stop and return any design choice, as
 Design choices above defines it, that neither they, the issue, nor the repo's docs settle, at any
 phase, review included, rather than make it. Bring that choice to the user, then continue the
-subagent with their answer (`SendMessage`).
+subagent with their answer (`SendMessage`). Claude Code deletes the worktree of a subagent that
+stops with nothing changed, and the notice that it completed then names no worktree; resumed, it
+would work outside any. So when the notice names none, spawn a new subagent the same way instead,
+its prompt adding the old one's report and the user's answer.
 
 ## Phase 6 -- Implement test-first
 
