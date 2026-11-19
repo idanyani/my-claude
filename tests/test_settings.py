@@ -106,7 +106,9 @@ class TestPlugins:
 class TestHooks:
     def test_bash_commands_pass_the_fresh_skill_check(self):
         hooks = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
-        commands = [
-            h["command"] for group in hooks if group["matcher"] == "Bash" for h in group["hooks"]
-        ]
-        assert 'python3 "$HOME/.claude/hooks/require_fresh_skill.py"' in commands
+        handlers = [h for group in hooks if group["matcher"] == "Bash" for h in group["hooks"]]
+        expected = {
+            "type": "command",
+            "command": 'python3 "$HOME/.claude/hooks/require_fresh_skill.py"',
+        }
+        assert expected in handlers

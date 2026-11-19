@@ -5,7 +5,8 @@ A session that loaded a skill hours ago still acts on that text after the skill'
 or after a compaction pushed it out of view. So the commands that carry out a skill's final steps
 -- filing an issue, opening and merging a PR -- are refused, with the reason, when the session
 never loaded the skill, when the skill's files changed after its last load, or when a compaction
-came after that load. Loading the skill again with the Skill tool lets the command through.
+came after that load and Claude Code did not put the skill's text back after it. Loading the
+skill again with the Skill tool lets the command through.
 
 The session is the agent the command runs in: a subagent is judged by its own transcript, since
 its parent's loads are not in its context. A load is a Skill tool call or a slash command, read
@@ -22,7 +23,7 @@ import json
 import re
 import shlex
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,13 @@ PR_SCRIPTS = frozenset({"open_pr.py", "finish_branch.py"})
 # that each line of a multi-line command is a command of its own.
 COMMAND_SEPARATOR_CHARS = "();<>|&\n"
 COMMAND_SEPARATORS = frozenset(COMMAND_SEPARATOR_CHARS)
+
+# Words that can stand before the program a command runs: a launcher, its flags, a duration (as
+# in `timeout 60`), or a variable assignment.
+LAUNCHERS = frozenset({"env", "sudo", "time", "nohup", "exec", "timeout", "uv", "run"})
+COMMAND_PREFIX_WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*|-.*|\d+[smhd]?")
+
+SHELLS = frozenset({"bash", "sh", "zsh"})
 
 # Global `gh` flags that take a value before the subcommand, as in `gh -R owner/repo issue create`.
 GH_FLAGS_WITH_VALUE = frozenset({"-R", "--repo"})
@@ -63,6 +71,8 @@ def _commands(command: str) -> list[list[str]]:
 def _lexed_commands(command: str) -> list[list[str]]:
     lexer = shlex.shlex(command, posix=True, punctuation_chars=COMMAND_SEPARATOR_CHARS)
     lexer.whitespace = " \t\r"
+    # shlex would also take a `#` inside a word as a comment, and drop the newline after it.
+    lexer.commenters = ""
     lexer.whitespace_split = True
     commands: list[list[str]] = [[]]
     for token in lexer:
@@ -87,13 +97,19 @@ def _gh_subcommand(args: list[str]) -> list[str]:
 
 
 def _skill_of(words: list[str]) -> str | None:
+    while words and (Path(words[0]).name in LAUNCHERS or COMMAND_PREFIX_WORD.fullmatch(words[0])):
+        words = words[1:]
+    if not words:
+        return None
     program, args = Path(words[0]).name, words[1:]
+    if program in SHELLS and "-c" in args[:-1]:
+        return gated_skill(args[args.index("-c") + 1])
     if program == "gh" and _gh_subcommand(args)[:2] == ["issue", "create"]:
         return "file-issue"
-    if program.startswith("python"):
-        script = next((arg for arg in args if not arg.startswith("-")), "")
-        if Path(script).name in PR_SCRIPTS:
-            return "resolve-issue"
+    if program in PR_SCRIPTS or (
+        program.startswith("python") and any(Path(arg).name in PR_SCRIPTS for arg in args)
+    ):
+        return "resolve-issue"
     return None
 
 
@@ -125,7 +141,7 @@ def skill_files_changed_at(skill_dir: Path) -> datetime:
     ]
     if not mtimes:
         raise FileNotFoundError(f"{skill_dir}: no files")
-    return datetime.fromtimestamp(max(mtimes), UTC)
+    return datetime.fromtimestamp(max(mtimes), timezone.utc)
 
 
 def _loads(entry: dict[str, Any], skill: str) -> bool:
@@ -148,6 +164,13 @@ def _loads(entry: dict[str, Any], skill: str) -> bool:
     return False
 
 
+def _reattaches(entry: dict[str, Any], skill: str) -> bool:
+    attachment = entry.get("attachment", {})
+    return attachment.get("type") == "invoked_skills" and any(
+        invoked.get("name") == skill for invoked in attachment.get("skills", [])
+    )
+
+
 def staleness(
     entries: list[dict[str, Any]], skill: str, files_changed_at: datetime
 ) -> Staleness | None:
@@ -160,6 +183,10 @@ def staleness(
             compacted = False
         elif entry.get("type") == "system" and entry.get("subtype") == "compact_boundary":
             compacted = True
+        elif _reattaches(entry, skill):
+            # Claude Code puts the text as last loaded back after a compaction; files changed
+            # since are still unseen, so the load time stands.
+            compacted = False
     if loaded_at is None:
         return Staleness.NEVER_LOADED
     if compacted:
