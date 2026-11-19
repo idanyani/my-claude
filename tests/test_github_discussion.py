@@ -74,6 +74,46 @@ def test_keeps_why_an_issue_closed_and_whether_a_pr_merged(fake_gh):
     ] == [(1, False, "not_planned", None), (2, True, None, "m")]
 
 
+def test_keeps_who_wrote_an_issue_what_and_when(fake_gh):
+    issue = {
+        "number": 1,
+        "title": "t",
+        "user": {"login": "u"},
+        "body": "b",
+        "state": "closed",
+        "created_at": "c",
+        "closed_at": "d",
+    }
+    out = fake_gh({"issues": [[issue]]})
+    [record] = map(json.loads, (out / "issues.jsonl").read_text().splitlines())
+    assert {
+        k: record[k] for k in ("title", "author", "body", "state", "created_at", "closed_at")
+    } == {
+        "title": "t",
+        "author": "u",
+        "body": "b",
+        "state": "closed",
+        "created_at": "c",
+        "closed_at": "d",
+    }
+
+
+def test_keeps_who_reviewed_a_pr_with_what_verdict_and_when(fake_gh):
+    page = pr_reviews_page(2, 1, ["b"])
+    page["data"]["repository"]["pullRequests"]["nodes"][0]["reviews"]["nodes"][0].update(
+        {"user": {"login": "u"}, "state": "APPROVED", "submitted_at": "s"}
+    )
+    out = fake_gh({"graphql": [page]})
+    [record] = map(json.loads, (out / "reviews.jsonl").read_text().splitlines())
+    assert record == {
+        "number": 2,
+        "author": "u",
+        "state": "APPROVED",
+        "submitted_at": "s",
+        "body": "b",
+    }
+
+
 def pr_reviews_page(number: int, total: int, bodies: list[str]) -> dict:
     """One page of the GraphQL listing of PRs with their reviews, holding one PR."""
     reviews = {"totalCount": total, "nodes": [{"body": b} for b in bodies]}
