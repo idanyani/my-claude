@@ -35,12 +35,10 @@ Dispatch one `general-purpose` subagent, handing it the goals, to return only:
   `-w`, which misses the name inside compound identifiers, where it spreads most; check the
   matches for unrelated words -- and the consumers outside the repo that read it, where the docs
   name them.
-- **How people say them:** the names issues and PRs use for each concept in their bodies,
-  comments, and reviews
-  (`gh issue list --state all --limit 1000 --json number,title,body,comments`,
-  `gh pr list --state all --limit 1000 --json number,title,body,comments,reviews`), where people
-  write a concept in their own sentences, stumble over a term, or argue a rename -- each cited by
-  number.
+- **How people say them:** the names issues and PRs use for each concept, searched with their
+  whole discussion in the directory `~/.claude/bin/github-discussion` prints (run once per session
+  in the main session, its path handed to the subagent) -- where people write
+  a concept in their own sentences, stumble over a term, or argue a rename -- each cited by number.
 
 ## Phase 3 -- Judge
 

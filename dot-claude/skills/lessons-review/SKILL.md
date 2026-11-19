@@ -41,13 +41,12 @@ wrong, where (transcript and timestamp, PR, commit, or issue), and what correcte
    back). In the `tool_result` entries, find only the tool calls a hook or the user denied. And
    find work the agent redid after a failure it caused. Describe what was said; quote only the
    words a finding cannot do without, since transcripts are private.
-2. **History.** On GitHub and in git: review findings a PR applied -- its review bodies and
-   comments (`gh pr view <n> --json commits,reviews,comments`), its inline review comments
-   (`gh api repos/<owner>/<repo>/pulls/<n>/comments`), and the later commits whose message or
-   review says they fix one, not every later commit -- issues whose problem is how an agent
-   behaved rather than a defect in the code, read with their bodies and comments
-   (`gh issue list --state all --limit 1000 --json number,title,body,stateReason,comments`), and
-   fix commits that undo an agent's earlier change.
+2. **History.** On GitHub and in git, searching the issues and PRs active in the window, with
+   their whole discussion, in the directory `~/.claude/bin/github-discussion` prints (run once per
+   session in the main session, its path handed to this subagent): review findings a PR applied,
+   and the later commits (`gh pr view <n> --json commits`) whose message or review says they fix
+   one, not every later commit; issues whose problem is how an agent behaved rather than a defect
+   in the code; and fix commits that undo an agent's earlier change.
 
 ## Phase 3 -- Group and weigh
 

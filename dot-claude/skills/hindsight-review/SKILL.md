@@ -36,11 +36,9 @@ a file, commit, issue, PR, or URL; the fresh design cites the goal each choice s
 1. **History.** Where the repo's own record shows the design straining: areas changed far more than
    their size explains (`git log --name-only`), the same kind of fix landing again in one area,
    reverts and retired features, alternatives PRs rejected and why, and decisions whose stated
-   reason -- in a decision record, PR, or comment -- no longer holds. Read issues and PRs whole:
-   their bodies, comments, and reviews
-   (`gh issue list --state all --limit 1000 --json number,title,body,stateReason,comments`,
-   `gh pr list --state all --limit 1000 --json number,title,body,state,comments,reviews`), and
-   inline review comments (`gh api repos/<owner>/<repo>/pulls/<n>/comments`).
+   reason -- in a decision record, PR, or comment -- no longer holds. Search issues and PRs with
+   their whole discussion in the directory `~/.claude/bin/github-discussion` prints -- run once
+   per session in the main session, its path handed to this subagent.
 2. **Landscape.** For each part the project builds itself, whether a library, tool, service, or
    platform feature now does it -- found by web search and the platform's current docs, citing
    when it appeared and how mature it is. Ask of each part whether it has become a product or a
