@@ -45,7 +45,9 @@ wrong, where (transcript and timestamp, PR, commit, or issue), and what correcte
    comments (`gh pr view <n> --json commits,reviews,comments`), its inline review comments
    (`gh api repos/<owner>/<repo>/pulls/<n>/comments`), and the later commits whose message or
    review says they fix one, not every later commit -- issues whose problem is how an agent
-   behaved rather than a defect in the code, and fix commits that undo an agent's earlier change.
+   behaved rather than a defect in the code, read with their bodies and comments
+   (`gh issue list --state all --limit 1000 --json number,title,body,stateReason,comments`), and
+   fix commits that undo an agent's earlier change.
 
 ## Phase 3 -- Group and weigh
 

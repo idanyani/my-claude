@@ -24,10 +24,19 @@ Read, citing each source by path, commit, issue, or PR:
   (the first lines of `git log --reverse --format='%h %ad %s' --date=short`, then
   `git show <sha>:README.md`), and how the README's opening changed
   (`git log --format='%h %ad %s' --date=short -- README.md`).
-- **What the work went into:** issue and PR titles over time, the earliest as well as the latest
-  (`gh issue list --state all --limit 100 --json number,title,createdAt`, once more with
-  `--search sort:created-asc`, likewise `gh pr list`), and where commits landed
+- **What the work went into:** issue and PR titles over time
+  (`gh issue list --state all --limit 1000 --json number,title,createdAt`, likewise
+  `gh pr list`), and where commits landed
   (`git log --since=<a recent window> --name-only --format=` counted by top-level directory).
+- **What was argued and declined:** every issue and PR with its body and discussion, where goals
+  are argued and scope is turned down -- an issue closed as not planned, a PR closed unmerged, an
+  alternative a review rejected. Dispatch one `general-purpose` subagent to read them --
+  `gh issue list --state all --limit 1000 --json number,title,body,state,stateReason,createdAt,comments`,
+  `gh pr list --state all --limit 1000 --json number,title,body,state,createdAt,comments,reviews`,
+  the inline review comments of the PRs with reviews
+  (`gh api repos/<owner>/<repo>/pulls/<n>/comments`), and commit bodies (`git log --format=%B`)
+  -- and to return only the goals, non-goals, and declined scope they state, each cited by number
+  or commit.
 - **What the project serves:** its entry points, outputs, and consumers as the code shows them;
   run results and consumer repos when the user points to them.
 - **What guards it:** the behaviors the repo's checks pin -- its tests, and also eval cases, CI
