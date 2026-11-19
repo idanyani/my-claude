@@ -25,6 +25,16 @@ that branch, open, review, and merge the PR follow its steps. The helper scripts
 (stdlib-only; they need just `python3`, `git`, and `gh` on PATH and run against the current
 working directory's repo).
 
+## Design choices
+
+The user settles the design in Phase 4. A design choice is anything that changes observable
+behavior beyond what the design the user approved states: a new or changed outcome for some
+input (a retry, fallback, skip, or error path); a value with a visible effect the user did not
+give (a wait, limit, threshold, count, or default); or narrowing, replacing, or contradicting what
+was approved, even when a test seemed to force it. Pure mechanics merge without the user: names,
+structure, refactors, test code that keeps every expectation, a fix that makes the code do what
+was approved, and a review fix that keeps every outcome.
+
 ## Phase 1 -- Ground yourself in the project
 
 Read context proportional to the issue, always including `README.md` (the canonical project
@@ -51,12 +61,14 @@ If a duplicate or in-flight PR exists, stop and surface it -- do not start paral
 
 Brief the user on the issue in the brief skill's format, so they can steer before any work
 starts. For an issue filed a while ago, say what has happened since: its comments, and the
-related PRs and commits Phases 1 and 3 found. For an issue that reports a defect, apply
-CLAUDE.md's problem-solving rules before choosing a fix: from reading the code and history, say
-what causes it, with the evidence -- or that the cause is unknown, and what was checked -- and
-whether the fix removes the cause or works around it; when the defect is in something the repo
-built, say whether that thing should exist at all. These are "Chose" lines: a cause is a claim
-the user can reject before work builds on it. If the issue is vague or criteria-less, ask in the
+related PRs and commits Phases 1 and 3 found. State the intent the design serves: the outcome
+the user wants and what they would trade for it, cited or asked for in Your turn as CLAUDE.md's
+problem-solving rules say; a cited intent is a found fact, not a "Chose" line. For an issue that
+reports a defect, apply CLAUDE.md's problem-solving rules before choosing a fix: from reading the
+code and history, say what causes it, with the evidence -- or that the cause is unknown, and what
+was checked -- and whether the fix removes the cause or works around it; when the defect is in
+something the repo built, say whether that thing should exist at all. These are "Chose" lines: a
+cause is a claim the user can reject before work builds on it. If the issue is vague or criteria-less, ask in the
 brief's Your turn. Wait for the user's answer when the brief has a "Chose" line or Your turn
 items, so they can reject a choice before work builds on it; otherwise carry on.
 
@@ -69,9 +81,10 @@ To resolve several issues in parallel, spawn one subagent per issue with `isolat
 instead, without entering a worktree here. The user, not this session or the subagent, settles
 each design: spawn it only once Phase 4 ran for that issue in this session, its brief stating the
 planned design as "Chose" lines, and the user answered. Pass the user's decisions in the prompt
-as the answer to the subagent's own Phase 4, and tell it to stop and return any design choice
-they leave open, at any phase, review included, rather than make it. Bring that choice to the
-user, then continue the subagent with their answer (`SendMessage`).
+as the answer to the subagent's own Phase 4, and tell it to stop and return any design choice, as
+Design choices above defines it, that neither they, the issue, nor the repo's docs settle, at any
+phase, review included, rather than make it. Bring that choice to the user, then continue the
+subagent with their answer (`SendMessage`).
 
 ## Phase 6 -- Implement test-first
 
@@ -116,7 +129,14 @@ Handle the review's findings as the rest of step 3 of the workflow doc says.
 
 ## Phase 13 -- Arm auto-merge
 
-Run `finish_branch.py` as step 4 of the workflow doc says.
+First review the branch's whole diff against the fetched `origin/main` -- code, prose, and tests,
+review fixes included -- for design choices (see Design choices), starting with every test
+expectation it adds or changes. Make one the approved design or an intent the issue or the repo's
+docs state settles, as CLAUDE.md's problem-solving rules say, and add it to the PR description,
+before its footer, as `Chose <X>: settled by <source>` (`gh pr edit <pr> --body-file <file>`, the
+file outside the repo). For one no source settles, brief the user with a "Chose" line and wait
+for their answer before arming auto-merge; a subagent returns it instead, as Phase 5 says. Then
+run `finish_branch.py` as step 4 of the workflow doc says.
 
 ## Phase 14 -- Exit the worktree
 
@@ -125,6 +145,6 @@ Leave the worktree as the end of step 4 of the workflow doc says.
 ## Phase 15 -- Report to the user
 
 Brief the user on the result in the brief skill's format: What I did says what is different now,
-with the test results and the review triage, including the known limits step 3 of the workflow
-doc added to the PR. The findings it held go under Your turn as one decision, which to file as
-issues: the recorded lines ranked HIGH first, each prefixed with a letter to answer by. File the ones the user picks with `/file-issue`.
+with the test results, the design choices Phase 13 cited, and the review triage, including the
+known limits step 3 of the workflow doc added to the PR. The findings it held go under Your turn
+as one decision, which to file as issues: the recorded lines ranked HIGH first, each prefixed with a letter to answer by. File the ones the user picks with `/file-issue`.
