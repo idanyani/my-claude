@@ -28,17 +28,21 @@ the rules -- read it.
 
 ## Phase 2 -- Parallel evidence
 
+Unless this session already ran it, run `~/.claude/bin/github-discussion`: it prints a directory
+of JSON Lines files holding every issue and PR with its whole discussion. Delete the directory
+once the session's reviews are done.
+
 Dispatch three `general-purpose` subagents in parallel, handing each the goals -- and the design
-map to the first two only -- and require each to return only its list, plus one
-`NOT RUN: <what> -- <why>` line for anything it could not check. Every item of the first two cites
-a file, commit, issue, PR, or URL; the fresh design cites the goal each choice serves:
+map to the first two only, and that directory to the first -- and require each to return only its
+list, plus one `NOT RUN: <what> -- <why>` line for anything it could not check. Every item of the
+first two cites a file, commit, issue, PR, or URL; the fresh design cites the goal each choice
+serves:
 
 1. **History.** Where the repo's own record shows the design straining: areas changed far more than
    their size explains (`git log --name-only`), the same kind of fix landing again in one area,
    reverts and retired features, alternatives PRs rejected and why, and decisions whose stated
    reason -- in a decision record, PR, or comment -- no longer holds. Search issues and PRs with
-   their whole discussion in the directory `~/.claude/bin/github-discussion` prints -- run once
-   per session in the main session, its path handed to this subagent.
+   their whole discussion in the directory.
 2. **Landscape.** For each part the project builds itself, whether a library, tool, service, or
    platform feature now does it -- found by web search and the platform's current docs, citing
    when it appeared and how mature it is. Ask of each part whether it has become a product or a

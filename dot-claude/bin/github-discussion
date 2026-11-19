@@ -15,6 +15,7 @@ fetch() {
 }
 
 number_from_url='(split("/") | last | tonumber)'
+review='{author: .user.login, state, submitted_at, body}'
 
 fetch 'issues?state=all&per_page=100' \
     '{number, is_pr: has("pull_request"), title, author: .user.login, body, state, state_reason,
@@ -22,14 +23,31 @@ fetch 'issues?state=all&per_page=100' \
 fetch 'issues/comments?per_page=100' \
     "{number: (.issue_url | $number_from_url), author: .user.login, created_at, body}" \
     >"$out/comments.jsonl"
+# GitHub sets `line` to null once a later push outdates the comment.
 fetch 'pulls/comments?per_page=100' \
-    "{number: (.pull_request_url | $number_from_url), author: .user.login, path, line, created_at,
-      body}" >"$out/review-comments.jsonl"
-# GitHub lists review bodies only per PR.
-for pr in $(jq -r 'select(.is_pr) | .number' "$out/issues.jsonl"); do
-    fetch "pulls/$pr/reviews?per_page=100" \
-        "{number: $pr, author: .user.login, state, submitted_at, body}"
-done >"$out/reviews.jsonl"
+    "{number: (.pull_request_url | $number_from_url), id, in_reply_to_id, author: .user.login,
+      path, line: (.line // .original_line), created_at, body}" >"$out/review-comments.jsonl"
+
+# REST lists reviews only per PR, one request each; GraphQL lists them for 100 PRs a request, but
+# only the first 100 reviews of each, so a PR with more is fetched again over REST.
+gh api graphql --paginate -F owner='{owner}' -F name='{repo}' -f query='
+    query($owner: String!, $name: String!, $endCursor: String) {
+      repository(owner: $owner, name: $name) {
+        pullRequests(first: 100, after: $endCursor) {
+          pageInfo { hasNextPage endCursor }
+          nodes { number reviews(first: 100) {
+            totalCount nodes { user: author { login } state submitted_at: submittedAt body } } }
+        }
+      }
+    }' --jq '.data.repository.pullRequests.nodes[]' >"$out/pr-reviews.jsonl"
+{
+    jq -c "select(.reviews.totalCount <= 100) | .number as \$number | .reviews.nodes[]
+           | {number: \$number} + $review" "$out/pr-reviews.jsonl"
+    for pr in $(jq 'select(.reviews.totalCount > 100) | .number' "$out/pr-reviews.jsonl"); do
+        fetch "pulls/$pr/reviews?per_page=100" "{number: $pr} + $review"
+    done
+} >"$out/reviews.jsonl"
+rm "$out/pr-reviews.jsonl"
 
 trap - EXIT
 echo "$out"

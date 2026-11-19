@@ -16,9 +16,9 @@ SCRIPT = Path(__file__).parent.parent / "dot-claude" / "bin" / "github-discussio
 FAKE_GH = """#!/usr/bin/env python3
 import json, os, subprocess, sys
 args = sys.argv[1:]
-endpoint = next(a for a in args if a.startswith("repos/"))
+endpoint = next(a for a in args if a == "graphql" or a.startswith("repos/"))
 path = endpoint.removeprefix("repos/{owner}/{repo}/").split("?")[0]
-pages = json.load(open(os.environ["FAKE_GH_PAGES"])).get(path, [[]])
+pages = json.load(open(os.environ["FAKE_GH_PAGES"])).get(path, [])
 jq_filter = args[args.index("--jq") + 1]
 for page in pages if "--paginate" in args else pages[:1]:
     subprocess.run(["jq", "-c", jq_filter], input=json.dumps(page), text=True, check=True)
@@ -74,16 +74,47 @@ def test_keeps_why_an_issue_closed_and_whether_a_pr_merged(fake_gh):
     ] == [(1, False, "not_planned", None), (2, True, None, "m")]
 
 
-def test_reads_reviews_and_inline_comments_of_prs_only(fake_gh):
+def pr_reviews_page(number: int, total: int, bodies: list[str]) -> dict:
+    """One page of the GraphQL listing of PRs with their reviews, holding one PR."""
+    reviews = {"totalCount": total, "nodes": [{"body": b} for b in bodies]}
+    return {
+        "data": {
+            "repository": {"pullRequests": {"nodes": [{"number": number, "reviews": reviews}]}}
+        }
+    }
+
+
+def test_reads_reviews_of_prs_past_the_first_page(fake_gh):
+    out = fake_gh(
+        {"graphql": [pr_reviews_page(2, 1, ["first"]), pr_reviews_page(4, 1, ["second"])]}
+    )
+    assert records(out / "reviews.jsonl") == [(2, "first"), (4, "second")]
+
+
+def test_reads_every_review_of_a_pr_with_more_than_one_page_of_them(fake_gh):
     out = fake_gh(
         {
-            "issues": [[ISSUE, PR]],
-            "pulls/1/reviews": [[{"body": "not a PR"}]],
-            "pulls/2/reviews": [[{"body": "rejected"}]],
+            "graphql": [pr_reviews_page(2, 101, ["capped"])],
+            "pulls/2/reviews": [[{"body": "all"}], [{"body": "of them"}]],
+        }
+    )
+    assert records(out / "reviews.jsonl") == [(2, "all"), (2, "of them")]
+
+
+def test_keeps_where_an_outdated_inline_comment_pointed(fake_gh):
+    out = fake_gh(
+        {
             "pulls/comments": [
-                [{"pull_request_url": "https://api.github.com/repos/o/r/pulls/2", "body": "inline"}]
+                [
+                    {
+                        "pull_request_url": "https://api.github.com/repos/o/r/pulls/2",
+                        "line": None,
+                        "original_line": 7,
+                        "body": "inline",
+                    }
+                ]
             ],
         }
     )
-    assert records(out / "reviews.jsonl") == [(2, "rejected")]
-    assert records(out / "review-comments.jsonl") == [(2, "inline")]
+    [comment] = map(json.loads, (out / "review-comments.jsonl").read_text().splitlines())
+    assert (comment["number"], comment["line"], comment["body"]) == (2, 7, "inline")

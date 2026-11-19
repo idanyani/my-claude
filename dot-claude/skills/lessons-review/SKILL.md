@@ -29,10 +29,14 @@ of the oldest one read, and say when the window reaches past it.
 
 ## Phase 2 -- Parallel evidence
 
+Unless this session already ran it, run `~/.claude/bin/github-discussion`: it prints a directory
+of JSON Lines files holding every issue and PR with its whole discussion. Delete the directory
+once the session's reviews are done.
+
 Dispatch two `general-purpose` subagents in parallel, handing each the scope and the repo's
-`CLAUDE.md` files, and require each to return only its list of mistakes -- each with what went
-wrong, where (transcript and timestamp, PR, commit, or issue), and what corrected it -- plus a
-`NOT RUN: <what> -- <why>` line for anything it could not read:
+`CLAUDE.md` files, and that directory to the second, and require each to return only its list of
+mistakes -- each with what went wrong, where (transcript and timestamp, PR, commit, or issue),
+and what corrected it -- plus a `NOT RUN: <what> -- <why>` line for anything it could not read:
 
 1. **Sessions.** Transcripts run to megabytes, mostly tool output, so filter them rather than read
    them whole. The user's own messages are the `"type":"user"` entries whose `message.content` is
@@ -42,8 +46,7 @@ wrong, where (transcript and timestamp, PR, commit, or issue), and what correcte
    find work the agent redid after a failure it caused. Describe what was said; quote only the
    words a finding cannot do without, since transcripts are private.
 2. **History.** On GitHub and in git, searching the issues and PRs active in the window, with
-   their whole discussion, in the directory `~/.claude/bin/github-discussion` prints (run once per
-   session in the main session, its path handed to this subagent): review findings a PR applied,
+   their whole discussion, in the directory: review findings a PR applied,
    and the later commits (`gh pr view <n> --json commits`) whose message or review says they fix
    one, not every later commit; issues whose problem is how an agent behaved rather than a defect
    in the code; and fix commits that undo an agent's earlier change.

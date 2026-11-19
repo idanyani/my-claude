@@ -24,7 +24,11 @@ the rules -- read it.
 
 ## Phase 2 -- Inventory
 
-Dispatch one `general-purpose` subagent, handing it the goals, to return only:
+Unless this session already ran it, run `~/.claude/bin/github-discussion`: it prints a directory
+of JSON Lines files holding every issue and PR with its whole discussion. Delete the directory
+once the session's reviews are done.
+
+Dispatch one `general-purpose` subagent, handing it the goals and that directory, to return only:
 
 - **Core concepts:** the few things every part of the system reads, writes, or passes on -- what
   its data is about, and the states those things are in. For each, one sentence in plain domain
@@ -36,9 +40,8 @@ Dispatch one `general-purpose` subagent, handing it the goals, to return only:
   matches for unrelated words -- and the consumers outside the repo that read it, where the docs
   name them.
 - **How people say them:** the names issues and PRs use for each concept, searched with their
-  whole discussion in the directory `~/.claude/bin/github-discussion` prints (run once per session
-  in the main session, its path handed to the subagent) -- where people write
-  a concept in their own sentences, stumble over a term, or argue a rename -- each cited by number.
+  whole discussion in the directory -- where people write a concept in their own sentences,
+  stumble over a term, or argue a rename -- each cited by number.
 
 ## Phase 3 -- Judge
 
