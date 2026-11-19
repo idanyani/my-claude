@@ -15,7 +15,6 @@ fetch() {
 }
 
 number_from_url='(split("/") | last | tonumber)'
-review='{author: .user.login, state, submitted_at, body}'
 
 fetch 'issues?state=all&per_page=100' \
     '{number, is_pr: has("pull_request"), title, author: .user.login, body, state, state_reason,
@@ -36,15 +35,17 @@ gh api graphql --paginate -F owner='{owner}' -F name='{repo}' -f query='
         pullRequests(first: 100, after: $endCursor) {
           pageInfo { hasNextPage endCursor }
           nodes { number reviews(first: 100) {
-            totalCount nodes { user: author { login } state submitted_at: submittedAt body } } }
+            totalCount nodes { author { login } state submittedAt body } } }
         }
       }
     }' --jq '.data.repository.pullRequests.nodes[]' >"$out/pr-reviews.jsonl"
 {
     jq -c "select(.reviews.totalCount <= 100) | .number as \$number | .reviews.nodes[]
-           | {number: \$number} + $review" "$out/pr-reviews.jsonl"
+           | {number: \$number, author: .author.login, state, submitted_at: .submittedAt, body}" \
+        "$out/pr-reviews.jsonl"
     for pr in $(jq 'select(.reviews.totalCount > 100) | .number' "$out/pr-reviews.jsonl"); do
-        fetch "pulls/$pr/reviews?per_page=100" "{number: $pr} + $review"
+        fetch "pulls/$pr/reviews?per_page=100" \
+            "{number: $pr, author: .user.login, state, submitted_at, body}"
     done
 } >"$out/reviews.jsonl"
 rm "$out/pr-reviews.jsonl"
