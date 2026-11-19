@@ -31,6 +31,7 @@ dot-claude/
   CLAUDE.md            symlinked into ~/.claude (edits flow straight back to the repo)
   settings.json        merged (Claude Code rewrites it at runtime, which would sever a link)
   hooks/               symlinked; settings.json registers them
+  bin/                 symlinked; commands the conventions tell agents to run
   skills/
     resolve-issue/     symlinked; a `git pull` in the main checkout updates the live skill
 ```
