@@ -162,9 +162,8 @@
 
 - Run a tool that changes files -- a mutation run, coverage data, a cache -- in a scratch copy,
   never in a checkout someone works in. Make it by running `~/.claude/bin/scratch-copy` from
-  inside the repo, and work in the directory it prints. The copy holds the files git lists, as
-  they stand in the working tree, and no git data, so no command run there can reach the
-  repository.
+  inside the repo, and work in the directory it prints. The copy holds no git data, so no command
+  run there can reach the repository.
 - Install the repo's dependencies into an environment inside the copy, with the repo's own
   install command (`uv sync` --> `.venv`, `pnpm install` --> `node_modules`), or into one created
   there (`python -m venv .venv`, then `pip install` with its `pip`). Never install into an

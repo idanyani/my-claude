@@ -4,8 +4,8 @@
 # path. --ignore-failed-read skips a tracked file deleted from the working tree.
 set -euo pipefail
 
-copy="$(mktemp -d)"
 top="$(git rev-parse --show-toplevel)"
+copy="$(mktemp -d)"
 git -C "$top" ls-files -z -co --exclude-standard |
     tar -C "$top" --null --no-recursion --ignore-failed-read -T - -cf - | tar -C "$copy" -xf -
 echo "$copy"

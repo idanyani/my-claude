@@ -42,15 +42,16 @@ def test_copies_the_working_tree_as_git_lists_it_without_git_data(repo: Path):
     git(repo, "commit", "-q", "-m", "files")
     (repo / "edited").write_text("uncommitted")
     (repo / "deleted").unlink()
-    (repo / "untracked").write_text("new")
+    (repo / "un\ntracked").write_text("new")
     (repo / "ignored").write_text("cache")
+    git(repo, "init", "-q", "nested")
 
     copy = scratch_copy(repo)
 
     assert files_in(copy) == {
         ".gitignore": "ignored\n",
         "edited": "uncommitted",
-        "untracked": "new",
+        "un\ntracked": "new",
     }
 
 
@@ -62,3 +63,20 @@ def test_copies_the_whole_repo_from_a_subdirectory(repo: Path):
     copy = scratch_copy(repo / "sub")
 
     assert files_in(copy) == {"sub/inner": "in", "top": "top"}
+
+
+def test_fails_when_git_cannot_list_the_files(repo: Path):
+    (repo / ".git" / "index").write_text("corrupt")
+
+    result = subprocess.run([SCRIPT], cwd=repo, capture_output=True, text=True)
+
+    assert result.returncode != 0
+
+
+def test_fails_outside_a_repo_leaving_no_copy(tmp_path: Path, repo: Path):
+    before = set(tmp_path.iterdir())
+
+    result = subprocess.run([SCRIPT], cwd=tmp_path, capture_output=True, text=True)
+
+    assert result.returncode != 0
+    assert set(tmp_path.iterdir()) == before
