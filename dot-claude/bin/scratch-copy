@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
-# Copy the files git lists in the repo holding the current directory -- tracked and untracked but
-# not ignored, as they stand in the working tree -- into a new temporary directory, and print its
-# path. --ignore-failed-read skips a tracked file deleted from the working tree.
+# Copy the files git lists in the repo holding the current directory, and in each of its checked-out
+# submodules -- tracked and untracked but not ignored, as they stand in the working tree -- into a
+# new temporary directory, and print its path. --ignore-failed-read skips a tracked file deleted
+# from the working tree.
 set -euo pipefail
 
 top="$(git rev-parse --show-toplevel)"
 copy="$(mktemp -d)"
-git -C "$top" ls-files -z -co --exclude-standard |
-    tar -C "$top" --null --no-recursion --ignore-failed-read -T - -cf - | tar -C "$copy" -xf -
+cd "$top"
+
+copy_tree() {
+    git -C "$1" ls-files -z -co --exclude-standard |
+        tar -C "$1" --null --no-recursion --ignore-failed-read -T - -cf - |
+        tar -C "$copy/$1" -xf -
+}
+
+copy_tree .
+git submodule foreach --quiet --recursive 'printf "%s\0" "$displaypath"' |
+    while IFS= read -r -d '' submodule; do copy_tree "$submodule"; done
 echo "$copy"

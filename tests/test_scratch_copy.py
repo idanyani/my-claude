@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from git_repo import git
+from git_repo import commit, git
 
 SCRIPT = Path(__file__).parent.parent / "dot-claude" / "bin" / "scratch-copy"
 
@@ -52,6 +52,49 @@ def test_copies_the_working_tree_as_git_lists_it_without_git_data(repo: Path):
         ".gitignore": "ignored\n",
         "edited": "uncommitted",
         "un\ntracked": "new",
+    }
+
+
+def make_repo_with_file(parent: Path, name: str, file: str) -> Path:
+    git(parent, "init", "-q", name)
+    (parent / name / file).write_text("committed")
+    git(parent / name, "add", file)
+    commit(parent / name, file)
+    return parent / name
+
+
+def add_submodule(repo: Path, source: Path, path: str) -> None:
+    git(repo, "submodule", "add", "-q", str(source), path)
+    commit(repo, path)
+
+
+def test_copies_submodules_as_their_working_trees_stand(
+    tmp_path: Path, repo: Path, monkeypatch: pytest.MonkeyPatch
+):
+    # Git refuses submodules from a local path unless the file protocol is allowed.
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "protocol.file.allow")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "always")
+    deep = make_repo_with_file(tmp_path, "deep-source", "deep_file")
+    sub = make_repo_with_file(tmp_path, "sub-source", "edited")
+    (sub / ".gitignore").write_text("ignored\n")
+    git(sub, "add", ".gitignore")
+    add_submodule(sub, deep, "deep")
+    add_submodule(repo, sub, "sub")
+    git(repo, "submodule", "update", "-q", "--init", "--recursive")
+    (repo / "sub" / "edited").write_text("uncommitted")
+    (repo / "sub" / "untracked").write_text("new")
+    (repo / "sub" / "ignored").write_text("cache")
+
+    copy = scratch_copy(repo)
+
+    assert files_in(copy) == {
+        ".gitmodules": (repo / ".gitmodules").read_text(),
+        "sub/.gitignore": "ignored\n",
+        "sub/.gitmodules": (repo / "sub" / ".gitmodules").read_text(),
+        "sub/edited": "uncommitted",
+        "sub/untracked": "new",
+        "sub/deep/deep_file": "committed",
     }
 
 
