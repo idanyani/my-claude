@@ -32,8 +32,8 @@ behavior beyond what the design the user approved states: a new or changed outco
 input (a retry, fallback, skip, or error path); a value with a visible effect the user did not
 give (a wait, limit, threshold, count, or default); or narrowing, replacing, or contradicting what
 was approved, even when a test seemed to force it. Pure mechanics merge without the user: names,
-structure, refactors, test code, a fix that makes the code do what was approved, and a review fix
-that keeps every outcome.
+structure, refactors, test code that keeps every expectation, a fix that makes the code do what
+was approved, and a review fix that keeps every outcome.
 
 ## Phase 1 -- Ground yourself in the project
 
@@ -66,9 +66,9 @@ the user wants and what they would trade for it, cited or asked for in Your turn
 problem-solving rules say; a cited intent is a found fact, not a "Chose" line. For an issue that
 reports a defect, apply CLAUDE.md's problem-solving rules before choosing a fix: from reading the
 code and history, say what causes it, with the evidence -- or that the cause is unknown, and what
-was checked -- and whether the fix removes the cause or works around it; when the defect is in something the repo
-built, say whether that thing should exist at all. These are "Chose" lines: a cause is a claim
-the user can reject before work builds on it. If the issue is vague or criteria-less, ask in the
+was checked -- and whether the fix removes the cause or works around it; when the defect is in
+something the repo built, say whether that thing should exist at all. These are "Chose" lines: a
+cause is a claim the user can reject before work builds on it. If the issue is vague or criteria-less, ask in the
 brief's Your turn. Wait for the user's answer when the brief has a "Chose" line or Your turn
 items, so they can reject a choice before work builds on it; otherwise carry on.
 
@@ -82,9 +82,9 @@ instead, without entering a worktree here. The user, not this session or the sub
 each design: spawn it only once Phase 4 ran for that issue in this session, its brief stating the
 planned design as "Chose" lines, and the user answered. Pass the user's decisions in the prompt
 as the answer to the subagent's own Phase 4, and tell it to stop and return any design choice, as
-Design choices above defines it, that neither they nor the repo's docs settle, at any phase,
-review included, rather than make it. Bring that choice to the user, then continue the subagent
-with their answer (`SendMessage`).
+Design choices above defines it, that neither they, the issue, nor the repo's docs settle, at any
+phase, review included, rather than make it. Bring that choice to the user, then continue the
+subagent with their answer (`SendMessage`).
 
 ## Phase 6 -- Implement test-first
 
@@ -129,13 +129,14 @@ Handle the review's findings as the rest of step 3 of the workflow doc says.
 
 ## Phase 13 -- Arm auto-merge
 
-First review every test expectation the branch adds or changes against `main`, review fixes
-included, for design choices (see Design choices). Make one the approved design or an intent the
-issue or the repo's docs state settles, as CLAUDE.md's problem-solving rules say, and add it to the
-PR description, before its footer, as `Chose <X>: settled by <source>` (`gh pr edit <pr>
---body-file <file>`, the file outside the repo). For one no source settles, brief the user with a
-"Chose" line and wait for their answer before arming auto-merge. Then run `finish_branch.py` as
-step 4 of the workflow doc says.
+First review every test expectation the branch adds or changes against the fetched
+`origin/main`, review fixes included, for design choices (see Design choices). Make one the
+approved design or an intent the issue or the repo's docs state settles, as CLAUDE.md's
+problem-solving rules say, and add it to the PR description, before its footer, as `Chose <X>:
+settled by <source>` (`gh pr edit <pr> --body-file <file>`, the file outside the repo). For one no
+source settles, brief the user with a "Chose" line and wait for their answer before arming
+auto-merge; a subagent returns it instead, as Phase 5 says. Then run `finish_branch.py` as step 4
+of the workflow doc says.
 
 ## Phase 14 -- Exit the worktree
 
