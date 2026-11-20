@@ -12,8 +12,7 @@ could hide: decisions the developer later reversed, and work reverted or reopene
 ## In my-claude
 
 - [file-issue](../dot-claude/skills/file-issue/SKILL.md) labels each issue with where its work
-  came from -- brought by the developer, proposed by an agent and approved, or started by an
-  agent -- and the [require_issue_origin](../dot-claude/hooks/require_issue_origin.py) hook
+  came from, and the [require_issue_origin](../dot-claude/hooks/require_issue_origin.py) hook
   refuses an issue filed without that label.
 
 ## Known gaps

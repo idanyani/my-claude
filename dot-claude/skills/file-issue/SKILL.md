@@ -48,15 +48,15 @@ an agent files has the same author:
 
 Write the body to a file outside the repo (the session's scratchpad, or a `mktemp` file), so
 the shell never reads its backticks and `$`, and pass it by path. The first command makes sure
-the label exists in the repo:
+the label exists in the repo, with the same color every time:
 
 ```sh
-gh label create <origin> --force
+gh label create <origin> --force --color c5def5
 gh issue create --title "<title>" --body-file <file> --label <origin>
 ```
 
 ## Step 4 -- Report
 
-Give the issue's number and link -- the one filed or the one that already covered it, with
-whether you commented -- and its origin label, and say what Step 1 searched. For a failure no run has shown, say that
-nothing was filed, and name the run that would show it.
+Give the issue's number and link -- the one filed, with its origin label, or the one that already
+covered it, with whether you commented -- and say what Step 1 searched. For a failure no run has
+shown, say that nothing was filed, and name the run that would show it.

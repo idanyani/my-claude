@@ -24,6 +24,10 @@ class TestRefusal:
             "gh issue create --title x --label bug,origin:agent",
             "gh issue create --title x --label bug --label origin:developer",
             "gh -R owner/repo issue create --title x --label origin:agent",
+            "gh issue create --title x -lorigin:agent",
+            "gh issue create --title x --label origin:agent --label origin:agent",
+            "gh issue create --title x --label 'bug, origin:agent'",
+            "gh issue create --help",
         ],
     )
     def test_allows_an_issue_with_one_origin(self, command):
@@ -39,6 +43,10 @@ class TestRefusal:
             "cd repo && gh issue create --title x",
             "bash -c 'gh issue create --title x'",
             "gh issue create --title 'unterminated",
+            "gh issue create -l origin:agent -t x && gh issue create --title y",
+            "gh issue list --label origin:agent && gh issue create --title x",
+            "gh issue create --title x --label",
+            "gh issue create --label --title origin:agent",
         ],
     )
     def test_refuses_an_issue_without_exactly_one_origin(self, command):

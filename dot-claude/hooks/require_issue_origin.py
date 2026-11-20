@@ -13,27 +13,30 @@ import sys
 from itertools import pairwise
 from typing import Any
 
-from bash_commands import is_gh_issue_create, run_gate, simple_commands
+from bash_commands import gh_issue_create_args, run_gate, simple_commands
 
 ORIGIN_LABELS = ("origin:developer", "origin:proposed", "origin:agent")
 ORIGIN_PREFIX = "origin:"
 LABEL_FLAGS = ("--label", "-l")
+HELP_FLAGS = frozenset({"--help", "-h"})
 
 
 def labels_of(args: list[str]) -> list[str]:
     """The labels a `gh issue create` command's arguments set."""
     values = [value for flag, value in pairwise(args) if flag in LABEL_FLAGS]
     values += [arg.removeprefix("--label=") for arg in args if arg.startswith("--label=")]
-    return [label for value in values for label in value.split(",") if label]
+    values += [arg.removeprefix("-l") for arg in args if arg.startswith("-l") and arg != "-l"]
+    return [label.strip() for value in values for label in value.split(",") if label.strip()]
 
 
 def refusal(payload: dict[str, Any]) -> str | None:
     """Why the command in `payload` is refused, or None to let it run."""
     for words in simple_commands(payload["tool_input"]["command"]):
-        if not is_gh_issue_create(words):
+        args = gh_issue_create_args(words)
+        if args is None or HELP_FLAGS & set(args):
             continue
-        origins = [label for label in labels_of(words[1:]) if label.startswith(ORIGIN_PREFIX)]
-        if len(origins) != 1 or origins[0] not in ORIGIN_LABELS:
+        origins = {label for label in labels_of(args) if label.startswith(ORIGIN_PREFIX)}
+        if len(origins) != 1 or not origins <= set(ORIGIN_LABELS):
             return (
                 "Refused: an issue must carry exactly one origin label, set with --label: "
                 f"{', '.join(ORIGIN_LABELS)}. The file-issue skill says which one fits."

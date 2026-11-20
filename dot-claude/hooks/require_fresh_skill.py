@@ -26,7 +26,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from bash_commands import is_gh_issue_create, run_gate, simple_commands
+from bash_commands import gh_issue_create_args, run_gate, simple_commands
 
 SKILLS_ROOT = Path(__file__).parent.parent / "skills"
 
@@ -41,7 +41,7 @@ class Staleness(Enum):
 
 def _skill_of(words: list[str]) -> str | None:
     program, args = words[0], words[1:]
-    if is_gh_issue_create(words):
+    if gh_issue_create_args(words) is not None:
         return "file-issue"
     if program in PR_SCRIPTS or (
         program.startswith("python") and any(Path(arg).name in PR_SCRIPTS for arg in args)
