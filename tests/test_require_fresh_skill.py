@@ -5,13 +5,12 @@ Transcript entries are built in each test with only the fields the hook reads.
 
 import json
 import os
-import subprocess
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import pytest
+from hook_process import run_hook
 from require_fresh_skill import (
     Staleness,
     gated_skill,
@@ -346,20 +345,14 @@ class TestRefusal:
         assert refusal(payload, tmp_path / "skills") is not None
 
 
-def run_hook(stdin: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, str(HOOK)], input=stdin, capture_output=True, text=True, check=False
-    )
-
-
 class TestHookProcess:
     def test_stays_silent_on_a_command_that_is_not_gated(self):
-        result = run_hook(json.dumps({"tool_input": {"command": "ls"}}))
+        result = run_hook(HOOK, json.dumps({"tool_input": {"command": "ls"}}))
         assert (result.returncode, result.stdout) == (0, "")
 
     def test_denies_a_gated_command_it_cannot_check_and_says_why(self, tmp_path):
         missing = tmp_path / "missing.jsonl"
-        output = json.loads(run_hook(json.dumps(gh_issue_create(missing))).stdout)
+        output = json.loads(run_hook(HOOK, json.dumps(gh_issue_create(missing))).stdout)
         decision = output["hookSpecificOutput"]
         assert (decision["hookEventName"], decision["permissionDecision"]) == ("PreToolUse", "deny")
         assert str(missing) in decision["permissionDecisionReason"]
@@ -368,11 +361,11 @@ class TestHookProcess:
         # A load dated after every file of the repo's own file-issue skill.
         transcript = tmp_path / "s.jsonl"
         write_transcript(transcript, [skill_tool_load("file-issue", "2100-01-01T00:00:00.000Z")])
-        result = run_hook(json.dumps(gh_issue_create(transcript)))
+        result = run_hook(HOOK, json.dumps(gh_issue_create(transcript)))
         assert (result.returncode, result.stdout) == (0, "")
 
     def test_denies_when_its_input_is_not_json(self):
-        output = json.loads(run_hook("not json").stdout)["hookSpecificOutput"]
+        output = json.loads(run_hook(HOOK, "not json").stdout)["hookSpecificOutput"]
         assert output["permissionDecision"] == "deny"
 
 

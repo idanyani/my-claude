@@ -90,7 +90,8 @@ any project, loaded into every Claude Code session on a machine that installs my
 
 The [`require_fresh_skill`](dot-claude/hooks/require_fresh_skill.py) hook refuses to file an issue
 or open or merge a PR until the session has loaded file-issue or resolve-issue since the skill
-last changed.
+last changed. The [`require_issue_origin`](dot-claude/hooks/require_issue_origin.py) hook refuses
+to file an issue without a label saying where its work came from.
 
 ## Install
 

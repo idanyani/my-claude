@@ -11,14 +11,14 @@ could hide: decisions the developer later reversed, and work reverted or reopene
 
 ## In my-claude
 
-None.
+- [file-issue](../dot-claude/skills/file-issue/SKILL.md) labels each issue with where its work
+  came from -- brought by the developer, proposed by an agent and approved, or started by an
+  agent -- and the [require_issue_origin](../dot-claude/hooks/require_issue_origin.py) hook
+  refuses an issue filed without that label.
 
 ## Known gaps
 
 - *Seen:* nothing measures outcomes per unit of the developer's attention.
-- *Seen:* nothing records where work came from -- brought by the developer, proposed by an agent
-  and approved, or started by an agent -- and an issue's author does not tell, since agents also
-  file the issues the developer asks for.
 - *Seen:* the developer's answers to agents' questions exist only in session transcripts, which
   stay on one machine and expire; this repo is public, so the measures need a private, durable
   place of their own.

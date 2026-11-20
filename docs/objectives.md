@@ -18,6 +18,7 @@ agent reads them, and the developer, not an agent, decides what work enters the 
 ## Known gaps
 
 - *Seen:* picking a proposed issue from a report is approval given under limited attention, not a
-  priority the developer brought, yet both enter the backlog the same way.
+  priority the developer brought; their origin labels tell the two apart (see
+  [measurement](measurement.md)), but nothing ranks them differently.
 - *Seen:* a follow-up is not weighed against the goal it serves, so a chain of follow-ups can run
   while the goal does not advance.

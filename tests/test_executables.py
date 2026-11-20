@@ -22,6 +22,7 @@ EXECUTABLES = [
     REPO_ROOT / "scripts" / "merge_settings.py",
     REPO_ROOT / "scripts" / "install_links.py",
     REPO_ROOT / "dot-claude" / "hooks" / "require_fresh_skill.py",
+    REPO_ROOT / "dot-claude" / "hooks" / "require_issue_origin.py",
 ]
 
 

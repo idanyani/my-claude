@@ -36,15 +36,27 @@ estimate reads as a fact and misleads until someone measures.
 
 ## Step 3 -- File it
 
+Label the issue with where its work came from, judged from the conversation, since every issue
+an agent files has the same author:
+
+- `origin:developer` -- the developer brought the problem: they described it, or asked for the
+  work it blocks.
+- `origin:proposed` -- an agent proposed it, and the developer picked or approved it, as when
+  they choose findings from a report.
+- `origin:agent` -- an agent files it without the developer asking for it, as a session does
+  for a problem it raised itself.
+
 Write the body to a file outside the repo (the session's scratchpad, or a `mktemp` file), so
-the shell never reads its backticks and `$`, and pass it by path:
+the shell never reads its backticks and `$`, and pass it by path. The first command makes sure
+the label exists in the repo:
 
 ```sh
-gh issue create --title "<title>" --body-file <file>
+gh label create <origin> --force
+gh issue create --title "<title>" --body-file <file> --label <origin>
 ```
 
 ## Step 4 -- Report
 
 Give the issue's number and link -- the one filed or the one that already covered it, with
-whether you commented -- and say what Step 1 searched. For a failure no run has shown, say that
+whether you commented -- and its origin label, and say what Step 1 searched. For a failure no run has shown, say that
 nothing was filed, and name the run that would show it.
