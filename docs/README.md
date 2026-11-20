@@ -52,10 +52,10 @@ right shape and bounds, and to verifying the outcome independently.
 | [Coordinate shared resources](coordination.md) | unaware of peers | on-demand workers, one rulebook |
 | [Delegate authority](authority.md) | misjudged own state, thin or stale context, follows injected instructions | speed and availability |
 | [Verify outcomes](verification.md) | plausible but wrong, non-determinism | cheap work |
-| [Keep the work healthy](standards.md) | thin or stale context | one rulebook, cheap work |
+| [Keep the work healthy](health.md) | thin or stale context | one rulebook, cheap work |
 | [Report to steer](reporting.md) | work outruns attention, misjudged own state | |
 | [Measure outcomes and cost](measurement.md) | work outruns attention, non-determinism | full record |
 | [Learn from failures](learning.md) | no learning from correction, thin or stale context | one rulebook, full record |
 
-Each page tags its gaps *seen*, when a failure showed the gap, or *unseen*, when none has yet.
-Designs weighed and rejected are in [decisions/](decisions/).
+Each page names the strengths and weaknesses above in *italics*, and tags its gaps *seen*, when a
+failure showed the gap, or *unseen*, when none has yet.
