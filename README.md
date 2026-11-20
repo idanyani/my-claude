@@ -1,8 +1,10 @@
 # my-claude
 
-My global [Claude Code](https://docs.claude.com/en/docs/claude-code) configuration -- settings,
-hooks, [skills](https://docs.claude.com/en/docs/claude-code/skills), and working conventions --
-for the agents I run across all my repos. It aims to:
+My rulebook for managing a fleet of AI agents in software development: the
+[principles](docs/README.md) it follows, and the global
+[Claude Code](https://docs.claude.com/en/docs/claude-code) configuration that carries them out --
+settings, hooks, [skills](https://docs.claude.com/en/docs/claude-code/skills), and working
+conventions -- for the agents I run across all my repos. It aims to:
 
 - keep one source for that configuration, installed on every machine I use;
 - have agents in every repo work the same way: issue first, test first, a PR the agent reviews
