@@ -20,32 +20,22 @@ Stdlib-only: it needs just `python3`, so it runs in any repo the config is insta
 """
 
 import json
-import re
-import shlex
 import sys
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from bash_commands import gh_issue_create_args, run_gate, simple_commands
+
 SKILLS_ROOT = Path(__file__).parent.parent / "skills"
 
-PR_SCRIPTS = frozenset({"open_pr.py", "finish_branch.py"})
-
-# Words that end one shell command and start the next; newlines are kept out of whitespace so
-# that each line of a multi-line command is a command of its own.
-COMMAND_SEPARATOR_CHARS = "();<>|&\n"
-COMMAND_SEPARATORS = frozenset(COMMAND_SEPARATOR_CHARS)
-
-# Words that can stand before the program a command runs: a launcher, its flags, a duration (as
-# in `timeout 60`), or a variable assignment.
-LAUNCHERS = frozenset({"env", "sudo", "time", "nohup", "exec", "timeout", "uv", "run"})
-COMMAND_PREFIX_WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*|-.*|\d+[smhd]?")
-
-SHELLS = frozenset({"bash", "sh", "zsh"})
-
-# Global `gh` flags that take a value before the subcommand, as in `gh -R owner/repo issue create`.
-GH_FLAGS_WITH_VALUE = frozenset({"-R", "--repo"})
+# The scripts that carry out a skill's final steps, by the skill they belong to.
+SKILL_SCRIPTS = {
+    "open_pr.py": "resolve-issue",
+    "finish_branch.py": "resolve-issue",
+    "file_issue.py": "file-issue",
+}
 
 
 class Staleness(Enum):
@@ -54,68 +44,22 @@ class Staleness(Enum):
     COMPACTED = "a compaction came after this session last loaded the {skill} skill"
 
 
-def _commands(command: str) -> list[list[str]]:
-    """The words of each simple command in a shell command line."""
-    try:
-        return _lexed_commands(command)
-    except ValueError:
-        # An unbalanced quote: Bash rejects the line too, but checking it costs only a reload,
-        # while letting a gated command through unchecked is what this hook exists to prevent.
-        return [
-            words
-            for part in re.split(f"[{re.escape(COMMAND_SEPARATOR_CHARS)}]", command)
-            if (words := part.split())
-        ]
-
-
-def _lexed_commands(command: str) -> list[list[str]]:
-    lexer = shlex.shlex(command, posix=True, punctuation_chars=COMMAND_SEPARATOR_CHARS)
-    lexer.whitespace = " \t\r"
-    # shlex would also take a `#` inside a word as a comment, and drop the newline after it.
-    lexer.commenters = ""
-    lexer.whitespace_split = True
-    commands: list[list[str]] = [[]]
-    for token in lexer:
-        if set(token) <= COMMAND_SEPARATORS:
-            commands.append([])
-        else:
-            commands[-1].append(token)
-    return [words for words in commands if words]
-
-
-def _gh_subcommand(args: list[str]) -> list[str]:
-    words = []
-    skip_value = False
-    for arg in args:
-        if skip_value:
-            skip_value = False
-        elif arg in GH_FLAGS_WITH_VALUE:
-            skip_value = True
-        elif not arg.startswith("-"):
-            words.append(arg)
-    return words
-
-
 def _skill_of(words: list[str]) -> str | None:
-    while words and (Path(words[0]).name in LAUNCHERS or COMMAND_PREFIX_WORD.fullmatch(words[0])):
-        words = words[1:]
-    if not words:
-        return None
-    program, args = Path(words[0]).name, words[1:]
-    if program in SHELLS and "-c" in args[:-1]:
-        return gated_skill(args[args.index("-c") + 1])
-    if program == "gh" and _gh_subcommand(args)[:2] == ["issue", "create"]:
+    program, args = words[0], words[1:]
+    if gh_issue_create_args(words) is not None:
         return "file-issue"
-    if program in PR_SCRIPTS or (
-        program.startswith("python") and any(Path(arg).name in PR_SCRIPTS for arg in args)
-    ):
-        return "resolve-issue"
+    if program in SKILL_SCRIPTS:
+        return SKILL_SCRIPTS[program]
+    if program.startswith("python"):
+        return next(
+            (SKILL_SCRIPTS[s] for arg in args if (s := Path(arg).name) in SKILL_SCRIPTS), None
+        )
     return None
 
 
 def gated_skill(command: str) -> str | None:
     """The skill whose final steps `command` carries out, if it runs one of them."""
-    return next((skill for words in _commands(command) if (skill := _skill_of(words))), None)
+    return next((skill for words in simple_commands(command) if (skill := _skill_of(words))), None)
 
 
 def transcript_of(payload: dict[str, Any]) -> Path:
@@ -230,22 +174,10 @@ def refusal(payload: dict[str, Any], skills_root: Path) -> str | None:
 
 
 def main(argv: list[str]) -> int:
-    try:
-        reason = refusal(json.load(sys.stdin), SKILLS_ROOT)
-    except Exception as error:  # noqa: BLE001 -- an uncaught error would let the command run
-        reason = f"Cannot check the command against the skills it may need: {error!r}."
-    if reason is not None:
-        json.dump(
-            {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": reason,
-                }
-            },
-            sys.stdout,
-        )
-    return 0
+    return run_gate(
+        lambda payload: refusal(payload, SKILLS_ROOT),
+        "Cannot check the command against the skills it may need",
+    )
 
 
 if __name__ == "__main__":

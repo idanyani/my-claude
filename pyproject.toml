@@ -18,6 +18,7 @@ dev = ["pytest>=8", "ruff>=0.10", "mypy>=1.14"]
 pythonpath = [
     "dot-claude/skills/resolve-issue/scripts",
     "dot-claude/skills/docs-review/scripts",
+    "dot-claude/skills/file-issue/scripts",
     "dot-claude/hooks",
     "scripts",
 ]
@@ -35,6 +36,7 @@ files = ["dot-claude/skills", "dot-claude/hooks", "scripts", "tests"]
 mypy_path = [
     "dot-claude/skills/resolve-issue/scripts",
     "dot-claude/skills/docs-review/scripts",
+    "dot-claude/skills/file-issue/scripts",
     "dot-claude/hooks",
     "scripts",
 ]

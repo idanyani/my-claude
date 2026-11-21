@@ -4,6 +4,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 SETTINGS_PATH = Path(__file__).parent.parent / "dot-claude" / "settings.json"
 
 # A list without this marker replaces Claude Code's built-in auto-mode entries instead of
@@ -104,11 +106,9 @@ class TestPlugins:
 
 
 class TestHooks:
-    def test_bash_commands_pass_the_fresh_skill_check(self):
+    @pytest.mark.parametrize("hook", ["require_fresh_skill.py", "require_issue_origin.py"])
+    def test_bash_commands_pass_the_hook(self, hook):
         hooks = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
         handlers = [h for group in hooks if group["matcher"] == "Bash" for h in group["hooks"]]
-        expected = {
-            "type": "command",
-            "command": 'python3 "$HOME/.claude/hooks/require_fresh_skill.py"',
-        }
+        expected = {"type": "command", "command": f'python3 "$HOME/.claude/hooks/{hook}"'}
         assert expected in handlers
