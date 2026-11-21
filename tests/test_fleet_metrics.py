@@ -91,9 +91,10 @@ class TestRepoSlug:
             "https://github.com/o/r",
             "git@github.com:o/r.git",
             "ssh://git@github.com/o/r.git",
+            "https://github.com/O/R.git",
         ],
     )
-    def test_reads_owner_and_name(self, url):
+    def test_reads_owner_and_name_in_the_case_github_ignores(self, url):
         assert repo_slug(url) == "o/r"
 
     def test_a_remote_elsewhere_has_none(self):
@@ -219,7 +220,7 @@ class TestGraphqlNodes:
         [args] = calls
         assert args[:4] == ["gh", "api", "graphql", "--paginate"]
         assert args[args.index("--jq") + 1] == ".x[]"
-        assert {args[i + 1] for i, arg in enumerate(args) if arg == "-F"} == {
+        assert {args[i + 1] for i, arg in enumerate(args) if arg == "-f"} - {"query=Q"} == {
             "owner=o",
             "name=r",
             "since=S",
@@ -227,6 +228,10 @@ class TestGraphqlNodes:
 
 
 class TestMain:
+    def test_refuses_fewer_than_one_week(self, tmp_path):
+        with pytest.raises(SystemExit):
+            main(["report", str(tmp_path), "--weeks", "0"])
+
     def test_reports_the_default_number_of_weeks(self, tmp_path, monkeypatch, capsys):
         asked = []
         monkeypatch.setattr(
@@ -311,6 +316,34 @@ class TestCollect:
             "turns/box.csv",
             "turns/laptop.csv",
         ]
+
+    def test_pushes_counts_a_failed_push_left_behind(self, tmp_path, git_identity):
+        store = make_clone(tmp_path, "main")
+        projects = tmp_path / "projects"
+        session(projects, tmp_path, "2026-11-20T11:00:00Z")
+        origin = str(tmp_path / "origin.git")
+        git(store, "remote", "set-url", "origin", str(tmp_path / "unreachable"))
+        with pytest.raises(RuntimeError):
+            collect(store, projects, "box")
+        git(store, "remote", "set-url", "origin", origin)
+
+        collect(store, projects, "box")
+
+        assert git(store, "ls-tree", "--name-only", "origin/main", "turns/") == "turns/box.csv"
+
+    def test_reads_a_transcript_whose_last_line_is_still_being_written(
+        self, tmp_path, git_identity
+    ):
+        store = make_clone(tmp_path, "main")
+        projects = tmp_path / "projects"
+        session(projects, tmp_path, "2026-11-20T11:00:00Z")
+        transcript = next((projects / "p").iterdir())
+        with transcript.open("ab") as f:
+            f.write('{"message": {"content": "ש'.encode()[:-1])
+
+        collect(store, projects, "box")
+
+        assert (store / "turns" / "box.csv").read_text().splitlines()[1:] == ["2026-11-20,-,1"]
 
     def test_makes_the_first_push_to_an_empty_store(self, tmp_path, git_identity):
         origin = tmp_path / "origin.git"

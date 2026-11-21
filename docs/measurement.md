@@ -17,7 +17,8 @@ could hide: decisions the developer later reversed, and work reverted or reopene
 - [fleet_metrics.py](../dot-claude/bin/fleet_metrics.py) saves the developer's turns from each
   machine's transcripts into a private repo before they expire, and reports, per week, the issues
   the developer brought that landed and stood, per turn, beside reopenings and reverts. Each
-  machine's environment runs its collection daily.
+  machine's environment must schedule its collection daily: a transcript never collected expires
+  uncounted.
 
 ## Known gaps
 

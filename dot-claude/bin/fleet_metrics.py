@@ -32,7 +32,7 @@ import subprocess
 import sys
 from collections import Counter
 from collections.abc import Iterable
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -123,7 +123,8 @@ def count_turns(lines: Iterable[str]) -> Counter[Key]:
 
 def repo_slug(remote_url: str) -> str | None:
     match = GITHUB_REMOTE.search(remote_url.strip())
-    return f"{match[1]}/{match[2]}" if match else None
+    # GitHub ignores case in owner and repo names, so one repo has one slug.
+    return f"{match[1]}/{match[2]}".lower() if match else None
 
 
 def merged_turns(old: dict[Key, int], new: dict[Key, int]) -> dict[Key, int]:
@@ -227,8 +228,12 @@ def _write_turns(csv_file: Path, turns: dict[Key, int]) -> None:
 
 
 def collect(store: Path, projects: Path, host: str) -> None:
+    # A live session may be mid-way through appending a line, cut inside a character; only that
+    # last line is broken, and count_turns skips it as JSON that does not parse.
     lines = (
-        line for path in sorted(projects.glob("*/*.jsonl")) for line in path.open(encoding="utf-8")
+        line
+        for path in sorted(projects.glob("*/*.jsonl"))
+        for line in path.open(encoding="utf-8", errors="replace")
     )
     cache: dict[str, str] = {}
     by_repo: Counter[Key] = Counter()
@@ -237,12 +242,12 @@ def collect(store: Path, projects: Path, host: str) -> None:
     csv_file = store / "turns" / f"{host}.csv"
     saved = _read_turns(csv_file)
     merged = merged_turns(saved, by_repo)
-    if merged == saved:
-        return
-    _write_turns(csv_file, merged)
-    relative = str(csv_file.relative_to(store))
-    _run(["git", "add", relative], cwd=store)
-    _run(["git", "commit", "-q", "-m", f"Count {host}'s turns", relative], cwd=store)
+    if merged != saved:
+        _write_turns(csv_file, merged)
+        relative = str(csv_file.relative_to(store))
+        _run(["git", "add", relative], cwd=store)
+        _run(["git", "commit", "-q", "-m", f"Count {host}'s turns", relative], cwd=store)
+    # Every run pushes, so a commit an earlier failed push left behind still reaches the store.
     # Each machine writes only its own file, so a rebase onto another machine's push is clean.
     if _run(["git", "ls-remote", "--heads", "origin"], cwd=store):
         _run(["git", "pull", "--rebase", "-q"], cwd=store)
@@ -252,8 +257,9 @@ def collect(store: Path, projects: Path, host: str) -> None:
 def _graphql_nodes(query: str, jq: str, repo: str, **variables: str) -> list[dict[str, Any]]:
     owner, name = repo.split("/")
     args = ["gh", "api", "graphql", "--paginate", "-f", f"query={query}", "--jq", jq]
+    # -f keeps every value a string; -F would turn a repo named 2048 into a number.
     for key, value in {"owner": owner, "name": name, **variables}.items():
-        args += ["-F", f"{key}={value}"]
+        args += ["-f", f"{key}={value}"]
     return [json.loads(line) for line in _run(args).splitlines() if line]
 
 
@@ -297,18 +303,27 @@ def format_rows(rows: list[WeekRow]) -> str:
     return "\n".join(lines)
 
 
+def _positive(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"{value} is not a positive number of weeks")
+    return value
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="fleet_metrics.py")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("collect").add_argument("store", type=Path)
     report_parser = commands.add_parser("report")
     report_parser.add_argument("store", type=Path)
-    report_parser.add_argument("--weeks", type=int, default=DEFAULT_WEEKS)
+    report_parser.add_argument("--weeks", type=_positive, default=DEFAULT_WEEKS)
     args = parser.parse_args(argv)
     if args.command == "collect":
         collect(args.store, PROJECTS, socket.gethostname())
     else:
-        print(format_rows(report(args.store, date.today(), args.weeks)))
+        # Turns, closes, and commits are all dated in UTC.
+        today = datetime.now(timezone.utc).date()
+        print(format_rows(report(args.store, today, args.weeks)))
     return 0
 
 
