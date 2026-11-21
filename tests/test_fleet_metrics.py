@@ -11,8 +11,10 @@ from fleet_metrics import (
     WeekRow,
     collect,
     count_turns,
+    format_rows,
     is_developer_turn,
     issue_dates,
+    main,
     merged_turns,
     repo_slug,
     report,
@@ -31,7 +33,7 @@ class TestIsDeveloperTurn:
         assert is_developer_turn(typed())
 
     def test_a_slash_command_logged_without_an_origin(self):
-        entry = {"type": "user", "message": {"content": "<command-name>/brief</command-name>"}}
+        entry = {"type": "user", "message": {"content": " <command-name>/brief</command-name>"}}
         assert is_developer_turn(entry)
 
     @pytest.mark.parametrize(
@@ -71,8 +73,14 @@ class TestCountTurns:
         entry = line(typed(), "a", "2026-11-21T09:00:00.000Z", "/r/x")
         assert count_turns([entry, entry]) == {("2026-11-21", "/r/x"): 1}
 
-    def test_skips_lines_that_are_not_json(self):
-        assert count_turns(["not json", ""]) == {}
+    def test_counts_a_slash_command_logged_without_an_origin(self):
+        entry = {"type": "user", "message": {"content": "<command-name>/brief</command-name>"}}
+        assert count_turns([line(entry, "a", "2026-11-21T09:00:00Z", "/r/x")]) == {
+            ("2026-11-21", "/r/x"): 1
+        }
+
+    def test_skips_lines_that_are_not_json_objects(self):
+        assert count_turns(["not json", "", '["human"]']) == {}
 
 
 class TestRepoSlug:
@@ -178,9 +186,62 @@ class TestWeeklyRows:
             today=date(2026, 11, 21),
             weeks=3,
         )
-        assert rows[0] == WeekRow(
-            date(2026, 11, 2), turns=0, landed=1, pending=1, reopened=0, reverts=0
+        assert rows == [
+            WeekRow(date(2026, 11, 2), turns=0, landed=1, pending=1, reopened=0, reverts=0),
+            WeekRow(date(2026, 11, 9), turns=0, landed=0, pending=0, reopened=0, reverts=0),
+            WeekRow(date(2026, 11, 16), turns=0, landed=0, pending=0, reopened=0, reverts=0),
+        ]
+
+
+class TestFormatRows:
+    def test_shows_landings_per_hundred_turns_and_a_dash_for_a_week_without_turns(self):
+        rows = [
+            WeekRow(date(2026, 11, 2), turns=40, landed=1, pending=2, reopened=3, reverts=4),
+            WeekRow(date(2026, 11, 9), turns=0, landed=0, pending=0, reopened=0, reverts=0),
+        ]
+        assert format_rows(rows).splitlines() == [
+            "week        turns  landed  pending  landed/100 turns  reopened  reverts",
+            "2026-11-02     40       1        2               2.5         3        4",
+            "2026-11-09      0       0        0                 -         0        0",
+        ]
+
+
+class TestGraphqlNodes:
+    def test_pages_through_every_result_and_reads_one_node_per_line(self, monkeypatch):
+        calls = []
+
+        def run(args, cwd=None):
+            calls.append(args)
+            return '{"a": 1}\n{"a": 2}\n'
+
+        monkeypatch.setattr(fleet_metrics, "_run", run)
+        assert fleet_metrics._graphql_nodes("Q", ".x[]", "o/r", since="S") == [{"a": 1}, {"a": 2}]
+        [args] = calls
+        assert args[:4] == ["gh", "api", "graphql", "--paginate"]
+        assert args[args.index("--jq") + 1] == ".x[]"
+        assert {args[i + 1] for i, arg in enumerate(args) if arg == "-F"} == {
+            "owner=o",
+            "name=r",
+            "since=S",
+        }
+
+
+class TestMain:
+    def test_reports_the_default_number_of_weeks(self, tmp_path, monkeypatch, capsys):
+        asked = []
+        monkeypatch.setattr(
+            fleet_metrics, "report", lambda store, today, weeks: asked.append(weeks) or []
         )
+        assert main(["report", str(tmp_path)]) == 0
+        assert asked == [8]
+
+    def test_collects_into_the_given_store(self, tmp_path, monkeypatch):
+        stores = []
+        monkeypatch.setattr(
+            fleet_metrics, "collect", lambda store, projects, host: stores.append(store)
+        )
+        assert main(["collect", str(tmp_path)]) == 0
+        assert stores == [tmp_path]
 
 
 @pytest.fixture
@@ -207,6 +268,7 @@ class TestCollect:
         git(repo, "remote", "add", "origin", "https://github.com/o/r.git")
         projects = tmp_path / "projects"
         session(projects, repo / ".claude" / "worktrees" / "gone", "2026-11-20T10:00:00Z")
+        session(projects, repo, "2026-11-20T10:30:00Z")
         session(projects, tmp_path, "2026-11-20T11:00:00Z", "2026-11-21T11:00:00Z")
 
         collect(store, projects, "box")
@@ -214,7 +276,7 @@ class TestCollect:
         assert (store / "turns" / "box.csv").read_text().splitlines() == [
             "date,repo,turns",
             "2026-11-20,-,1",
-            "2026-11-20,o/r,1",
+            "2026-11-20,o/r,2",
             "2026-11-21,-,1",
         ]
         assert git(store, "log", "-1", "--format=%s", "origin/main") == "Count box's turns"
@@ -250,10 +312,22 @@ class TestCollect:
             "turns/laptop.csv",
         ]
 
+    def test_makes_the_first_push_to_an_empty_store(self, tmp_path, git_identity):
+        origin = tmp_path / "origin.git"
+        git(tmp_path, "init", "-q", "--bare", "-b", "main", str(origin))
+        store = tmp_path / "store"
+        git(tmp_path, "clone", "-q", str(origin), str(store))
+        projects = tmp_path / "projects"
+        session(projects, tmp_path, "2026-11-20T11:00:00Z")
+
+        collect(store, projects, "box")
+
+        assert git(origin, "ls-tree", "--name-only", "main", "turns/") == "turns/box.csv"
+
 
 class TestReport:
     def test_counts_every_machines_turns_against_each_repos_github_record(
-        self, tmp_path, monkeypatch
+        self, tmp_path, monkeypatch, capsys
     ):
         turns = tmp_path / "turns"
         turns.mkdir()
@@ -265,7 +339,7 @@ class TestReport:
                     "state": "CLOSED",
                     "stateReason": "COMPLETED",
                     "closedAt": "2026-11-03T10:00:00Z",
-                    "timelineItems": {"nodes": []},
+                    "timelineItems": {"nodes": [{"createdAt": "2026-11-02T10:00:00Z"}]},
                 }
             ],
             ("o/r", fleet_metrics.HISTORY_QUERY): [
@@ -275,7 +349,7 @@ class TestReport:
         asked = []
 
         def nodes(query, jq, repo, **variables):
-            asked.append(repo)
+            asked.append((repo, variables))
             if repo == "o/p":
                 raise RuntimeError("no access")
             return answers[(repo, query)]
@@ -285,6 +359,19 @@ class TestReport:
         rows = report(tmp_path, date(2026, 11, 21), weeks=3)
 
         assert rows[0] == WeekRow(
-            date(2026, 11, 2), turns=10, landed=1, pending=0, reopened=0, reverts=1
+            date(2026, 11, 2), turns=10, landed=1, pending=0, reopened=1, reverts=1
         )
-        assert sorted(set(asked)) == ["o/p", "o/r"]
+        assert asked == [
+            ("o/p", {"since": "2026-11-02T00:00:00Z"}),
+            ("o/r", {"since": "2026-11-02T00:00:00Z"}),
+            ("o/r", {"since": "2026-11-02T00:00:00Z"}),
+        ]
+        assert "Left out o/p: no access" in capsys.readouterr().err
+
+    def test_a_store_without_turns_reports_empty_weeks_and_asks_github_nothing(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setattr(fleet_metrics, "_graphql_nodes", None)
+        assert report(tmp_path, date(2026, 11, 21), weeks=1) == [
+            WeekRow(date(2026, 11, 16), turns=0, landed=0, pending=0, reopened=0, reverts=0)
+        ]
