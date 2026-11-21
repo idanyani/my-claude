@@ -1,4 +1,4 @@
-"""Tests for the hook that refuses filing an issue without a label naming where its work came from."""
+"""Tests for the hook that sends every issue filing through file-issue's script."""
 
 import json
 from pathlib import Path
@@ -18,60 +18,35 @@ class TestRefusal:
     @pytest.mark.parametrize(
         "command",
         [
+            "gh issue create --title x",
             "gh issue create --title x --label origin:developer",
-            "gh issue create --title x -l origin:proposed",
-            "gh issue create --title x --label=origin:agent",
-            "gh issue create --title x --label bug,origin:agent",
-            "gh issue create --title x --label bug --label origin:developer",
-            "gh -R owner/repo issue create --title x --label origin:agent",
-            "gh issue create --title x -lorigin:agent",
-            "gh issue create --title x --label origin:agent --label origin:agent",
-            "gh issue create --title x --label 'bug, origin:agent'",
-            "gh issue create --help",
+            "cd repo && gh issue create --title x",
         ],
     )
-    def test_allows_an_issue_with_one_origin(self, command):
-        assert refusal(bash(command)) is None
+    def test_refuses_filing_an_issue_directly(self, command):
+        reason = refusal(bash(command))
+        assert reason is not None
+        assert "file_issue.py" in reason
 
     @pytest.mark.parametrize(
         "command",
         [
-            "gh issue create --title x",
-            "gh issue create --title x --label bug",
-            "gh issue create --title x --label origin:someone",
-            "gh issue create --title x --label origin:developer,origin:agent",
-            "cd repo && gh issue create --title x",
-            "bash -c 'gh issue create --title x'",
-            "gh issue create --title 'unterminated",
-            "gh issue create -l origin:agent -t x && gh issue create --title y",
-            "gh issue list --label origin:agent && gh issue create --title x",
-            "gh issue create --title x --label",
-            "gh issue create --label --title origin:agent",
+            "python3 ~/.claude/skills/file-issue/scripts/file_issue.py --origin agent --title x",
+            "gh issue create --help",
+            "gh issue list --label bug",
+            "ls",
         ],
     )
-    def test_refuses_an_issue_without_exactly_one_origin(self, command):
-        assert refusal(bash(command)) is not None
-
-    def test_the_refusal_names_every_origin_label(self):
-        reason = refusal(bash("gh issue create --title x"))
-        assert reason is not None
-        for label in ("origin:developer", "origin:proposed", "origin:agent"):
-            assert label in reason
-
-    @pytest.mark.parametrize(
-        "command",
-        ["ls", "gh issue list --label bug", "gh issue edit 3 --add-label bug", "gh pr create"],
-    )
-    def test_other_commands_pass(self, command):
+    def test_lets_other_commands_through(self, command):
         assert refusal(bash(command)) is None
 
 
 class TestHookProcess:
-    def test_stays_silent_on_an_issue_with_an_origin(self):
-        result = run_hook(HOOK, json.dumps(bash("gh issue create --title x --label origin:agent")))
+    def test_stays_silent_on_a_command_that_files_no_issue(self):
+        result = run_hook(HOOK, json.dumps(bash("ls")))
         assert (result.returncode, result.stdout) == (0, "")
 
-    def test_denies_an_issue_without_an_origin(self):
+    def test_denies_filing_an_issue_directly(self):
         result = run_hook(HOOK, json.dumps(bash("gh issue create --title x")))
         decision = json.loads(result.stdout)["hookSpecificOutput"]
         assert (decision["hookEventName"], decision["permissionDecision"]) == ("PreToolUse", "deny")

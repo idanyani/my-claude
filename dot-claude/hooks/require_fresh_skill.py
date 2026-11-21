@@ -30,7 +30,12 @@ from bash_commands import gh_issue_create_args, run_gate, simple_commands
 
 SKILLS_ROOT = Path(__file__).parent.parent / "skills"
 
-PR_SCRIPTS = frozenset({"open_pr.py", "finish_branch.py"})
+# The scripts that carry out a skill's final steps, by the skill they belong to.
+SKILL_SCRIPTS = {
+    "open_pr.py": "resolve-issue",
+    "finish_branch.py": "resolve-issue",
+    "file_issue.py": "file-issue",
+}
 
 
 class Staleness(Enum):
@@ -43,10 +48,12 @@ def _skill_of(words: list[str]) -> str | None:
     program, args = words[0], words[1:]
     if gh_issue_create_args(words) is not None:
         return "file-issue"
-    if program in PR_SCRIPTS or (
-        program.startswith("python") and any(Path(arg).name in PR_SCRIPTS for arg in args)
-    ):
-        return "resolve-issue"
+    if program in SKILL_SCRIPTS:
+        return SKILL_SCRIPTS[program]
+    if program.startswith("python"):
+        return next(
+            (SKILL_SCRIPTS[s] for arg in args if (s := Path(arg).name) in SKILL_SCRIPTS), None
+        )
     return None
 
 

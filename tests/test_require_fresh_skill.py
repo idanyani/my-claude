@@ -105,6 +105,16 @@ class TestGatedSkill:
     @pytest.mark.parametrize(
         "command",
         [
+            "python3 /home/u/.claude/skills/file-issue/scripts/file_issue.py --origin agent",
+            "/s/scripts/file_issue.py --origin agent",
+        ],
+    )
+    def test_the_filing_script_needs_file_issue(self, command):
+        assert gated_skill(command) == "file-issue"
+
+    @pytest.mark.parametrize(
+        "command",
+        [
             "gh issue list --state open",
             "gh issue view 3",
             'grep -n "gh issue create" README.md',

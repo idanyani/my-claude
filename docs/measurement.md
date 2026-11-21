@@ -13,7 +13,7 @@ could hide: decisions the developer later reversed, and work reverted or reopene
 
 - [file-issue](../dot-claude/skills/file-issue/SKILL.md) labels each issue with where its work
   came from, and the [require_issue_origin](../dot-claude/hooks/require_issue_origin.py) hook
-  refuses an issue filed without that label.
+  refuses an issue filed any other way.
 
 ## Known gaps
 

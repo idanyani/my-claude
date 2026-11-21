@@ -1,6 +1,8 @@
 ---
 name: file-issue
 description: Use when a problem is to be recorded as a GitHub issue -- the user says "file an issue", "open an issue", "/file-issue", or agrees to an offer to file one, or work calls for one (a review finding the user picked, the issue a change to `main` resolves). Do NOT use for implementing an issue (use resolve-issue).
+allowed-tools:
+  - Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/file_issue.py *)
 ---
 
 # File a GitHub issue
@@ -36,24 +38,26 @@ estimate reads as a fact and misleads until someone measures.
 
 ## Step 3 -- File it
 
-Label the issue with where its work came from, judged from the conversation, since every issue
-an agent files has the same author:
+Choose where the issue's work came from, judged from the conversation, since every issue an
+agent files has the same author:
 
-- `origin:developer` -- the developer brought the problem: they described it, or asked for the
-  work it blocks.
-- `origin:proposed` -- an agent proposed it, and the developer picked or approved it, as when
-  they choose findings from a report.
-- `origin:agent` -- an agent files it without the developer asking for it, as a session does
-  for a problem it raised itself.
+- `developer` -- the developer brought the problem: they described it, or asked for the work it
+  blocks.
+- `proposed` -- an agent proposed it, and the developer picked or approved it, as when they
+  choose findings from a report.
+- `agent` -- an agent files it without the developer asking for it, as a session does for a
+  problem it raised itself.
 
 Write the body to a file outside the repo (the session's scratchpad, or a `mktemp` file), so
-the shell never reads its backticks and `$`, and pass it by path. The first command makes sure
-the label exists in the repo, with the same color every time:
+the shell never reads its backticks and `$`, and file it with the script, which labels the issue
+`origin:<origin>` (add `--repo <owner/name>` for another repo than the checkout's):
 
 ```sh
-gh label create <origin> --force --color c5def5
-gh issue create --title "<title>" --body-file <file> --label <origin>
+python3 ${CLAUDE_SKILL_DIR}/scripts/file_issue.py --origin <origin> --title "<title>" --body-file <file>
 ```
+
+In a repo the session cannot create labels in, such as an upstream project, the script files the
+issue without the label and says so.
 
 ## Step 4 -- Report
 
