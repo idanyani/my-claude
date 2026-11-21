@@ -14,10 +14,12 @@ could hide: decisions the developer later reversed, and work reverted or reopene
 - [file-issue](../dot-claude/skills/file-issue/SKILL.md) labels each issue with where its work
   came from, and the [require_issue_origin](../dot-claude/hooks/require_issue_origin.py) hook
   refuses an issue filed any other way.
+- [fleet_metrics.py](../dot-claude/bin/fleet_metrics.py) saves the developer's turns from each
+  machine's transcripts into a private repo before they expire, and reports, per week, the issues
+  the developer brought that landed and stood, per turn, beside reopenings and reverts. Each
+  machine's environment runs its collection daily.
 
 ## Known gaps
 
-- *Seen:* nothing measures outcomes per unit of the developer's attention.
-- *Seen:* the developer's answers to agents' questions exist only in session transcripts, which
-  stay on one machine and expire; this repo is public, so the measures need a private, durable
-  place of their own.
+- *Unseen:* the measures count turns, not their kind: a correction weighs the same as an answer
+  to a question, and decisions the developer later reversed are not counted.
