@@ -77,7 +77,7 @@
           },
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/require_issue_origin.py\""
+            "command": "python3 \"$HOME/.claude/hooks/require_skill_scripts.py\""
           }
         ]
       }

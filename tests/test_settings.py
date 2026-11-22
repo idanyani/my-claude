@@ -106,7 +106,7 @@ class TestPlugins:
 
 
 class TestHooks:
-    @pytest.mark.parametrize("hook", ["require_fresh_skill.py", "require_issue_origin.py"])
+    @pytest.mark.parametrize("hook", ["require_fresh_skill.py", "require_skill_scripts.py"])
     def test_bash_commands_pass_the_hook(self, hook):
         hooks = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
         handlers = [h for group in hooks if group["matcher"] == "Bash" for h in group["hooks"]]

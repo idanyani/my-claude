@@ -62,32 +62,6 @@ class TestGatedSkill:
     @pytest.mark.parametrize(
         "command",
         [
-            "gh issue create --title x --body-file /tmp/b",
-            "gh -R owner/repo issue create --title x",
-            "cd /repo && gh issue create --title x",
-            'gh issue create --title "a | b; c"',
-            "echo start\ngh issue create --title x",
-            "gh issue create --title 'unterminated",
-            "cd x && gh issue create --title 'unterminated",
-            "gh --repo owner/repo issue create --title x",
-            "gh --repo=owner/repo issue create --title x",
-            "/usr/bin/gh issue create --title x",
-            "env GH_HOST=h gh issue create --title x",
-            "GH_HOST=h gh issue create --title x",
-            "echo body | gh issue create --body-file -",
-            "(cd x && gh issue create --title x)",
-            "ls # check\ngh issue create --title x",
-            "echo a#b\ngh issue create --title x",
-            "sudo gh issue create --title x",
-            "bash -c 'gh issue create --title x'",
-        ],
-    )
-    def test_filing_an_issue_needs_file_issue(self, command):
-        assert gated_skill(command) == "file-issue"
-
-    @pytest.mark.parametrize(
-        "command",
-        [
             "python3 /home/u/.claude/skills/resolve-issue/scripts/open_pr.py --footer x",
             "python3 /home/u/.claude/skills/resolve-issue/scripts/finish_branch.py 12",
             "git switch 7-x && python /s/scripts/finish_branch.py 7",
@@ -116,6 +90,8 @@ class TestGatedSkill:
         "command",
         [
             "gh issue list --state open",
+            "gh issue create --title x",
+            "gh pr merge 5 --squash",
             "gh issue view 3",
             'grep -n "gh issue create" README.md',
             "uv run pytest tests/test_open_pr.py",
@@ -263,10 +239,13 @@ def make_skill(skills_root: Path, name: str, mtime: datetime) -> None:
     os.utime(skill_md, (mtime.timestamp(), mtime.timestamp()))
 
 
-def gh_issue_create(transcript: Path, **fields: str) -> dict[str, Any]:
+FILE_ISSUE_RUN = "python3 /s/scripts/file_issue.py --origin agent --title x"
+
+
+def file_issue_run(transcript: Path, **fields: str) -> dict[str, Any]:
     return {
         "transcript_path": str(transcript),
-        "tool_input": {"command": "gh issue create --title x"},
+        "tool_input": {"command": FILE_ISSUE_RUN},
         **fields,
     }
 
@@ -279,7 +258,7 @@ class TestRefusal:
         make_skill(tmp_path / "skills", "file-issue", BEFORE)
         transcript = tmp_path / "s.jsonl"
         write_transcript(transcript, [skill_tool_load("file-issue")])
-        assert refusal(gh_issue_create(transcript), tmp_path / "skills") is None
+        assert refusal(file_issue_run(transcript), tmp_path / "skills") is None
 
     @pytest.mark.parametrize(
         ("entries", "files_changed_at"),
@@ -300,7 +279,7 @@ class TestRefusal:
         make_skill(tmp_path / "skills", "file-issue", files_changed_at)
         transcript = tmp_path / "s.jsonl"
         write_transcript(transcript, entries)
-        assert refusal(gh_issue_create(transcript), tmp_path / "skills") is not None
+        assert refusal(file_issue_run(transcript), tmp_path / "skills") is not None
 
     def test_refuses_a_pr_script_until_resolve_issue_is_loaded(self, tmp_path):
         make_skill(tmp_path / "skills", "resolve-issue", BEFORE)
@@ -319,14 +298,14 @@ class TestRefusal:
         transcript = tmp_path / "s.jsonl"
         load = json.dumps(skill_tool_load("file-issue"))
         transcript.write_text(f'{{"skill": "file-issue"\n"file-issue"\n{load}\n')
-        assert refusal(gh_issue_create(transcript), tmp_path / "skills") is None
+        assert refusal(file_issue_run(transcript), tmp_path / "skills") is None
 
     def test_a_subagent_is_judged_by_its_own_loads_not_its_parents(self, tmp_path):
         make_skill(tmp_path / "skills", "file-issue", BEFORE)
         transcript = tmp_path / "s.jsonl"
         write_transcript(transcript, [skill_tool_load("file-issue")])
         write_transcript(tmp_path / "s" / "subagents" / "agent-a1.jsonl", [])
-        payload = gh_issue_create(transcript, agent_id="a1")
+        payload = file_issue_run(transcript, agent_id="a1")
         assert refusal(payload, tmp_path / "skills") is not None
 
     def test_allows_a_subagent_after_its_own_load(self, tmp_path):
@@ -336,22 +315,22 @@ class TestRefusal:
         write_transcript(
             tmp_path / "s" / "subagents" / "agent-a1.jsonl", [skill_tool_load("file-issue")]
         )
-        payload = gh_issue_create(transcript, agent_id="a1")
+        payload = file_issue_run(transcript, agent_id="a1")
         assert refusal(payload, tmp_path / "skills") is None
 
     def test_refuses_and_names_the_transcript_when_it_cannot_be_read(self, tmp_path):
         make_skill(tmp_path / "skills", "file-issue", BEFORE)
         missing = tmp_path / "missing.jsonl"
-        assert str(missing) in (refusal(gh_issue_create(missing), tmp_path / "skills") or "")
+        assert str(missing) in (refusal(file_issue_run(missing), tmp_path / "skills") or "")
 
     def test_refuses_and_names_the_skill_when_it_cannot_be_found(self, tmp_path):
         transcript = tmp_path / "s.jsonl"
         write_transcript(transcript, [skill_tool_load("file-issue")])
-        reason = refusal(gh_issue_create(transcript), tmp_path / "skills")
+        reason = refusal(file_issue_run(transcript), tmp_path / "skills")
         assert str(tmp_path / "skills" / "file-issue") in (reason or "")
 
     def test_refuses_when_the_payload_names_no_transcript(self, tmp_path):
-        payload = {"tool_input": {"command": "gh issue create --title x"}}
+        payload = {"tool_input": {"command": FILE_ISSUE_RUN}}
         assert refusal(payload, tmp_path / "skills") is not None
 
 
@@ -362,7 +341,7 @@ class TestHookProcess:
 
     def test_denies_a_gated_command_it_cannot_check_and_says_why(self, tmp_path):
         missing = tmp_path / "missing.jsonl"
-        output = json.loads(run_hook(HOOK, json.dumps(gh_issue_create(missing))).stdout)
+        output = json.loads(run_hook(HOOK, json.dumps(file_issue_run(missing))).stdout)
         decision = output["hookSpecificOutput"]
         assert (decision["hookEventName"], decision["permissionDecision"]) == ("PreToolUse", "deny")
         assert str(missing) in decision["permissionDecisionReason"]
@@ -371,7 +350,7 @@ class TestHookProcess:
         # A load dated after every file of the repo's own file-issue skill.
         transcript = tmp_path / "s.jsonl"
         write_transcript(transcript, [skill_tool_load("file-issue", "2100-01-01T00:00:00.000Z")])
-        result = run_hook(HOOK, json.dumps(gh_issue_create(transcript)))
+        result = run_hook(HOOK, json.dumps(file_issue_run(transcript)))
         assert (result.returncode, result.stdout) == (0, "")
 
     def test_denies_when_its_input_is_not_json(self):

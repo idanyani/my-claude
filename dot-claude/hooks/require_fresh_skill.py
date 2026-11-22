@@ -2,7 +2,7 @@
 """PreToolUse hook: refuse a skill's gated command unless this session's load of the skill is fresh.
 
 A session that loaded a skill hours ago still acts on that text after the skill's files changed,
-or after a compaction pushed it out of view. So the commands that carry out a skill's final steps
+or after a compaction pushed it out of view. So the scripts that carry out a skill's final steps
 -- filing an issue, opening and merging a PR -- are refused, with the reason, when the session
 never loaded the skill, when the skill's files changed after its last load, or when a compaction
 came after that load and Claude Code did not put the skill's text back after it. Loading the
@@ -26,16 +26,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from bash_commands import gh_issue_create_args, run_gate, simple_commands
+from bash_commands import SKILL_SCRIPTS, run_gate, simple_commands
 
 SKILLS_ROOT = Path(__file__).parent.parent / "skills"
-
-# The scripts that carry out a skill's final steps, by the skill they belong to.
-SKILL_SCRIPTS = {
-    "open_pr.py": "resolve-issue",
-    "finish_branch.py": "resolve-issue",
-    "file_issue.py": "file-issue",
-}
 
 
 class Staleness(Enum):
@@ -46,8 +39,6 @@ class Staleness(Enum):
 
 def _skill_of(words: list[str]) -> str | None:
     program, args = words[0], words[1:]
-    if gh_issue_create_args(words) is not None:
-        return "file-issue"
     if program in SKILL_SCRIPTS:
         return SKILL_SCRIPTS[program]
     if program.startswith("python"):

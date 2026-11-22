@@ -17,7 +17,10 @@ and the actions that cannot be taken back are fenced by permissions rather than 
 - The "Problem-solving" conventions in [CLAUDE.md](../dot-claude/CLAUDE.md) say when to ask the
   developer and when a stated intent already answers.
 - The "Issues, pull requests, and commits" conventions send every change to `main` through an
-  issue and a PR.
+  issue and a PR that resolves it, and the
+  [require_skill_scripts](../dot-claude/hooks/require_skill_scripts.py) hook refuses a direct
+  `gh pr create` or `gh pr merge` in favor of resolve-issue's scripts
+  ([why](decisions/every-pr-into-main.md)).
 - The permission rules in [settings.json](../dot-claude/settings.json) fence what no session may
   touch, such as credential files.
 
