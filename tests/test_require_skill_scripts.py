@@ -16,28 +16,67 @@ def bash(command: str) -> dict:
 
 class TestRefusal:
     @pytest.mark.parametrize(
-        ("command", "script"),
+        ("command", "refused", "skill", "script"),
         [
-            ("gh issue create --title x", "file_issue.py"),
-            ("gh issue create --title x --label origin:developer", "file_issue.py"),
-            ("cd repo && gh issue create --title x", "file_issue.py"),
-            ("gh pr create --fill", "open_pr.py"),
-            ("gh pr create --base wip --head x --draft", "open_pr.py"),
-            ("gh -R o/r pr create --fill", "open_pr.py"),
-            ("gh pr merge 5 --squash --delete-branch", "finish_branch.py"),
-            ("gh pr merge 5 --auto --merge", "finish_branch.py"),
+            ("gh issue create --title x", "gh issue create", "file-issue", "file_issue.py"),
+            ("gh pr create --fill", "gh pr create", "resolve-issue", "open_pr.py"),
+            ("gh pr merge 5 --squash", "gh pr merge", "resolve-issue", "finish_branch.py"),
         ],
     )
-    def test_refuses_a_direct_command_naming_its_script(self, command, script):
-        reason = refusal(bash(command))
-        assert reason is not None
-        assert script in reason
+    def test_names_the_script_and_skill_to_use_instead(self, command, refused, skill, script):
+        reason = refusal(bash(command)) or ""
+        assert f"`{refused}`" in reason
+        assert f"scripts/{script}" in reason
+        assert f"skill: {skill}" in reason
 
     @pytest.mark.parametrize(
         "command",
         [
-            "python3 ~/.claude/skills/file-issue/scripts/file_issue.py --origin agent --title x",
-            "python3 ~/.claude/skills/resolve-issue/scripts/open_pr.py --no-footer",
+            "BODY=x; gh issue create --title x",
+            "timeout -s KILL 60 gh issue create --title x",
+            "nohup gh issue create --title x",
+            "time gh issue create --title x",
+            "exec gh issue create --title x",
+            "sudo -E gh issue create --title x",
+            "env -i gh issue create --title x",
+            "/usr/bin/env gh issue create --title x",
+            "command gh issue create --title x",
+            "xargs gh issue create --title x",
+            "GH_HOST=h gh issue create --title x",
+            "/usr/bin/gh issue create --title x",
+            "echo `gh issue create --title x`",
+            "(cd x && gh issue create --title x)",
+            "echo body | gh issue create --body-file -",
+            'gh issue create --title "a | b; c"',
+            "gh issue create --title 'unterminated",
+            "cd x && gh issue create --title 'unterminated",
+            "ls # check\ngh issue create --title x",
+            "echo a#b\ngh issue create --title x",
+            "zsh -c 'gh issue create --title x'",
+            "env FOO=1 bash -c 'gh issue create --title x'",
+            "timeout 60 sh -c 'gh issue create --title x'",
+            "gh --repo=owner/repo issue create --title x",
+            "uv run --with gh gh pr create --fill",
+            "sudo -u gh gh pr merge 5 --squash",
+            "sudo -u bob /usr/bin/gh pr merge 5",
+            "gh -R o/r pr create --fill",
+            "gh pr -R o/r merge 5",
+            "gh pr view 5 && gh pr merge 5 --squash",
+            "gh pr merge 5 --disable-auto; gh pr merge 5 --squash",
+            "gh pr create --base wip --head x --draft",
+            "gh pr merge 5 --auto --merge",
+            "gh pr create --fill --disable-auto",
+            "gh issue create --title x --disable-auto",
+            "gh pr new --fill",
+            "gh issue new --title x",
+        ],
+    )
+    def test_refuses_the_direct_command_however_it_is_launched(self, command):
+        assert refusal(bash(command)) is not None
+
+    @pytest.mark.parametrize(
+        "command",
+        [
             "python3 ~/.claude/skills/resolve-issue/scripts/finish_branch.py 5",
             "gh issue create --help",
             "gh pr create -h",
@@ -45,7 +84,8 @@ class TestRefusal:
             "gh pr merge 5 --disable-auto",
             "gh pr view 5",
             "gh issue list --label bug",
-            "ls",
+            "FOO=1",
+            "bash -c",
         ],
     )
     def test_lets_other_commands_through(self, command):

@@ -89,10 +89,10 @@ any project, loaded into every Claude Code session on a machine that installs my
   what to check (each claim tagged by how well it is backed, and the choices made without the
   user), and, last, the decisions waiting on them with a recommendation.
 
-The [`require_skill_scripts`](dot-claude/hooks/require_skill_scripts.py) hook refuses to file an
-issue, or open or merge a PR, except through file-issue's and resolve-issue's scripts. The
-[`require_fresh_skill`](dot-claude/hooks/require_fresh_skill.py) hook refuses those scripts until
-the session has loaded their skill since it last changed.
+The [`require_skill_scripts`](dot-claude/hooks/require_skill_scripts.py) hook refuses a direct
+`gh issue create`, `gh pr create` or `gh pr merge`, pointing to file-issue's and resolve-issue's
+scripts for each. The [`require_fresh_skill`](dot-claude/hooks/require_fresh_skill.py) hook
+refuses those scripts until the session has loaded their skill since it last changed.
 
 ## Install
 

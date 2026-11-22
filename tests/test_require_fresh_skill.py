@@ -90,6 +90,8 @@ class TestGatedSkill:
         "command",
         [
             "gh issue list --state open",
+            "gh issue create --title x",
+            "gh pr merge 5 --squash",
             "gh issue view 3",
             'grep -n "gh issue create" README.md',
             "uv run pytest tests/test_open_pr.py",

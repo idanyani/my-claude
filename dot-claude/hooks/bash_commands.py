@@ -114,13 +114,18 @@ def _gh_subcommand(args: list[str]) -> tuple[str, ...]:
     return tuple(words)
 
 
-def gh_command(words: list[str]) -> tuple[tuple[str, ...], list[str]] | None:
-    """The subcommand a simple command runs `gh` with, such as `("issue", "create")`, and the words
-    after `gh`; None when it does not run `gh`."""
-    for i, word in enumerate(words):
-        if Path(word).name == "gh":
-            return _gh_subcommand(words[i + 1 :]), words[i + 1 :]
-    return None
+def gh_commands(words: list[str]) -> list[tuple[tuple[str, ...], list[str]]]:
+    """For each word of a simple command that may be its `gh` program, the subcommand that word
+    would run, such as `("issue", "create")`, and the words after it.
+
+    Every word named `gh` counts, since a launcher flag's value (`sudo -u gh gh ...`) cannot be told
+    from the program.
+    """
+    return [
+        (_gh_subcommand(words[i + 1 :]), words[i + 1 :])
+        for i, word in enumerate(words)
+        if Path(word).name == "gh"
+    ]
 
 
 def run_gate(refusal: Callable[[dict[str, Any]], str | None], cannot_check: str) -> int:

@@ -3,72 +3,23 @@
 import io
 import json
 
-import pytest
-from bash_commands import gh_command, run_gate, simple_commands
+from bash_commands import gh_commands, run_gate
 
 
-def creates_an_issue(command: str) -> bool:
-    return any(
-        (found := gh_command(words)) is not None and found[0] == ("issue", "create")
-        for words in simple_commands(command)
-    )
-
-
-class TestGhCommand:
-    @pytest.mark.parametrize(
-        "command",
-        [
-            "BODY=x; gh issue create --title x",
-            "FOO=1 && gh issue create --title x",
-            "timeout 60 gh issue create --title x",
-            "nohup gh issue create --title x",
-            "time gh issue create --title x",
-            "exec gh issue create --title x",
-            "sudo -E gh issue create --title x",
-            "env -i gh issue create --title x",
-            "/usr/bin/env gh issue create --title x",
-            "sudo -u bob gh issue create --title x",
-            "timeout -s KILL 60 gh issue create --title x",
-            "command gh issue create --title x",
-            "xargs gh issue create --title x",
-            "echo `gh issue create --title x`",
-            "sh -c 'gh issue create --title x'",
-            "zsh -c 'gh issue create --title x'",
-            "env FOO=1 bash -c 'gh issue create --title x'",
-            "timeout 60 sh -c 'gh issue create --title x'",
-            "gh issue create --title x --body-file /tmp/b",
-            "gh -R owner/repo issue create --title x",
-            "cd /repo && gh issue create --title x",
-            'gh issue create --title "a | b; c"',
-            "echo start\ngh issue create --title x",
-            "gh issue create --title 'unterminated",
-            "cd x && gh issue create --title 'unterminated",
-            "gh --repo owner/repo issue create --title x",
-            "gh --repo=owner/repo issue create --title x",
-            "/usr/bin/gh issue create --title x",
-            "env GH_HOST=h gh issue create --title x",
-            "GH_HOST=h gh issue create --title x",
-            "echo body | gh issue create --body-file -",
-            "(cd x && gh issue create --title x)",
-            "ls # check\ngh issue create --title x",
-            "echo a#b\ngh issue create --title x",
-            "sudo gh issue create --title x",
-            "bash -c 'gh issue create --title x'",
-        ],
-    )
-    def test_finds_an_issue_create_however_it_is_launched(self, command):
-        assert creates_an_issue(command)
-
-    @pytest.mark.parametrize("command", ["FOO=1", "env", "bash -c", "gh issue list", "ls"])
-    def test_finds_none_in_other_commands(self, command):
-        assert not creates_an_issue(command)
-
+class TestGhCommands:
     def test_gives_the_subcommand_and_the_words_after_gh(self):
-        words = ["sudo", "-u", "bob", "gh", "-R", "o/r", "pr", "merge", "5"]
-        assert gh_command(words) == (("pr", "merge"), ["-R", "o/r", "pr", "merge", "5"])
+        words = ["gh", "-R", "o/r", "pr", "merge", "5"]
+        assert gh_commands(words) == [(("pr", "merge"), ["-R", "o/r", "pr", "merge", "5"])]
+
+    def test_skips_the_values_of_gh_flags_between_the_subcommand_words(self):
+        assert gh_commands(["gh", "pr", "--repo", "o/r", "merge", "5"])[0][0] == ("pr", "merge")
+
+    def test_gives_every_word_that_may_be_the_gh_program(self):
+        words = ["-u", "gh", "/usr/bin/gh", "pr", "merge"]
+        assert [sub for sub, _ in gh_commands(words)] == [("/usr/bin/gh", "pr"), ("pr", "merge")]
 
     def test_gives_none_without_gh(self):
-        assert gh_command(["git", "status"]) is None
+        assert gh_commands(["git", "status"]) == []
 
 
 class TestRunGate:

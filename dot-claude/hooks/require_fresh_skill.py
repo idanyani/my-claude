@@ -2,8 +2,8 @@
 """PreToolUse hook: refuse a skill's gated command unless this session's load of the skill is fresh.
 
 A session that loaded a skill hours ago still acts on that text after the skill's files changed,
-or after a compaction pushed it out of view. So the commands that carry out a skill's final steps
--- the scripts that file an issue and open and merge a PR -- are refused, with the reason, when the session
+or after a compaction pushed it out of view. So the scripts that carry out a skill's final steps
+-- filing an issue, opening and merging a PR -- are refused, with the reason, when the session
 never loaded the skill, when the skill's files changed after its last load, or when a compaction
 came after that load and Claude Code did not put the skill's text back after it. Loading the
 skill again with the Skill tool lets the command through.
