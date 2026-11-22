@@ -17,8 +17,8 @@ remote of the directory it ran in; a session outside any repo counts under `-`.
 `report` reads every machine's turns and, from GitHub, the issues labeled `origin:developer` in
 the repos the turns name: an issue lands when it is closed as completed, counts once it has stood
 `LANDING_DAYS` days, and is pending until then. Beside those it shows the reopenings of such issues
-and the commits on each default branch that revert another, the rates that would show a gain in
-landings per turn bought by work that did not hold.
+and the commits that revert another on the default branch of each repo the session can push to,
+the rates that would show a gain in landings per turn bought by work that did not hold.
 
 Stdlib-only: it needs just `python3`, `git`, and `gh` on PATH.
 """
@@ -46,6 +46,8 @@ DEVELOPER_LABEL = "origin:developer"
 GITHUB_REMOTE = re.compile(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$")
 SLASH_COMMAND = "<command-name>"
 REVERT_HEADLINE = 'Revert "'
+# GitHub's repository roles that may push.
+PUSHING_PERMISSIONS = frozenset({"ADMIN", "MAINTAIN", "WRITE"})
 
 ISSUES_QUERY = (
     """
@@ -263,6 +265,13 @@ def _graphql_nodes(query: str, jq: str, repo: str, **variables: str) -> list[dic
     return [json.loads(line) for line in _run(args).splitlines() if line]
 
 
+def _can_push(repo: str) -> bool:
+    permission = _run(
+        ["gh", "repo", "view", repo, "--json", "viewerPermission", "-q", ".viewerPermission"]
+    )
+    return permission.strip() in PUSHING_PERMISSIONS
+
+
 def report(store: Path, today: date, weeks: int) -> list[WeekRow]:
     turns: Counter[Key] = Counter()
     for csv_file in sorted((store / "turns").glob("*.csv")):
@@ -276,11 +285,16 @@ def report(store: Path, today: date, weeks: int) -> list[WeekRow]:
             issues = _graphql_nodes(
                 ISSUES_QUERY, ".data.repository.issues.nodes[]", repo, since=since
             )
-            history = _graphql_nodes(
-                HISTORY_QUERY,
-                ".data.repository.defaultBranchRef.target.history.nodes[]",
-                repo,
-                since=since,
+            # A repo the fleet cannot push to holds no work of the fleet's to revert.
+            history = (
+                _graphql_nodes(
+                    HISTORY_QUERY,
+                    ".data.repository.defaultBranchRef.target.history.nodes[]",
+                    repo,
+                    since=since,
+                )
+                if _can_push(repo)
+                else []
             )
         except RuntimeError as error:
             print(f"Left out {repo}: {error}", file=sys.stderr)

@@ -388,6 +388,7 @@ class TestReport:
             return answers[(repo, query)]
 
         monkeypatch.setattr(fleet_metrics, "_graphql_nodes", nodes)
+        monkeypatch.setattr(fleet_metrics, "_can_push", lambda repo: True)
 
         rows = report(tmp_path, date(2026, 11, 21), weeks=3)
 
@@ -400,6 +401,27 @@ class TestReport:
             ("o/r", {"since": "2026-11-02T00:00:00Z"}),
         ]
         assert "Left out o/p: no access" in capsys.readouterr().err
+
+    def test_counts_no_reverts_in_a_repo_the_session_cannot_push_to(self, tmp_path, monkeypatch):
+        (tmp_path / "turns").mkdir()
+        (tmp_path / "turns" / "a.csv").write_text("date,repo,turns\n2026-11-02,up/stream,3\n")
+        queries = []
+
+        def nodes(query, jq, repo, **variables):
+            queries.append(query)
+            return []
+
+        monkeypatch.setattr(fleet_metrics, "_graphql_nodes", nodes)
+        monkeypatch.setattr(fleet_metrics, "_can_push", lambda repo: False)
+
+        report(tmp_path, date(2026, 11, 21), weeks=1)
+
+        assert queries == [fleet_metrics.ISSUES_QUERY]
+
+    @pytest.mark.parametrize(("permission", "expected"), [("WRITE", True), ("READ", False)])
+    def test_can_push_reads_the_sessions_permission(self, monkeypatch, permission, expected):
+        monkeypatch.setattr(fleet_metrics, "_run", lambda args, cwd=None: permission + "\n")
+        assert fleet_metrics._can_push("o/r") is expected
 
     def test_a_store_without_turns_reports_empty_weeks_and_asks_github_nothing(
         self, tmp_path, monkeypatch
