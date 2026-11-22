@@ -12,7 +12,7 @@ could hide: decisions the developer later reversed, and work reverted or reopene
 ## In my-claude
 
 - [file-issue](../dot-claude/skills/file-issue/SKILL.md) labels each issue with where its work
-  came from, and the [require_issue_origin](../dot-claude/hooks/require_issue_origin.py) hook
+  came from, and the [require_skill_scripts](../dot-claude/hooks/require_skill_scripts.py) hook
   refuses an issue filed any other way.
 - [fleet_metrics.py](../dot-claude/bin/fleet_metrics.py) saves the developer's turns from each
   machine's transcripts into a private repo before they expire, and reports, per week, the issues

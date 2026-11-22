@@ -4,14 +4,17 @@ import io
 import json
 
 import pytest
-from bash_commands import gh_issue_create_args, run_gate, simple_commands
+from bash_commands import gh_command, run_gate, simple_commands
 
 
 def creates_an_issue(command: str) -> bool:
-    return any(gh_issue_create_args(words) is not None for words in simple_commands(command))
+    return any(
+        (found := gh_command(words)) is not None and found[0] == ("issue", "create")
+        for words in simple_commands(command)
+    )
 
 
-class TestGhIssueCreate:
+class TestGhCommand:
     @pytest.mark.parametrize(
         "command",
         [
@@ -33,6 +36,24 @@ class TestGhIssueCreate:
             "zsh -c 'gh issue create --title x'",
             "env FOO=1 bash -c 'gh issue create --title x'",
             "timeout 60 sh -c 'gh issue create --title x'",
+            "gh issue create --title x --body-file /tmp/b",
+            "gh -R owner/repo issue create --title x",
+            "cd /repo && gh issue create --title x",
+            'gh issue create --title "a | b; c"',
+            "echo start\ngh issue create --title x",
+            "gh issue create --title 'unterminated",
+            "cd x && gh issue create --title 'unterminated",
+            "gh --repo owner/repo issue create --title x",
+            "gh --repo=owner/repo issue create --title x",
+            "/usr/bin/gh issue create --title x",
+            "env GH_HOST=h gh issue create --title x",
+            "GH_HOST=h gh issue create --title x",
+            "echo body | gh issue create --body-file -",
+            "(cd x && gh issue create --title x)",
+            "ls # check\ngh issue create --title x",
+            "echo a#b\ngh issue create --title x",
+            "sudo gh issue create --title x",
+            "bash -c 'gh issue create --title x'",
         ],
     )
     def test_finds_an_issue_create_however_it_is_launched(self, command):
@@ -42,13 +63,12 @@ class TestGhIssueCreate:
     def test_finds_none_in_other_commands(self, command):
         assert not creates_an_issue(command)
 
-    def test_gives_the_words_after_gh(self):
-        assert gh_issue_create_args(["sudo", "-u", "bob", "gh", "issue", "create", "-l", "x"]) == [
-            "issue",
-            "create",
-            "-l",
-            "x",
-        ]
+    def test_gives_the_subcommand_and_the_words_after_gh(self):
+        words = ["sudo", "-u", "bob", "gh", "-R", "o/r", "pr", "merge", "5"]
+        assert gh_command(words) == (("pr", "merge"), ["-R", "o/r", "pr", "merge", "5"])
+
+    def test_gives_none_without_gh(self):
+        assert gh_command(["git", "status"]) is None
 
 
 class TestRunGate:

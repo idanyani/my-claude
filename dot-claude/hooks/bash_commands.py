@@ -1,5 +1,5 @@
-"""Shared by the PreToolUse hooks that gate Bash commands: split a command line into the simple
-commands it runs, and answer Claude Code for a tool call.
+"""Shared by the PreToolUse hooks that gate Bash commands: the skill scripts they gate, splitting
+a command line into the simple commands it runs, and answering Claude Code for a tool call.
 
 Stdlib-only: it needs just `python3`, so it runs in any repo the config is installed into.
 """
@@ -26,6 +26,13 @@ LAUNCHERS = frozenset(
 COMMAND_PREFIX_WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*|-.*|\d+[smhd]?")
 
 SHELLS = frozenset({"bash", "sh", "zsh"})
+
+# The scripts that carry out a skill's final steps, by the skill they belong to.
+SKILL_SCRIPTS = {
+    "open_pr.py": "resolve-issue",
+    "finish_branch.py": "resolve-issue",
+    "file_issue.py": "file-issue",
+}
 
 # Global `gh` flags that take a value before the subcommand, as in `gh -R owner/repo issue create`.
 GH_FLAGS_WITH_VALUE = frozenset({"-R", "--repo"})
@@ -91,25 +98,28 @@ def simple_commands(command: str) -> list[list[str]]:
     return commands
 
 
-def _gh_subcommand(args: list[str]) -> list[str]:
-    """The words of a `gh` command that are neither flags nor the values of its global flags."""
-    words = []
+def _gh_subcommand(args: list[str]) -> tuple[str, ...]:
+    """The first two words of a `gh` command that are neither flags nor global flags' values."""
+    words: list[str] = []
     skip_value = False
     for arg in args:
+        if len(words) == 2:
+            break
         if skip_value:
             skip_value = False
         elif arg in GH_FLAGS_WITH_VALUE:
             skip_value = True
         elif not arg.startswith("-"):
             words.append(arg)
-    return words
+    return tuple(words)
 
 
-def gh_issue_create_args(words: list[str]) -> list[str] | None:
-    """The words after `gh` when a simple command runs `gh issue create`, else None."""
+def gh_command(words: list[str]) -> tuple[tuple[str, ...], list[str]] | None:
+    """The subcommand a simple command runs `gh` with, such as `("issue", "create")`, and the words
+    after `gh`; None when it does not run `gh`."""
     for i, word in enumerate(words):
-        if Path(word).name == "gh" and _gh_subcommand(words[i + 1 :])[:2] == ["issue", "create"]:
-            return words[i + 1 :]
+        if Path(word).name == "gh":
+            return _gh_subcommand(words[i + 1 :]), words[i + 1 :]
     return None
 
 
